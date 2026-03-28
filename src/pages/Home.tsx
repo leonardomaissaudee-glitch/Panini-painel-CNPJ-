@@ -123,7 +123,7 @@ function Hero() {
               Revenda Panini: autoridade, demanda massiva e operação segura para a Copa 2026™.
             </h1>
             <p className="text-lg text-slate-100 max-w-2xl">
-              Conecte-se à marca mais desejada de colecionáveis esportivos. Estruture pedidos com descontos progressivos, frete grátis e suporte comercial dedicado.
+              Conecte-se à marca mais desejada de colecionáveis esportivos. Estruture pedidos com descontos progressivos, frete grátis e atendimento exclusivo com gerente de contas.
             </p>
             <div className="flex flex-wrap gap-3">
               <CTA to="/register" label="Quero revender Panini" primary />
@@ -448,7 +448,7 @@ function FinalCTA() {
               Revenda oficial Panini Copa 2026™: demanda alta, marca consolidada e suporte comercial dedicado.
             </h2>
             <p className="text-lg text-slate-900/80 max-w-3xl">
-              Estruture uma operação lucrativa com produtos oficiais, frete grátis, faturamento com NF e descontos progressivos. A hora de garantir estoque é agora.
+              Estruture uma operação lucrativa com produtos oficiais, frete grátis, faturamento com NF e descontos progressivos, com apoio de um gerente de contas dedicado. A hora de garantir estoque é agora.
             </p>
             <div className="flex flex-wrap gap-3">
               <CTA to="/register" label="Quero revender Panini" primary dark />
@@ -465,7 +465,7 @@ function FinalCTA() {
                 <li>• Cadastro sem taxa de adesão</li>
                 <li>• Primeira compra ativa a conta</li>
                 <li>• NF em todos os pedidos</li>
-                <li>• Pagamento direto à Panini</li>
+                <li>• Acompanhamento por gerente de contas</li>
               </ul>
               <CTA to="/register" label="Iniciar credenciamento" primary />
             </CardContent>
