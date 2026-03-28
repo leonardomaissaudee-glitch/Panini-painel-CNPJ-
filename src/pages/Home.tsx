@@ -2,7 +2,7 @@ import { ProductCard } from "@/components/ProductCard"
 import { Footer } from "@/components/Footer"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { products } from "@/data/products"
-import { BadgeCheck, Building2, Lock, Sparkles, ShieldCheck, Package, BarChart, Clock, Users } from "lucide-react"
+import { BadgeCheck, Building2, Lock, Sparkles, ShieldCheck, Package, BarChart, Users } from "lucide-react"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -51,6 +51,8 @@ const steps = [
 ]
 
 const featuredProducts = products.slice(0, 6)
+
+export default function Home() {
 
   return (
     <div className="min-h-screen bg-white text-foreground">
