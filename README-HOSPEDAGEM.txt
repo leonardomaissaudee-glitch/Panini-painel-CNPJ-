@@ -8,6 +8,7 @@ Requisito: hospedagem com suporte a Node.js (cPanel Node App, VPS, Render, etc.)
 
 PASSOS (padrão):
 1) Configure variáveis de ambiente na hospedagem (veja .env.example).
+   - Frontend: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
 2) Rode "npm install" na hospedagem (ou local e envie node_modules se a host exigir).
 3) Rode "npm run build" (gera /dist).
 4) Inicie com "npm run server" ou "node server.js".
