@@ -12,6 +12,10 @@ import { AuthProvider } from "@/features/auth/context/AuthContext"
 import AdminDashboard from "@/features/admin/pages/AdminDashboard"
 import SellerDashboard from "@/features/seller/pages/SellerDashboard"
 import ClientDashboard from "@/features/client/pages/ClientDashboard"
+import AboutPage from "@/pages/About"
+import ProcessPage from "@/pages/Process"
+import PlansPage from "@/pages/Plans"
+import OpportunityPage from "@/pages/Opportunity"
 
 export function App() {
   return (
@@ -27,6 +31,10 @@ export function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/loginadmin" element={<AdminLoginPage />} />
+            <Route path="/sobre" element={<AboutPage />} />
+            <Route path="/processo" element={<ProcessPage />} />
+            <Route path="/planos" element={<PlansPage />} />
+            <Route path="/oportunidade" element={<OpportunityPage />} />
 
             <Route
               path="/app"
