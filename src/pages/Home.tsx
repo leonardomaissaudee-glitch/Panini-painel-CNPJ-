@@ -129,20 +129,6 @@ function Hero() {
               <CTA to="/register" label="Quero revender Panini" primary />
               <CTA to="/login" label="Já sou credenciado" />
             </div>
-            <div className="grid sm:grid-cols-3 gap-4 pt-4">
-              {[
-                { label: "Pagamento direto à Panini", icon: Shield },
-                { label: "Frete grátis Brasil", icon: Truck },
-                { label: "Descontos por volume", icon: Percent },
-              ].map((item) => (
-                <Card key={item.label} className="bg-white/10 border-white/10 backdrop-blur-md text-white">
-                  <CardContent className="flex items-center gap-3 p-4">
-                    <item.icon className="h-5 w-5 text-amber-300" />
-                    <span className="text-sm">{item.label}</span>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
           </div>
           {/* Bloco de operação removido conforme solicitado */}
         </div>
