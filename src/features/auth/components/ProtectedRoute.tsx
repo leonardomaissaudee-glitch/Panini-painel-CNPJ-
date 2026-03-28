@@ -25,7 +25,15 @@ export function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) 
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
-  if (profile?.status_cadastro === "pending") {
+  if (!profile) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Spinner className="size-8 text-primary" />
+      </div>
+    )
+  }
+
+  if (profile.status_cadastro === "pending") {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="rounded-lg border p-6 text-center space-y-2">
@@ -36,7 +44,7 @@ export function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) 
     )
   }
 
-  if (profile?.status_cadastro === "rejected" || profile?.status_cadastro === "blocked") {
+  if (profile.status_cadastro === "rejected" || profile.status_cadastro === "blocked") {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="rounded-lg border p-6 text-center space-y-2">
@@ -51,9 +59,9 @@ export function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) 
     )
   }
 
-  if (allowedRoles && !allowedRoles.includes(profile?.role ?? "client")) {
+  if (allowedRoles && !allowedRoles.includes(profile.role ?? "client")) {
     const fallback =
-      profile?.role === "admin" ? "/admin" : profile?.role === "seller" ? "/seller" : "/app"
+      profile.role === "admin" ? "/admin" : profile.role === "seller" ? "/seller" : "/app"
     return <Navigate to={fallback} replace />
   }
 
