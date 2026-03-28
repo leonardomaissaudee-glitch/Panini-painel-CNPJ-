@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { ArrowRight, BadgeCheck, BarChart3, Building2, Crown, Globe2, ShieldCheck, Sparkles } from "lucide-react"
+import { ArrowRight, BadgeCheck, BarChart3, Building2, Crown, Globe2, ShieldCheck, Sparkles, Sparkle } from "lucide-react"
 import { Footer } from "@/components/Footer"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -252,4 +252,3 @@ function CTA({ to, label, primary, size = "md", dark }: { to: string; label: str
     </Link>
   )
 }
-
