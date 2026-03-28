@@ -21,7 +21,6 @@ export function Header() {
     { label: 'Home', href: '/' },
     { label: 'Sobre a Panini', href: '/sobre' },
     { label: 'Como funciona', href: '/processo' },
-    { label: 'Planos e benefícios', href: '/planos' },
     { label: 'Oportunidade', href: '/oportunidade' },
   ];
 
