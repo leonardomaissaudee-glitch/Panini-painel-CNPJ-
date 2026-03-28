@@ -1,7 +1,5 @@
-import { ProductCard } from "@/components/ProductCard"
 import { Footer } from "@/components/Footer"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { products } from "@/data/products"
 import { BadgeCheck, Building2, Lock, Sparkles, ShieldCheck, Package, BarChart, Users } from "lucide-react"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
@@ -49,8 +47,6 @@ const steps = [
   { icon: Building2, title: "Seja aprovado", desc: "Perfil validado e papel atribuído (admin, seller, client)." },
   { icon: Sparkles, title: "Venda e acompanhe", desc: "Use o painel para pedidos, catálogo e atendimento." },
 ]
-
-const featuredProducts = products.slice(0, 6)
 
 export default function Home() {
 
@@ -141,15 +137,45 @@ export default function Home() {
       </section>
 
       <section className="container mx-auto px-4 py-12 space-y-6">
-        <SectionTitle title="Catálogo em destaque" subtitle="Produtos prontos para vender" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {featuredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+        <SectionTitle
+          title="Seja revendedor autorizado Panini"
+          subtitle="Após cadastro e aprovação, você acessa o catálogo completo da Copa 2026."
+        />
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="h-full">
+            <CardContent className="p-5 space-y-3">
+              <BadgeCheck className="h-6 w-6 text-primary" />
+              <div className="text-lg font-semibold">Cadastro corporativo</div>
+              <p className="text-sm text-muted-foreground">
+                Envie CPF/CNPJ, dados de contato e segmento. Avaliamos rapidamente.
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="h-full">
+            <CardContent className="p-5 space-y-3">
+              <Lock className="h-6 w-6 text-primary" />
+              <div className="text-lg font-semibold">Aprovação segura</div>
+              <p className="text-sm text-muted-foreground">
+                Perfis validados (admin, seller ou client). Acesso liberado só para aprovados.
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="h-full">
+            <CardContent className="p-5 space-y-3">
+              <Sparkles className="h-6 w-6 text-primary" />
+              <div className="text-lg font-semibold">Catálogo exclusivo</div>
+              <p className="text-sm text-muted-foreground">
+                Após login, veja preços, estoque e condições especiais de revenda da Copa do Mundo.
+              </p>
+            </CardContent>
+          </Card>
         </div>
-        <div className="flex justify-center pt-4">
-          <Link to="/cart">
-            <Button variant="outline">Ver carrinho</Button>
+        <div className="flex flex-wrap gap-3 pt-2">
+          <Link to="/register">
+            <Button size="lg">Quero me cadastrar</Button>
+          </Link>
+          <Link to="/login">
+            <Button size="lg" variant="outline">Já sou cadastrado</Button>
           </Link>
         </div>
       </section>
