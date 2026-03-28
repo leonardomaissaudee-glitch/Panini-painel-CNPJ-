@@ -31,13 +31,19 @@ export default function AdminLoginPage() {
       const profile = await fetchProfile(userId)
       if (!profile) throw new Error("Perfil não encontrado.")
 
-      if (profile.role !== "admin" && profile.role !== "seller") {
-        await signOut()
-        throw new Error("Apenas administradores ou vendedores podem acessar aqui.")
+      if (profile.role === "admin") {
+        toast.success("Login autorizado (admin)")
+        navigate("/admin", { replace: true })
+        return
+      }
+      if (profile.role === "seller") {
+        toast.success("Login autorizado (seller)")
+        navigate("/seller", { replace: true })
+        return
       }
 
-      toast.success("Login autorizado")
-      navigate(from, { replace: true })
+      await signOut()
+      throw new Error("Apenas administradores ou vendedores podem acessar aqui.")
     } catch (error: any) {
       toast.error("Falha no login", { description: error.message || "Verifique suas credenciais." })
     } finally {
