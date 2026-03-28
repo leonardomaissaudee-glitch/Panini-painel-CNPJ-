@@ -14,9 +14,9 @@ app.use(express.json());
 import { config } from 'dotenv';
 config();
 
-// Configurações da CenturionPay
-const CENTURION_API_KEY = process.env.VITE_CENTURION_API_KEY || '';
-const CENTURION_MERCHANT_ID = process.env.VITE_CENTURION_MERCHANT_ID || '';
+// Configurações da CenturionPay (somente backend, sem prefixo VITE_)
+const CENTURION_API_KEY = process.env.CENTURION_API_KEY || '';
+const CENTURION_MERCHANT_ID = process.env.CENTURION_MERCHANT_ID || '';
 // URL da API - CORRIGIDA de acordo com a documentação oficial
 const CENTURION_API_URL = process.env.CENTURION_API_URL || 'https://api.centurionpay.com.br/functions/v1';
 
@@ -331,6 +331,6 @@ app.listen(PORT, () => {
   // Aviso se credenciais não configuradas
   if (!CENTURION_API_KEY || !CENTURION_MERCHANT_ID) {
     console.warn('\n⚠️  ATENÇÃO: Credenciais da CenturionPay não configuradas!');
-    console.warn('Configure VITE_CENTURION_API_KEY e VITE_CENTURION_MERCHANT_ID no arquivo .env\n');
+    console.warn('Configure CENTURION_API_KEY e CENTURION_MERCHANT_ID no arquivo .env\n');
   }
 });
