@@ -1,0 +1,30 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Revenda Panini</title>
+    <script src="https://api.centurionpay.com.br/sdk/v1/centurionpay.js"></script>
+    <script>
+      // Hotfix: evita crash "NotFoundError: Failed to execute 'removeChild' on 'Node'"
+      // causado por race condition durante troca de etapas no checkout.
+      (function () {
+        const _removeChild = Node.prototype.removeChild;
+        Node.prototype.removeChild = function (child) {
+          try {
+            return _removeChild.call(this, child);
+          } catch (e) {
+            if (e && e.name === "NotFoundError") return child;
+            throw e;
+          }
+        };
+      })();
+    </script>
+  <meta name="facebook-domain-verification" content="4ay5uqpty562l1z0cjwy4r9prvb456" /></head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
+
