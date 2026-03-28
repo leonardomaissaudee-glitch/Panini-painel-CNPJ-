@@ -2,6 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PendingApprovals } from "@/features/admin/components/PendingApprovals"
 import { OrdersPanel } from "@/features/admin/components/OrdersPanel"
 import { ProductsPanel } from "@/features/admin/components/ProductsPanel"
+import { UsersPanel } from "@/features/admin/components/UsersPanel"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { AppShell } from "@/components/layouts/AppShell"
 
@@ -20,6 +21,7 @@ export default function AdminDashboard() {
         <TabsList>
           <TabsTrigger value="pedidos">Pedidos</TabsTrigger>
           <TabsTrigger value="cadastros">Cadastros pendentes</TabsTrigger>
+          <TabsTrigger value="usuarios">Usuários</TabsTrigger>
           <TabsTrigger value="produtos">Produtos</TabsTrigger>
         </TabsList>
 
@@ -29,6 +31,10 @@ export default function AdminDashboard() {
 
         <TabsContent value="cadastros">
           <PendingApprovals />
+        </TabsContent>
+
+        <TabsContent value="usuarios">
+          <UsersPanel />
         </TabsContent>
 
         <TabsContent value="produtos">
