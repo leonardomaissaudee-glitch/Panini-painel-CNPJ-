@@ -94,6 +94,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white text-foreground">
       <Hero />
+      <SectionNav />
       <AboutPanini />
       <ResaleSteps />
       <Products />
@@ -143,37 +144,48 @@ function Hero() {
               ))}
             </div>
           </div>
-          <div>
-            <Card className="bg-white/10 border-white/15 text-white backdrop-blur-lg shadow-2xl">
-              <CardHeader>
-                <CardTitle className="text-xl">Operação blindada</CardTitle>
-                <p className="text-sm text-slate-100">NF em todos os pedidos, rastreamento e pagamentos seguros.</p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Stat label="Pedidos aprovados" value="99,9%" />
-                <Stat label="Lead time médio" value="72h" />
-                <Stat label="Frete" value="Grátis • Brasil inteiro" />
-                <div className="rounded-xl border border-white/20 bg-white/5 p-4 space-y-2">
-                  <div className="flex items-center gap-3">
-                    <Lock className="h-5 w-5 text-amber-300" />
-                    <span className="font-semibold">Fluxo seguro</span>
-                  </div>
-                  <p className="text-sm text-slate-100">
-                    Pagamento direto para Panini, sem intermediários. Nota fiscal emitida no CNPJ cadastrado.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Bloco de operação removido conforme solicitado */}
         </div>
       </div>
     </section>
   )
 }
 
+function SectionNav() {
+  const nav = [
+    { id: "sobre", label: "Sobre", icon: ShieldCheck },
+    { id: "processo", label: "Processo", icon: Sparkles },
+    { id: "produtos", label: "Produtos", icon: Package },
+    { id: "planos", label: "Planos", icon: Percent },
+    { id: "logistica", label: "Logística", icon: Truck },
+    { id: "pagamento", label: "Pagamento", icon: Wallet },
+    { id: "mercado", label: "Mercado", icon: Globe2 },
+    { id: "dicas", label: "Dicas", icon: BarChart3 },
+  ]
+
+  return (
+    <div className="sticky top-16 z-40 bg-white/90 backdrop-blur border-b">
+      <div className="container mx-auto px-4 py-3 overflow-x-auto">
+        <div className="flex items-center gap-2 min-w-max">
+          {nav.map((item) => (
+            <a
+              key={item.id}
+              href={`#${item.id}`}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-slate-200 text-sm font-medium text-slate-700 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition"
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function AboutPanini() {
   return (
-    <Section title="Sobre a Panini" eyebrow="Institucional" gradient>
+    <Section id="sobre" title="Sobre a Panini" eyebrow="Institucional" gradient>
       <div className="grid lg:grid-cols-[1.1fr,0.9fr] gap-10 items-center">
         <div className="space-y-4">
           <p className="text-lg text-muted-foreground">
@@ -215,7 +227,7 @@ function AboutPanini() {
 
 function ResaleSteps() {
   return (
-    <Section title="Como funciona a revenda" eyebrow="Processo" subtitle="Fluxo simples, sem taxa de adesão. O início é pela primeira compra.">
+    <Section id="processo" title="Como funciona a revenda" eyebrow="Processo" subtitle="Fluxo simples, sem taxa de adesão. O início é pela primeira compra.">
       <div className="grid md:grid-cols-4 gap-4">
         {steps.map((step, idx) => (
           <Card key={step.title} className="h-full border-slate-200 hover:shadow-lg transition-all">
@@ -240,7 +252,7 @@ function ResaleSteps() {
 
 function Products() {
   return (
-    <Section title="Produtos disponíveis" eyebrow="Catálogo" subtitle="Figurinhas, álbuns e Adrenalyn oficiais da Copa do Mundo FIFA 2026™.">
+    <Section id="produtos" title="Produtos disponíveis" eyebrow="Catálogo" subtitle="Figurinhas, álbuns e Adrenalyn oficiais da Copa do Mundo FIFA 2026™.">
       <div className="grid md:grid-cols-3 gap-4">
         {products.map((p) => (
           <Card key={p.title} className={cn("h-full hover:shadow-xl transition-all border", p.accent)}>
@@ -264,7 +276,7 @@ function Products() {
 
 function Plans() {
   return (
-    <Section title="Planos e descontos" eyebrow="Volumetria" subtitle="Você escolhe os produtos e o sistema aplica o desconto conforme o valor.">
+    <Section id="planos" title="Planos e descontos" eyebrow="Volumetria" subtitle="Você escolhe os produtos e o sistema aplica o desconto conforme o valor.">
       <div className="grid md:grid-cols-3 gap-4">
         {plans.map((plan) => (
           <Card key={plan.name} className="h-full hover:shadow-xl transition-all border-blue-100">
@@ -289,7 +301,7 @@ function Plans() {
 
 function Benefits() {
   return (
-    <Section title="Descontos, margem e benefícios" eyebrow="Vantagens" subtitle="Quanto maior o pedido, maior o desconto, a margem e os brindes.">
+    <Section id="beneficios" title="Descontos, margem e benefícios" eyebrow="Vantagens" subtitle="Quanto maior o pedido, maior o desconto, a margem e os brindes.">
       <div className="grid md:grid-cols-4 gap-4">
         {benefits.map((b) => (
           <Card key={b.title} className="h-full hover:-translate-y-1 hover:shadow-lg transition-all">
@@ -307,7 +319,7 @@ function Benefits() {
 
 function Logistics() {
   return (
-    <Section title="Entrega e logística" eyebrow="Operação" subtitle="Frete grátis, centros logísticos e rastreamento.">
+    <Section id="logistica" title="Entrega e logística" eyebrow="Operação" subtitle="Frete grátis, centros logísticos e rastreamento.">
       <div className="grid md:grid-cols-3 gap-4">
         {delivery.map((d) => (
           <Card key={d.title} className="h-full">
@@ -330,7 +342,7 @@ function Logistics() {
 
 function Payments() {
   return (
-    <Section title="Formas de pagamento" eyebrow="Checkout">
+    <Section id="pagamento" title="Formas de pagamento" eyebrow="Checkout">
       <div className="grid md:grid-cols-3 gap-4">
         {payments.map((p) => (
           <Card key={p.title} className="h-full hover:shadow-lg transition-all">
@@ -348,7 +360,7 @@ function Payments() {
 
 function Security() {
   return (
-    <Section title="Nota fiscal e segurança" eyebrow="Compliance">
+    <Section id="seguranca" title="Nota fiscal e segurança" eyebrow="Compliance">
       <div className="grid md:grid-cols-2 gap-4">
         <Card className="h-full">
           <CardContent className="p-5 space-y-2">
@@ -379,17 +391,34 @@ function Security() {
 
 function Market() {
   return (
-    <Section title="Mercado e oportunidade" eyebrow="Copa do Mundo" subtitle="Evento global, demanda massiva e alto giro de produtos oficiais.">
+    <Section
+      id="mercado"
+      title="Mercado e oportunidade"
+      eyebrow="Copa do Mundo"
+      subtitle="Evento global, demanda massiva e alto giro de produtos oficiais."
+      gradient
+    >
       <div className="grid md:grid-cols-3 gap-4">
-        {market.map((m) => (
-          <Card key={m.title} className="h-full border-blue-100">
+        {market.map((m, i) => (
+          <Card
+            key={m.title}
+            className={cn(
+              "h-full hover:-translate-y-1 hover:shadow-xl transition-all",
+              i === 0 && "border-amber-300 bg-amber-50",
+              i === 1 && "border-blue-200 bg-blue-50",
+              i === 2 && "border-red-200 bg-red-50"
+            )}
+          >
             <CardContent className="p-5 space-y-3">
               <m.icon className="h-6 w-6 text-blue-700" />
               <div className="text-lg font-semibold">{m.title}</div>
-              <p className="text-sm text-muted-foreground">{m.desc}</p>
+              <p className="text-sm text-slate-700">{m.desc}</p>
             </CardContent>
           </Card>
         ))}
+      </div>
+      <div className="pt-6">
+        <CTA to="/register" label="Aproveitar a demanda" primary size="lg" dark />
       </div>
     </Section>
   )
@@ -397,16 +426,25 @@ function Market() {
 
 function Tips() {
   return (
-    <Section title="Dicas para revenda" eyebrow="Sucesso" subtitle="Estratégias rápidas para elevar ticket médio e giro.">
+    <Section
+      id="dicas"
+      title="Dicas para revenda"
+      eyebrow="Sucesso"
+      subtitle="Estratégias rápidas para elevar ticket médio e giro."
+      gradient
+    >
       <div className="grid md:grid-cols-4 gap-4">
         {tips.map((t) => (
-          <Card key={t.title} className="h-full hover:shadow-lg transition-all">
+          <Card key={t.title} className="h-full hover:shadow-lg transition-all border-slate-200">
             <CardContent className="p-5 space-y-2">
-              <div className="font-semibold">{t.title}</div>
+              <div className="font-semibold text-slate-900">{t.title}</div>
               <p className="text-sm text-muted-foreground">{t.desc}</p>
             </CardContent>
           </Card>
         ))}
+      </div>
+      <div className="pt-6">
+        <CTA to="/register" label="Aplicar agora" primary />
       </div>
     </Section>
   )
@@ -458,15 +496,20 @@ function Section({
   eyebrow,
   children,
   gradient = false,
+  id,
 }: {
   title: string
   subtitle?: string
   eyebrow?: string
   children: React.ReactNode
   gradient?: boolean
+  id?: string
 }) {
   return (
-    <section className={cn("py-14 px-4", gradient ? "bg-gradient-to-br from-slate-50 via-white to-blue-50" : "")}>
+    <section
+      id={id}
+      className={cn("scroll-mt-24 py-14 px-4", gradient ? "bg-gradient-to-br from-slate-50 via-white to-blue-50" : "")}
+    >
       <div className="container mx-auto space-y-6">
         <div className="space-y-2">
           {eyebrow && <div className="text-xs font-semibold uppercase tracking-wide text-blue-700">{eyebrow}</div>}
