@@ -1,240 +1,520 @@
-import { Footer } from "@/components/Footer"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { BadgeCheck, Building2, Lock, Sparkles, ShieldCheck, Package, BarChart, Users } from "lucide-react"
 import { Link } from "react-router-dom"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import {
+  ArrowRight,
+  BadgeCheck,
+  BarChart3,
+  Building2,
+  CreditCard,
+  Crown,
+  FileText,
+  Gem,
+  Globe2,
+  Lock,
+  Package,
+  Percent,
+  Rocket,
+  Shield,
+  ShieldCheck,
+  Sparkle,
+  Sparkles,
+  Timer,
+  Truck,
+  Wallet,
+} from "lucide-react"
+import { Footer } from "@/components/Footer"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 
-const faqs = [
+const steps = [
+  { icon: BadgeCheck, title: "Cadastre-se", desc: "Envie seus dados (CNPJ) para análise." },
+  { icon: Building2, title: "Escolha produtos", desc: "Selecione figurinhas, álbuns e Adrenalyn." },
+  { icon: Sparkles, title: "Monte o pedido", desc: "Defina volumes e finalize com o consultor." },
+  { icon: ShieldCheck, title: "Ativação", desc: "Pagamento aprovado, conta liberada e pedido faturado." },
+]
+
+const products = [
   {
-    value: "item-1",
-    question: "Como funciona o cadastro e aprovação?",
-    answer: "Você se cadastra com CPF ou CNPJ, nossa equipe analisa e libera o acesso ao painel apropriado.",
+    title: "Figurinhas",
+    points: ["Vendidas em envelopes", "Cada pacote com múltiplas figurinhas", "Para completar o álbum oficial"],
+    accent: "bg-amber-100 text-amber-900 border-amber-200",
   },
   {
-    value: "item-2",
-    question: "Quais formas de pagamento são aceitas?",
-    answer: "PIX e Cartão, processados via gateway seguro. Pedidos ficam registrados no painel e no Supabase.",
+    title: "Álbuns",
+    points: ["Capas mole e dura", "Vendidos separadamente", "Produto oficial licenciado"],
+    accent: "bg-blue-100 text-blue-900 border-blue-200",
   },
   {
-    value: "item-3",
-    question: "Consigo rastrear meu pedido?",
-    answer: "Sim, status, NF e código de rastreio ficam disponíveis no painel do cliente.",
-  },
-  {
-    value: "item-4",
-    question: "Existe suporte dedicado?",
-    answer: "Oferecemos chat interno e canal direto via WhatsApp.",
+    title: "Adrenalyn",
+    points: ["Cards colecionáveis premium", "Versões raras e alto valor de revenda", "Linha diferente das figurinhas"],
+    accent: "bg-red-100 text-red-900 border-red-200",
   },
 ]
 
-const heroHighlights = [
-  "Plataforma pronta para vendas corporativas",
-  "Checkout seguro e integração Supabase",
-  "Painéis para admin, vendedor e cliente",
+const plans = [
+  { name: "Classic", value: "A partir de R$ 800", desc: "Entrada acessível para testar o mercado.", badge: "Novo" },
+  { name: "Standard", value: "A partir de R$ 2.500", desc: "Descontos melhores e mais benefícios.", badge: "Equilíbrio" },
+  { name: "Premium", value: "A partir de R$ 5.000", desc: "Margem alta, brindes e prioridade logística.", badge: "Melhor margem" },
 ]
 
 const benefits = [
-  { icon: ShieldCheck, title: "Segurança e confiança", desc: "Fluxo de pagamentos e dados protegido." },
-  { icon: BarChart, title: "Gestão completa", desc: "Pedidos, aprovação de contas e catálogo centralizado." },
-  { icon: Users, title: "Perfis e papéis", desc: "Admin, vendedor e cliente com acessos dedicados." },
-  { icon: Package, title: "Logística clara", desc: "Status, NF e rastreio em um só lugar." },
+  { icon: Percent, title: "Descontos progressivos", desc: "O sistema aplica automaticamente conforme o volume." },
+  { icon: Gem, title: "Brindes e materiais", desc: "Apoio de marketing e itens promocionais nos pedidos maiores." },
+  { icon: Truck, title: "Frete grátis Brasil", desc: "Envio pelos centros logísticos diretamente ao endereço." },
+  { icon: Shield, title: "NF e rastreio", desc: "Faturamento oficial, pagamento direto à Panini, sem intermediários." },
 ]
 
-const steps = [
-  { icon: BadgeCheck, title: "Cadastre-se", desc: "Envie seus dados (CPF/CNPJ) para análise." },
-  { icon: Building2, title: "Seja aprovado", desc: "Perfil validado e papel atribuído (admin, seller, client)." },
-  { icon: Sparkles, title: "Venda e acompanhe", desc: "Use o painel para pedidos, catálogo e atendimento." },
+const delivery = [
+  { icon: Truck, title: "Frete grátis", desc: "Para todo o Brasil, via centros logísticos." },
+  { icon: Package, title: "Entrega direta", desc: "Envio para o endereço cadastrado, sem retirada." },
+  { icon: Timer, title: "Prazos claros", desc: "Em lançamentos a demanda sobe; antecipe seu pedido." },
+]
+
+const payments = [
+  { icon: Wallet, title: "PIX", desc: "Desconto adicional no pagamento imediato." },
+  { icon: FileText, title: "Boleto", desc: "Primeiro pedido à vista para cadastro." },
+  { icon: CreditCard, title: "Cartão", desc: "Parcelamento disponível (sem desconto)." },
+]
+
+const market = [
+  { icon: Globe2, title: "Marca global", desc: "Panini é referência mundial em colecionáveis esportivos." },
+  { icon: BarChart3, title: "Alta demanda", desc: "Copa do Mundo gera pico de procura e giro acelerado." },
+  { icon: Crown, title: "Produto oficial", desc: "Licença FIFA 2026™, confiança e desejo do público." },
+]
+
+const tips = [
+  { title: "Estoque estratégico", desc: "Combine volumes de figurinhas, álbuns e Adrenalyn." },
+  { title: "Aproveite picos", desc: "Lançamento e datas de jogos aumentam as vendas." },
+  { title: "Monte combos", desc: "Ofereça kits para elevar ticket médio." },
+  { title: "Reposição rápida", desc: "Reabasteça antes de ficar sem itens-chave." },
 ]
 
 export default function Home() {
-
   return (
     <div className="min-h-screen bg-white text-foreground">
-      <div className="border-b bg-white">
-        <div className="container mx-auto px-4 py-6 grid gap-6 lg:grid-cols-2 items-center">
-          <div className="space-y-4">
-            <Badge variant="outline" className="text-xs">Plataforma corporativa</Badge>
-            <h1 className="text-3xl md:text-4xl font-bold leading-tight">
-              Gestão completa de catálogo, pedidos e atendimento em um ambiente seguro.
-            </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl">
-              Centralize produtos, acompanhe vendas, aprove cadastros e ofereça uma experiência premium para admin, vendedores e clientes.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <Link to="/register">
-                <Button size="lg">Começar agora</Button>
-              </Link>
-              <Link to="/login">
-                <Button size="lg" variant="outline">Já tenho conta</Button>
-              </Link>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-              {heroHighlights.map((item) => (
-                <div key={item} className="text-sm text-muted-foreground flex gap-2 items-start">
-                  <div className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                  {item}
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="w-full">
-            <div className="rounded-2xl border bg-white shadow-lg p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm text-muted-foreground">Status da operação</div>
-                  <div className="text-2xl font-bold">Online e seguro</div>
-                </div>
-                <Lock className="h-10 w-10 text-primary" />
-              </div>
-              <div className="grid grid-cols-3 gap-3 text-sm">
-                <Stat label="Pedidos hoje" value="128" />
-                <Stat label="Tempo médio" value="00:45" />
-                <Stat label="SLA atendimento" value="99.9%" />
-              </div>
-              <div className="rounded-xl border bg-muted/40 p-4">
-                <div className="text-sm font-semibold mb-2">Checkout seguro</div>
-                <div className="text-sm text-muted-foreground">
-                  Integração Supabase + gateway de pagamento. Registro completo de pedidos, NF e rastreio.
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <section className="container mx-auto px-4 py-12 space-y-10">
-        <SectionTitle title="Benefícios para seu time" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {benefits.map((b) => (
-            <Card key={b.title} className="h-full">
-              <CardContent className="p-5 space-y-3">
-                <b.icon className="h-6 w-6 text-primary" />
-                <div className="text-lg font-semibold">{b.title}</div>
-                <p className="text-sm text-muted-foreground">{b.desc}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      <section className="bg-muted/30 border-y">
-        <div className="container mx-auto px-4 py-12 space-y-6">
-          <SectionTitle title="Como funciona" subtitle="Fluxo simples, do cadastro ao rastreio" />
-          <div className="grid gap-4 md:grid-cols-3">
-            {steps.map((s) => (
-              <Card key={s.title} className="h-full">
-                <CardContent className="p-5 space-y-3">
-                  <s.icon className="h-6 w-6 text-primary" />
-                  <div className="text-lg font-semibold">{s.title}</div>
-                  <p className="text-sm text-muted-foreground">{s.desc}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="container mx-auto px-4 py-12 space-y-6">
-        <SectionTitle
-          title="Seja revendedor autorizado Panini"
-          subtitle="Após cadastro e aprovação, você acessa o catálogo completo da Copa 2026."
-        />
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card className="h-full">
-            <CardContent className="p-5 space-y-3">
-              <BadgeCheck className="h-6 w-6 text-primary" />
-              <div className="text-lg font-semibold">Cadastro corporativo</div>
-              <p className="text-sm text-muted-foreground">
-                Envie CPF/CNPJ, dados de contato e segmento. Avaliamos rapidamente.
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="h-full">
-            <CardContent className="p-5 space-y-3">
-              <Lock className="h-6 w-6 text-primary" />
-              <div className="text-lg font-semibold">Aprovação segura</div>
-              <p className="text-sm text-muted-foreground">
-                Perfis validados (admin, seller ou client). Acesso liberado só para aprovados.
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="h-full">
-            <CardContent className="p-5 space-y-3">
-              <Sparkles className="h-6 w-6 text-primary" />
-              <div className="text-lg font-semibold">Catálogo exclusivo</div>
-              <p className="text-sm text-muted-foreground">
-                Após login, veja preços, estoque e condições especiais de revenda da Copa do Mundo.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-        <div className="flex flex-wrap gap-3 pt-2">
-          <Link to="/register">
-            <Button size="lg">Quero me cadastrar</Button>
-          </Link>
-          <Link to="/login">
-            <Button size="lg" variant="outline">Já sou cadastrado</Button>
-          </Link>
-        </div>
-      </section>
-
-      <section className="container mx-auto px-4 py-12 space-y-6">
-        <SectionTitle title="Dúvidas frequentes" />
-        <Accordion type="single" collapsible className="space-y-3">
-          {faqs.map((item) => (
-            <AccordionItem key={item.value} value={item.value} className="border rounded-lg px-4">
-              <AccordionTrigger className="text-left font-semibold hover:no-underline">
-                {item.question}
-              </AccordionTrigger>
-              <AccordionContent className="text-muted-foreground pb-4 space-y-2">
-                <p>{item.answer}</p>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      </section>
-
-      <section className="bg-primary text-primary-foreground">
-        <div className="container mx-auto px-4 py-12 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <div className="text-2xl font-bold">Pronto para uma experiência profissional?</div>
-            <p className="text-sm opacity-90">Cadastre-se e aguarde nossa aprovação para acessar o painel.</p>
-          </div>
-          <div className="flex gap-3">
-            <Link to="/register">
-              <Button size="lg" variant="secondary">Cadastrar</Button>
-            </Link>
-            <Link to="/login">
-              <Button size="lg" variant="outline" className="text-primary-foreground border-primary-foreground">
-                Entrar
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
-
+      <Hero />
+      <AboutPanini />
+      <ResaleSteps />
+      <Products />
+      <Plans />
+      <Benefits />
+      <Logistics />
+      <Payments />
+      <Security />
+      <Market />
+      <Tips />
+      <FinalCTA />
       <Footer />
     </div>
   )
 }
 
-function SectionTitle({ title, subtitle }: { title: string; subtitle?: string }) {
+function Hero() {
   return (
-    <div className="space-y-2">
-      <div className="text-sm font-semibold text-primary">Plataforma corporativa</div>
-      <h2 className="text-2xl md:text-3xl font-bold">{title}</h2>
-      {subtitle && <p className="text-muted-foreground">{subtitle}</p>}
-    </div>
+    <section className="relative overflow-hidden bg-gradient-to-br from-blue-900 via-blue-800 to-slate-900 text-white">
+      <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_left,#FFD54F,transparent_35%),radial-gradient(circle_at_bottom_right,#EF4444,transparent_30%)]" />
+      <div className="container mx-auto px-4 pt-20 pb-16 relative">
+        <div className="grid lg:grid-cols-[1.2fr,0.9fr] gap-10 items-center">
+          <div className="space-y-6">
+            <Badge className="bg-amber-200 text-amber-900 border-amber-300">Revenda Oficial Copa do Mundo 2026™</Badge>
+            <h1 className="text-4xl md:text-5xl font-bold leading-tight">
+              Revenda Panini: autoridade, demanda massiva e operação segura para a Copa 2026™.
+            </h1>
+            <p className="text-lg text-slate-100 max-w-2xl">
+              Conecte-se à marca mais desejada de colecionáveis esportivos. Estruture pedidos com descontos progressivos, frete grátis e suporte comercial dedicado.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <CTA to="/register" label="Quero revender Panini" primary />
+              <CTA to="/login" label="Já sou credenciado" />
+            </div>
+            <div className="grid sm:grid-cols-3 gap-4 pt-4">
+              {[
+                { label: "Pagamento direto à Panini", icon: Shield },
+                { label: "Frete grátis Brasil", icon: Truck },
+                { label: "Descontos por volume", icon: Percent },
+              ].map((item) => (
+                <Card key={item.label} className="bg-white/10 border-white/10 backdrop-blur-md text-white">
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <item.icon className="h-5 w-5 text-amber-300" />
+                    <span className="text-sm">{item.label}</span>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+          <div>
+            <Card className="bg-white/10 border-white/15 text-white backdrop-blur-lg shadow-2xl">
+              <CardHeader>
+                <CardTitle className="text-xl">Operação blindada</CardTitle>
+                <p className="text-sm text-slate-100">NF em todos os pedidos, rastreamento e pagamentos seguros.</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Stat label="Pedidos aprovados" value="99,9%" />
+                <Stat label="Lead time médio" value="72h" />
+                <Stat label="Frete" value="Grátis • Brasil inteiro" />
+                <div className="rounded-xl border border-white/20 bg-white/5 p-4 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <Lock className="h-5 w-5 text-amber-300" />
+                    <span className="font-semibold">Fluxo seguro</span>
+                  </div>
+                  <p className="text-sm text-slate-100">
+                    Pagamento direto para Panini, sem intermediários. Nota fiscal emitida no CNPJ cadastrado.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function AboutPanini() {
+  return (
+    <Section title="Sobre a Panini" eyebrow="Institucional" gradient>
+      <div className="grid lg:grid-cols-[1.1fr,0.9fr] gap-10 items-center">
+        <div className="space-y-4">
+          <p className="text-lg text-muted-foreground">
+            A Panini é a empresa oficial responsável pela produção e distribuição dos álbuns e figurinhas da Copa do Mundo FIFA 2026™.
+            Presença global, tradição e qualidade reconhecida no mercado de colecionáveis esportivos.
+          </p>
+          <div className="grid sm:grid-cols-3 gap-4">
+            {[
+              { label: "Licença oficial FIFA 2026™" },
+              { label: "Marca líder em colecionáveis" },
+              { label: "Operação global" },
+            ].map((item) => (
+              <Card key={item.label} className="border-blue-100">
+                <CardContent className="p-4 text-sm font-semibold text-blue-900">{item.label}</CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-2xl border bg-gradient-to-br from-white to-blue-50 p-6 shadow-xl space-y-4">
+          <div className="flex items-center gap-3">
+            <Sparkle className="h-6 w-6 text-amber-500" />
+            <div>
+              <div className="font-semibold text-blue-900">Marca consolidada</div>
+              <p className="text-sm text-muted-foreground">Autoridade, desejo do público e alto giro.</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <InfoPill label="Distribuição oficial" />
+            <InfoPill label="Faturamento com NF" />
+            <InfoPill label="Rastreio e controle" />
+            <InfoPill label="Suporte dedicado" />
+          </div>
+          <CTA to="/register" label="Iniciar credenciamento" primary />
+        </div>
+      </div>
+    </Section>
+  )
+}
+
+function ResaleSteps() {
+  return (
+    <Section title="Como funciona a revenda" eyebrow="Processo" subtitle="Fluxo simples, sem taxa de adesão. O início é pela primeira compra.">
+      <div className="grid md:grid-cols-4 gap-4">
+        {steps.map((step, idx) => (
+          <Card key={step.title} className="h-full border-slate-200 hover:shadow-lg transition-all">
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center gap-3">
+                <span className="h-8 w-8 rounded-full bg-amber-100 text-amber-900 font-bold flex items-center justify-center">{idx + 1}</span>
+                <step.icon className="h-5 w-5 text-blue-700" />
+              </div>
+              <div className="text-lg font-semibold">{step.title}</div>
+              <p className="text-sm text-muted-foreground">{step.desc}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-3 pt-4">
+        <Badge variant="outline">Sem taxa de adesão</Badge>
+        <Badge variant="outline">Ativação após pagamento</Badge>
+      </div>
+    </Section>
+  )
+}
+
+function Products() {
+  return (
+    <Section title="Produtos disponíveis" eyebrow="Catálogo" subtitle="Figurinhas, álbuns e Adrenalyn oficiais da Copa do Mundo FIFA 2026™.">
+      <div className="grid md:grid-cols-3 gap-4">
+        {products.map((p) => (
+          <Card key={p.title} className={cn("h-full hover:shadow-xl transition-all border", p.accent)}>
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                <div className="text-lg font-semibold">{p.title}</div>
+              </div>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                {p.points.map((pt) => (
+                  <li key={pt}>• {pt}</li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </Section>
+  )
+}
+
+function Plans() {
+  return (
+    <Section title="Planos e descontos" eyebrow="Volumetria" subtitle="Você escolhe os produtos e o sistema aplica o desconto conforme o valor.">
+      <div className="grid md:grid-cols-3 gap-4">
+        {plans.map((plan) => (
+          <Card key={plan.name} className="h-full hover:shadow-xl transition-all border-blue-100">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xl">{plan.name}</CardTitle>
+                <Badge variant="secondary">{plan.badge}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">{plan.value}</p>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm text-muted-foreground">
+              <p>{plan.desc}</p>
+              <p>Desconto progressivo aplicado automaticamente.</p>
+              <CTA to="/register" label="Quero este plano" size="sm" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </Section>
+  )
+}
+
+function Benefits() {
+  return (
+    <Section title="Descontos, margem e benefícios" eyebrow="Vantagens" subtitle="Quanto maior o pedido, maior o desconto, a margem e os brindes.">
+      <div className="grid md:grid-cols-4 gap-4">
+        {benefits.map((b) => (
+          <Card key={b.title} className="h-full hover:-translate-y-1 hover:shadow-lg transition-all">
+            <CardContent className="p-5 space-y-3">
+              <b.icon className="h-6 w-6 text-blue-700" />
+              <div className="text-lg font-semibold">{b.title}</div>
+              <p className="text-sm text-muted-foreground">{b.desc}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </Section>
+  )
+}
+
+function Logistics() {
+  return (
+    <Section title="Entrega e logística" eyebrow="Operação" subtitle="Frete grátis, centros logísticos e rastreamento.">
+      <div className="grid md:grid-cols-3 gap-4">
+        {delivery.map((d) => (
+          <Card key={d.title} className="h-full">
+            <CardContent className="p-5 space-y-3">
+              <d.icon className="h-6 w-6 text-blue-700" />
+              <div className="text-lg font-semibold">{d.title}</div>
+              <p className="text-sm text-muted-foreground">{d.desc}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <Card className="mt-6 border-dashed">
+        <CardContent className="p-4 text-sm text-muted-foreground">
+          Prazos podem variar por região e demanda (picos de lançamento). Antecipe pedidos para garantir disponibilidade.
+        </CardContent>
+      </Card>
+    </Section>
+  )
+}
+
+function Payments() {
+  return (
+    <Section title="Formas de pagamento" eyebrow="Checkout">
+      <div className="grid md:grid-cols-3 gap-4">
+        {payments.map((p) => (
+          <Card key={p.title} className="h-full hover:shadow-lg transition-all">
+            <CardContent className="p-5 space-y-3">
+              <p.icon className="h-6 w-6 text-blue-700" />
+              <div className="text-lg font-semibold">{p.title}</div>
+              <p className="text-sm text-muted-foreground">{p.desc}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </Section>
+  )
+}
+
+function Security() {
+  return (
+    <Section title="Nota fiscal e segurança" eyebrow="Compliance">
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card className="h-full">
+          <CardContent className="p-5 space-y-2">
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-700" />
+              <div className="font-semibold">Faturamento oficial</div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Todos os pedidos são faturados com nota fiscal usando os dados do cadastro. Pagamento direto à Panini, sem intermediários.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="h-full">
+          <CardContent className="p-5 space-y-2">
+            <div className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-blue-700" />
+              <div className="font-semibold">Transparência e rastreio</div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Processo transparente, rastreamento completo e suporte comercial para acompanhar cada fase do pedido.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    </Section>
+  )
+}
+
+function Market() {
+  return (
+    <Section title="Mercado e oportunidade" eyebrow="Copa do Mundo" subtitle="Evento global, demanda massiva e alto giro de produtos oficiais.">
+      <div className="grid md:grid-cols-3 gap-4">
+        {market.map((m) => (
+          <Card key={m.title} className="h-full border-blue-100">
+            <CardContent className="p-5 space-y-3">
+              <m.icon className="h-6 w-6 text-blue-700" />
+              <div className="text-lg font-semibold">{m.title}</div>
+              <p className="text-sm text-muted-foreground">{m.desc}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </Section>
+  )
+}
+
+function Tips() {
+  return (
+    <Section title="Dicas para revenda" eyebrow="Sucesso" subtitle="Estratégias rápidas para elevar ticket médio e giro.">
+      <div className="grid md:grid-cols-4 gap-4">
+        {tips.map((t) => (
+          <Card key={t.title} className="h-full hover:shadow-lg transition-all">
+            <CardContent className="p-5 space-y-2">
+              <div className="font-semibold">{t.title}</div>
+              <p className="text-sm text-muted-foreground">{t.desc}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </Section>
+  )
+}
+
+function FinalCTA() {
+  return (
+    <section className="relative overflow-hidden bg-gradient-to-r from-amber-400 via-amber-500 to-red-500 text-slate-900">
+      <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,#ffffff,transparent_35%)]" />
+      <div className="container mx-auto px-4 py-16 relative">
+        <div className="grid md:grid-cols-[1.3fr,0.7fr] gap-8 items-center">
+          <div className="space-y-4">
+            <Badge variant="outline" className="border-slate-900 text-slate-900 bg-white/40">Encerramento</Badge>
+            <h2 className="text-3xl md:text-4xl font-bold leading-tight">
+              Revenda oficial Panini Copa 2026™: demanda alta, marca consolidada e suporte comercial dedicado.
+            </h2>
+            <p className="text-lg text-slate-900/80 max-w-3xl">
+              Estruture uma operação lucrativa com produtos oficiais, frete grátis, faturamento com NF e descontos progressivos. A hora de garantir estoque é agora.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <CTA to="/register" label="Quero revender Panini" primary dark />
+              <CTA to="/login" label="Falar com consultor" />
+            </div>
+          </div>
+          <Card className="bg-white/90 backdrop-blur-lg shadow-2xl border-white/60">
+            <CardContent className="p-6 space-y-4">
+              <div className="flex items-center gap-3">
+                <Rocket className="h-5 w-5 text-amber-600" />
+                <div className="font-semibold text-lg">Comece em minutos</div>
+              </div>
+              <ul className="text-sm text-slate-700 space-y-2">
+                <li>• Cadastro sem taxa de adesão</li>
+                <li>• Primeira compra ativa a conta</li>
+                <li>• NF em todos os pedidos</li>
+                <li>• Pagamento direto à Panini</li>
+              </ul>
+              <CTA to="/register" label="Iniciar credenciamento" primary />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function Section({
+  title,
+  subtitle,
+  eyebrow,
+  children,
+  gradient = false,
+}: {
+  title: string
+  subtitle?: string
+  eyebrow?: string
+  children: React.ReactNode
+  gradient?: boolean
+}) {
+  return (
+    <section className={cn("py-14 px-4", gradient ? "bg-gradient-to-br from-slate-50 via-white to-blue-50" : "")}>
+      <div className="container mx-auto space-y-6">
+        <div className="space-y-2">
+          {eyebrow && <div className="text-xs font-semibold uppercase tracking-wide text-blue-700">{eyebrow}</div>}
+          <h2 className="text-2xl md:text-3xl font-bold">{title}</h2>
+          {subtitle && <p className="text-muted-foreground max-w-3xl">{subtitle}</p>}
+        </div>
+        {children}
+      </div>
+    </section>
   )
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border bg-muted/30 p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="text-lg font-semibold">{value}</div>
+    <div className="rounded-lg border border-white/20 bg-white/10 p-3">
+      <div className="text-xs text-slate-100">{label}</div>
+      <div className="text-lg font-semibold text-white">{value}</div>
+    </div>
+  )
+}
+
+function CTA({ to, label, primary, size = "md", dark }: { to: string; label: string; primary?: boolean; size?: "sm" | "md" | "lg"; dark?: boolean }) {
+  const classes = primary
+    ? cn(
+        "inline-flex items-center gap-2 rounded-full font-semibold transition-all shadow-lg",
+        dark
+          ? "bg-slate-900 text-white hover:bg-slate-800"
+          : "bg-amber-400 text-slate-900 hover:bg-amber-300",
+        size === "sm" ? "px-4 py-2 text-sm" : size === "lg" ? "px-6 py-3 text-base" : "px-5 py-2.5 text-sm"
+      )
+    : cn(
+        "inline-flex items-center gap-2 rounded-full font-semibold border transition-all",
+        "border-white/50 text-white hover:bg-white/10",
+        "px-5 py-2.5 text-sm",
+        dark && "text-slate-900 border-slate-900 hover:bg-slate-900/10"
+      )
+
+  return (
+    <Link to={to} className={classes}>
+      {label} <ArrowRight className="h-4 w-4" />
+    </Link>
+  )
+}
+
+function InfoPill({ label }: { label: string }) {
+  return (
+    <div className="text-xs font-semibold text-blue-900 bg-blue-100 px-3 py-2 rounded-full w-fit border border-blue-200">
+      {label}
     </div>
   )
 }
