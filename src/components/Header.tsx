@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingCart, LogIn, UserPlus } from 'lucide-react';
+import { ShoppingCart, LogIn, UserPlus, Menu, X, ShieldCheck, Sparkles, Package, Percent, Truck, Wallet, Globe2, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -8,6 +9,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 
 export function Header() {
   const location = useLocation();
+  const [open, setOpen] = useState(false);
   const { profile } = useAuth();
   const { getCartCount } = useCart();
   const cartCount = getCartCount();
@@ -26,6 +28,17 @@ export function Header() {
     { label: 'Dicas', href: '#dicas' },
   ];
 
+  const icons: Record<string, React.ComponentType<{ className?: string }>> = {
+    '#sobre': ShieldCheck,
+    '#processo': Sparkles,
+    '#produtos': Package,
+    '#planos': Percent,
+    '#logistica': Truck,
+    '#pagamento': Wallet,
+    '#mercado': Globe2,
+    '#dicas': BarChart3,
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
@@ -39,15 +52,19 @@ export function Header() {
 
         {isHome && (
           <nav className="hidden lg:flex items-center gap-2">
-            {menuItems.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                className="px-3 py-2 rounded-full text-sm font-medium text-muted-foreground hover:text-primary hover:bg-primary/10 transition"
-              >
-                {item.label}
-              </a>
-            ))}
+            {menuItems.map((item) => {
+              const Icon = icons[item.href] || Sparkles;
+              return (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className="px-3 py-2 rounded-full text-sm font-medium text-muted-foreground hover:text-primary hover:bg-primary/10 transition inline-flex items-center gap-2"
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.label}
+                </a>
+              );
+            })}
           </nav>
         )}
 
@@ -78,8 +95,50 @@ export function Header() {
               </Button>
             </Link>
           )}
+          {isHome && (
+            <Button
+              variant="outline"
+              size="icon"
+              className="lg:hidden"
+              aria-label="Abrir menu"
+              onClick={() => setOpen((p) => !p)}
+            >
+              {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
+          )}
         </div>
       </div>
+
+      {isHome && open && (
+        <div className="lg:hidden border-t bg-background/95 backdrop-blur">
+          <div className="container mx-auto px-4 py-3 space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              {menuItems.map((item) => {
+                const Icon = icons[item.href] || Sparkles;
+                return (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setOpen(false)}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition"
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </a>
+                );
+              })}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link to="/login" onClick={() => setOpen(false)}>
+                <Button variant="secondary" size="sm">Entrar</Button>
+              </Link>
+              <Link to="/register" onClick={() => setOpen(false)}>
+                <Button size="sm">Cadastrar</Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
