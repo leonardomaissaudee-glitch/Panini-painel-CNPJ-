@@ -18,14 +18,11 @@ export function Header() {
   const showCart = !!profile && profile.role === 'client';
 
   const menuItems = [
-    { label: 'Sobre', href: '#sobre' },
-    { label: 'Como funciona', href: '#processo' },
-    { label: 'Produtos', href: '#produtos' },
-    { label: 'Planos', href: '#planos' },
-    { label: 'Logística', href: '#logistica' },
-    { label: 'Pagamento', href: '#pagamento' },
-    { label: 'Mercado', href: '#mercado' },
-    { label: 'Dicas', href: '#dicas' },
+    { label: 'Home', href: '/' },
+    { label: 'Sobre a Panini', href: '/sobre' },
+    { label: 'Como funciona', href: '/processo' },
+    { label: 'Planos e benefícios', href: '/planos' },
+    { label: 'Oportunidade', href: '/oportunidade' },
   ];
 
   const icons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -50,23 +47,17 @@ export function Header() {
           />
         </Link>
 
-        {isHome && (
-          <nav className="hidden lg:flex items-center gap-2">
-            {menuItems.map((item) => {
-              const Icon = icons[item.href] || Sparkles;
-              return (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  className="px-3 py-2 rounded-full text-sm font-medium text-muted-foreground hover:text-primary hover:bg-primary/10 transition inline-flex items-center gap-2"
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                </a>
-              );
-            })}
-          </nav>
-        )}
+        <nav className="hidden lg:flex items-center gap-2">
+          {menuItems.map((item) => (
+            <Link
+              key={item.href}
+              to={item.href}
+              className="px-3 py-2 rounded-full text-sm font-medium text-muted-foreground hover:text-primary hover:bg-primary/10 transition inline-flex items-center gap-2"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
 
         <div className="flex items-center gap-2">
           <Link to="/login">
@@ -95,7 +86,7 @@ export function Header() {
               </Button>
             </Link>
           )}
-          {isHome && (
+          {(
             <Button
               variant="outline"
               size="icon"
@@ -109,22 +100,20 @@ export function Header() {
         </div>
       </div>
 
-      {isHome && open && (
+      {open && (
         <div className="lg:hidden border-t bg-background/95 backdrop-blur">
           <div className="container mx-auto px-4 py-3 space-y-3">
             <div className="grid grid-cols-2 gap-2">
               {menuItems.map((item) => {
-                const Icon = icons[item.href] || Sparkles;
                 return (
-                  <a
+                  <Link
                     key={item.href}
-                    href={item.href}
+                    to={item.href}
                     onClick={() => setOpen(false)}
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition"
                   >
-                    <Icon className="h-4 w-4" />
                     {item.label}
-                  </a>
+                  </Link>
                 );
               })}
             </div>
