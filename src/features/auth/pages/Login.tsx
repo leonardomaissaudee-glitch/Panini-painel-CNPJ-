@@ -13,7 +13,7 @@ export default function LoginPage() {
   const { signIn, signOut } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const [email, setEmail] = useState("")
+  const [cnpj, setCnpj] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
 
@@ -24,7 +24,10 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     try {
-      const session = await signIn(email, password)
+      const digits = cnpj.replace(/\D/g, "")
+      if (digits.length !== 14) throw new Error("Informe um CNPJ válido (14 dígitos).")
+
+      const session = await signIn(digits, password)
       const userId = session?.user?.id
       if (!userId) throw new Error("Usuário não encontrado na sessão.")
 
@@ -63,38 +66,44 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center px-4 py-10">
-      <div className="grid w-full max-w-4xl grid-cols-1 md:grid-cols-2 gap-6 items-center">
+      <div className="grid w-full max-w-4xl grid-cols-1 md:grid-cols-2 gap-8 items-center">
         <div className="space-y-4">
-          <Badge className="bg-primary/10 text-primary border-primary/20">Acesso seguro</Badge>
-          <h1 className="text-3xl md:text-4xl font-bold">Bem-vindo de volta</h1>
+          <Badge className="bg-primary/10 text-primary border-primary/20">Acesso exclusivo CNPJ</Badge>
+          <h1 className="text-3xl md:text-4xl font-bold">Área de revenda Panini</h1>
           <p className="text-muted-foreground">
-            Entre com sua conta aprovada para acessar o painel correspondente ao seu perfil.
+            Entre com o CNPJ aprovado e a senha definida no cadastro para acessar o painel de cliente.
           </p>
-          <div className="rounded-xl border bg-muted/30 p-4 space-y-2">
-            <div className="text-sm font-semibold">Perfis suportados</div>
-            <ul className="text-sm text-muted-foreground list-disc list-inside">
-              <li>Admin: gestão completa</li>
-              <li>Seller: pedidos, clientes e chat</li>
-              <li>Client: catálogo, pedidos e suporte</li>
-            </ul>
-          </div>
+          <ul className="text-sm text-muted-foreground space-y-1 bg-muted/30 border rounded-lg p-3">
+            <li>• Somente empresas com CNPJ aprovado.</li>
+            <li>• Catálogo e pedidos liberados após login.</li>
+            <li>• Admin/Seller usam a rota dedicada /loginadmin.</li>
+          </ul>
         </div>
 
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle className="text-2xl">Entrar</CardTitle>
-            <p className="text-sm text-muted-foreground">Use seu email e senha.</p>
+            <CardTitle className="text-2xl">Entrar com CNPJ</CardTitle>
+            <p className="text-sm text-muted-foreground">Informe CNPJ e senha cadastrados.</p>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="cnpj">CNPJ</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="cnpj"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="00.000.000/0000-00"
+                  value={cnpj}
+                  onChange={(e) => {
+                    const onlyDigits = e.target.value.replace(/\D/g, "").slice(0, 14)
+                    const formatted = onlyDigits
+                      .replace(/^(\d{2})(\d)/, "$1.$2")
+                      .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+                      .replace(/\.(\d{3})(\d)/, ".$1/$2")
+                      .replace(/(\d{4})(\d)/, "$1-$2")
+                    setCnpj(formatted)
+                  }}
                   required
                 />
               </div>
