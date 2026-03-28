@@ -6,6 +6,7 @@ import Cart from "@/pages/Cart"
 import CheckoutNew from "@/pages/CheckoutNew"
 import LoginPage from "@/features/auth/pages/Login"
 import RegisterPage from "@/features/auth/pages/Register"
+import AdminLoginPage from "@/features/auth/pages/AdminLogin"
 import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute"
 import { AuthProvider } from "@/features/auth/context/AuthContext"
 import AdminDashboard from "@/features/admin/pages/AdminDashboard"
@@ -25,6 +26,7 @@ export function App() {
 
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/loginadmin" element={<AdminLoginPage />} />
 
             <Route
               path="/app"
