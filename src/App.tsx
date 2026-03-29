@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom"
+import { Routes, Route, useLocation } from "react-router-dom"
 import { Header } from "@/components/Header"
 import { CartProvider } from "@/contexts/CartContext"
 import Home from "@/pages/Home"
@@ -19,11 +19,14 @@ import CadastroSucesso from "@/pages/CadastroSucesso"
 import PainelPage from "@/pages/Painel"
 
 export function App() {
+  const location = useLocation()
+  const hideHeader = /^\/(app|admin|seller|painel)(\/|$)/.test(location.pathname)
+
   return (
     <AuthProvider>
       <CartProvider>
         <div className="min-h-screen bg-background">
-          <Header />
+          {!hideHeader && <Header />}
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/cart" element={<Cart />} />
