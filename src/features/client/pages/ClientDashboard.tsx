@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { Outlet, useLocation, useNavigate, useOutletContext, useParams } from "react-router-dom"
+import { Outlet, useLocation, useNavigate, useOutletContext } from "react-router-dom"
 import { AppShell } from "@/components/layouts/AppShell"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -25,12 +25,12 @@ export function useClientDashboardContext() {
 export default function ClientDashboard() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { tab } = useParams()
   const [resellerProfile, setResellerProfile] = useState<ResellerProfile | null>(null)
   const { user } = useAuth()
   const section = useMemo<ClientSection | null>(() => {
-    return allowedTabs.includes(tab as ClientSection) ? (tab as ClientSection) : null
-  }, [tab])
+    const pathTab = location.pathname.split("/")[2]
+    return allowedTabs.includes(pathTab as ClientSection) ? (pathTab as ClientSection) : null
+  }, [location.pathname])
 
   useEffect(() => {
     const queryTab = new URLSearchParams(location.search).get("tab")
@@ -46,10 +46,12 @@ export default function ClientDashboard() {
       return
     }
 
-    if (tab && !allowedTabs.includes(tab as ClientSection)) {
+    const pathTab = location.pathname.split("/")[2]
+
+    if (pathTab && !allowedTabs.includes(pathTab as ClientSection)) {
       navigate("/app/catalogo", { replace: true })
     }
-  }, [location.pathname, location.search, navigate, tab])
+  }, [location.pathname, location.search, navigate])
 
   useEffect(() => {
     findResellerProfileByCurrentUser().then(setResellerProfile).catch(() => setResellerProfile(null))
