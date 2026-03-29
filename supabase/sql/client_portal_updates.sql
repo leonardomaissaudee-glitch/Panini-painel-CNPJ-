@@ -36,6 +36,7 @@ begin
 end $$;
 
 alter table public.orders
+  add column if not exists cliente_id uuid,
   add column if not exists status text,
   add column if not exists invoice_number text,
   add column if not exists tracking_code text,
