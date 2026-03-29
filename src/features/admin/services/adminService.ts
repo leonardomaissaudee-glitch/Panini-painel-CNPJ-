@@ -78,6 +78,18 @@ function derivePaymentStatus(status: OrderStatus, current?: string | null) {
   return current ?? "pending"
 }
 
+function toDatabaseOrderStatus(status: OrderStatus): string {
+  const legacyMap: Partial<Record<OrderStatus, string>> = {
+    aguardando_aprovacao: "novo_pedido",
+    pedido_pago: "pago",
+    em_expedicao: "enviado",
+    nota_fiscal_emitida: "nota_fiscal",
+    localizador_disponivel: "rastreio",
+  }
+
+  return legacyMap[status] ?? status
+}
+
 export async function fetchOrders(): Promise<OrderRow[]> {
   const { data, error } = await supabase
     .from("orders")
@@ -102,7 +114,7 @@ export async function updateOrderStatus(
   const { error } = await supabase
     .from("orders")
     .update({
-      status,
+      status: toDatabaseOrderStatus(status),
       payment_status: extras?.payment_status ?? derivePaymentStatus(status, current?.payment_status),
       invoice_number: extras?.invoice_number ?? null,
       tracking_code: extras?.tracking_code ?? null,
