@@ -1,7 +1,16 @@
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { getOrderStatusLabel } from "@/shared/constants/orderStatus"
 
 type StatusKind =
+  | "aguardando_aprovacao"
+  | "aguardando_pagamento"
+  | "pedido_pago"
+  | "em_expedicao"
+  | "nota_fiscal_emitida"
+  | "localizador_disponivel"
+  | "pedido_entregue"
+  | "cancelado"
   | "novo_pedido"
   | "pago"
   | "enviado"
@@ -16,6 +25,14 @@ type StatusKind =
   | "novo"
 
 const styles: Record<StatusKind, string> = {
+  aguardando_aprovacao: "bg-amber-100 text-amber-800 border-amber-200",
+  aguardando_pagamento: "bg-orange-100 text-orange-800 border-orange-200",
+  pedido_pago: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  em_expedicao: "bg-blue-100 text-blue-800 border-blue-200",
+  nota_fiscal_emitida: "bg-indigo-100 text-indigo-800 border-indigo-200",
+  localizador_disponivel: "bg-sky-100 text-sky-800 border-sky-200",
+  pedido_entregue: "bg-teal-100 text-teal-800 border-teal-200",
+  cancelado: "bg-rose-100 text-rose-800 border-rose-200",
   novo_pedido: "bg-amber-100 text-amber-800 border-amber-200",
   pago: "bg-emerald-100 text-emerald-800 border-emerald-200",
   enviado: "bg-blue-100 text-blue-800 border-blue-200",
@@ -32,10 +49,9 @@ const styles: Record<StatusKind, string> = {
 
 export function StatusBadge({ status }: { status: StatusKind | null | undefined }) {
   if (!status) return null
-  const label = status.replace("_", " ")
   return (
     <Badge variant="outline" className={cn("capitalize", styles[status] ?? "")}>
-      {label}
+      {getOrderStatusLabel(status)}
     </Badge>
   )
 }
