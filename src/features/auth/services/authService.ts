@@ -45,16 +45,93 @@ export async function signInWithEmail(email: string, password: string) {
   return data
 }
 
+function normalizeApprovalStatus(status?: string | null): ApprovalStatus {
+  if (status === "approved" || status === "rejected" || status === "blocked") {
+    return status
+  }
+
+  return "pending"
+}
+
+function mergeApprovalStatus(...statuses: Array<string | null | undefined>): ApprovalStatus {
+  const normalized = statuses.map(normalizeApprovalStatus)
+
+  if (normalized.includes("blocked")) return "blocked"
+  if (normalized.includes("rejected")) return "rejected"
+  if (normalized.includes("approved")) return "approved"
+  return "pending"
+}
+
+function buildResellerProfile(row: any): Profile {
+  return {
+    id: row.id,
+    auth_user_id: row.user_id,
+    full_name: row.nome_responsavel,
+    email: row.email,
+    role: "client",
+    status_cadastro: normalizeApprovalStatus(row.status_cadastro),
+    tipo_documento: "cnpj",
+    documento: row.cnpj,
+    telefone: row.telefone,
+    endereco: {
+      cep: row.cep,
+      endereco: row.endereco,
+      numero: row.numero,
+      complemento: row.complemento,
+      bairro: row.bairro,
+      cidade: row.cidade,
+      estado: row.estado,
+    },
+    motivo_reprovacao: row.motivo_reprovacao ?? null,
+    account_manager_name: row.account_manager_name ?? null,
+    account_manager_whatsapp: row.account_manager_whatsapp ?? null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
+}
+
 export async function fetchProfile(userId: string): Promise<Profile | null> {
-  const { data, error } = await supabase
+  const { data: legacyProfile, error: legacyError } = await supabase
     .from("profiles")
     .select("*")
     .eq("auth_user_id", userId)
     .maybeSingle()
 
-  if (error) {
-    console.error("Erro ao carregar perfil", error)
+  if (legacyError) {
+    console.error("Erro ao carregar perfil legado", legacyError)
     return null
   }
-  return data as Profile | null
+
+  const { data: resellerProfile, error: resellerError } = await supabase
+    .from("reseller_profiles")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle()
+
+  if (resellerError) {
+    console.error("Erro ao carregar perfil empresarial", resellerError)
+  }
+
+  if (legacyProfile?.role === "admin" || legacyProfile?.role === "seller") {
+    return legacyProfile as Profile
+  }
+
+  if (resellerProfile) {
+    const mapped = buildResellerProfile(resellerProfile)
+
+    if (legacyProfile?.role === "client") {
+      return {
+        ...mapped,
+        id: legacyProfile.id ?? mapped.id,
+        auth_user_id: legacyProfile.auth_user_id ?? mapped.auth_user_id,
+        status_cadastro: mergeApprovalStatus(resellerProfile.status_cadastro, legacyProfile.status_cadastro),
+        motivo_reprovacao:
+          resellerProfile.motivo_reprovacao ?? legacyProfile.motivo_reprovacao ?? null,
+      }
+    }
+
+    return mapped
+  }
+
+  return (legacyProfile as Profile | null) ?? null
 }
