@@ -122,6 +122,10 @@ export function ClientOrders({
                 </div>
               </div>
             </div>
+
+            {normalizeOrderStatus(order.status) === "aguardando_pagamento" && (
+              <PaymentInfoCard order={order} />
+            )}
           </div>
         ))}
 
@@ -140,6 +144,84 @@ function Metric({ label, value }: { label: string; value: string }) {
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
       <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</div>
       <div className="mt-1 text-sm font-semibold text-slate-950">{value}</div>
+    </div>
+  )
+}
+
+function PaymentInfoCard({ order }: { order: OrderRow }) {
+  const copyText = async (value: string, successMessage: string) => {
+    try {
+      await navigator.clipboard.writeText(value)
+      toast.success(successMessage)
+    } catch {
+      toast.error("Não foi possível copiar o conteúdo.")
+    }
+  }
+
+  return (
+    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Informações para pagamento</div>
+      <div className="mt-3 space-y-3 text-sm text-slate-800">
+        {order.payment_method === "pix" && (
+          <>
+            <p>{order.payment_instructions || "Seu gerente comercial informou os dados PIX para pagamento deste pedido."}</p>
+            {order.payment_copy_paste && (
+              <div className="rounded-2xl border border-amber-200 bg-white p-3">
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">PIX copia e cola</div>
+                <div className="mt-2 break-all text-xs text-slate-700">{order.payment_copy_paste}</div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => copyText(order.payment_copy_paste || "", "Código PIX copiado")}
+                >
+                  Copiar código PIX
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+
+        {order.payment_method === "boleto" && (
+          <>
+            <p>{order.payment_instructions || "Seu boleto foi liberado. Use a linha digitável ou abra o PDF anexado."}</p>
+            {order.payment_boleto_line && (
+              <div className="rounded-2xl border border-amber-200 bg-white p-3">
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Linha digitável</div>
+                <div className="mt-2 break-all text-xs text-slate-700">{order.payment_boleto_line}</div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => copyText(order.payment_boleto_line || "", "Linha digitável copiada")}
+                >
+                  Copiar linha digitável
+                </Button>
+              </div>
+            )}
+            {order.payment_boleto_pdf_url && (
+              <Button asChild variant="outline" size="sm">
+                <a href={order.payment_boleto_pdf_url} target="_blank" rel="noreferrer">
+                  Abrir boleto em PDF
+                </a>
+              </Button>
+            )}
+          </>
+        )}
+
+        {order.payment_method === "credit_card" && (
+          <>
+            <p>{order.payment_instructions || "Seu gerente comercial liberou um link para pagamento em cartão."}</p>
+            {order.payment_link_url && (
+              <Button asChild variant="outline" size="sm">
+                <a href={order.payment_link_url} target="_blank" rel="noreferrer">
+                  Abrir link de pagamento
+                </a>
+              </Button>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }
