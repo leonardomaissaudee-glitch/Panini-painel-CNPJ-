@@ -5,7 +5,6 @@ import Home from "@/pages/Home"
 import Cart from "@/pages/Cart"
 import CheckoutNew from "@/pages/CheckoutNew"
 import LoginPage from "@/features/auth/pages/Login"
-import RegisterPage from "@/features/auth/pages/Register"
 import AdminLoginPage from "@/features/auth/pages/AdminLogin"
 import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute"
 import { AuthProvider } from "@/features/auth/context/AuthContext"
@@ -15,6 +14,9 @@ import ClientDashboard from "@/features/client/pages/ClientDashboard"
 import AboutPage from "@/pages/About"
 import ProcessPage from "@/pages/Process"
 import OpportunityPage from "@/pages/Opportunity"
+import CadastroPage from "@/pages/Cadastro"
+import CadastroSucesso from "@/pages/CadastroSucesso"
+import PainelPage from "@/pages/Painel"
 
 export function App() {
   return (
@@ -28,7 +30,11 @@ export function App() {
             <Route path="/checkout" element={<CheckoutNew />} />
 
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/cadastro" element={<CadastroPage />} />
+            <Route path="/credenciamento" element={<CadastroPage />} />
+            <Route path="/register" element={<CadastroPage />} />
+            <Route path="/cadastro/sucesso" element={<CadastroSucesso />} />
+            <Route path="/painel" element={<PainelPage />} />
             <Route path="/loginadmin" element={<AdminLoginPage />} />
             <Route path="/sobre" element={<AboutPage />} />
             <Route path="/processo" element={<ProcessPage />} />
