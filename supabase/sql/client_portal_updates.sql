@@ -95,7 +95,7 @@ with check (
   and exists (
     select 1
     from public.profiles p
-    where p.auth_user_id = auth.uid()
+    where (p.auth_user_id = auth.uid() or lower(p.email) = lower(auth.jwt() ->> 'email'))
       and p.role in ('admin', 'seller')
   )
 );
@@ -110,7 +110,7 @@ using (
   and exists (
     select 1
     from public.profiles p
-    where p.auth_user_id = auth.uid()
+    where (p.auth_user_id = auth.uid() or lower(p.email) = lower(auth.jwt() ->> 'email'))
       and p.role in ('admin', 'seller')
   )
 )
@@ -119,7 +119,7 @@ with check (
   and exists (
     select 1
     from public.profiles p
-    where p.auth_user_id = auth.uid()
+    where (p.auth_user_id = auth.uid() or lower(p.email) = lower(auth.jwt() ->> 'email'))
       and p.role in ('admin', 'seller')
   )
 );
@@ -134,7 +134,7 @@ using (
   and exists (
     select 1
     from public.profiles p
-    where p.auth_user_id = auth.uid()
+    where (p.auth_user_id = auth.uid() or lower(p.email) = lower(auth.jwt() ->> 'email'))
       and p.role in ('admin', 'seller')
   )
 );
