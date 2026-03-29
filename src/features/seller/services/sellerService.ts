@@ -17,6 +17,18 @@ export interface SellerOrder {
   created_at?: string
 }
 
+function toDatabaseOrderStatus(status?: OrderStatus | null) {
+  const legacyMap: Partial<Record<OrderStatus, string>> = {
+    aguardando_aprovacao: "novo_pedido",
+    pedido_pago: "pago",
+    em_expedicao: "enviado",
+    nota_fiscal_emitida: "nota_fiscal",
+    localizador_disponivel: "rastreio",
+  }
+
+  return status ? legacyMap[status] ?? status : status
+}
+
 export interface Conversation {
   id: string
   client_id: string | null
@@ -77,6 +89,7 @@ export async function updateSellerOrder(
     .from("orders")
     .update({
       ...payload,
+      status: toDatabaseOrderStatus(payload.status),
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)
@@ -132,7 +145,7 @@ export async function createManualOrder(input: {
     total,
     payment_method,
     payment_status: "pending",
-    status: "aguardando_aprovacao",
+    status: "novo_pedido",
     seller_id,
   })
   if (error) throw error
