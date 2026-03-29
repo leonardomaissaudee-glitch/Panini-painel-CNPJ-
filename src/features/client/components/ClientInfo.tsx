@@ -1,7 +1,13 @@
 import { LayoutGrid, PackageCheck, UserRound } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-export function ClientInfo({ managerName }: { managerName: string }) {
+export function ClientInfo({
+  managerName,
+  managerPhone,
+}: {
+  managerName?: string | null
+  managerPhone?: string | null
+}) {
   return (
     <Card className="border-slate-200 shadow-sm">
       <CardHeader>
@@ -21,7 +27,11 @@ export function ClientInfo({ managerName }: { managerName: string }) {
         <InfoCard
           icon={UserRound}
           title="Gerente dedicado"
-          description={`${managerName} acompanha o atendimento comercial e a continuidade dos seus pedidos.`}
+          description={
+            managerName
+              ? `${managerName}${managerPhone ? ` · ${managerPhone}` : ""}`
+              : "Gerente ainda não designado."
+          }
         />
       </CardContent>
     </Card>

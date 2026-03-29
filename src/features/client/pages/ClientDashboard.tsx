@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { useLocation, useNavigate } from "react-router-dom"
+import { useSearchParams } from "react-router-dom"
 import { AppShell } from "@/components/layouts/AppShell"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -20,15 +20,21 @@ type ClientSection = "catalogo" | "pedidos" | "informacoes" | "perfil" | "gerent
 const allowedTabs: ClientSection[] = ["catalogo", "pedidos", "informacoes", "perfil", "gerente", "carrinho"]
 
 export default function ClientDashboard() {
-  const location = useLocation()
-  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [resellerProfile, setResellerProfile] = useState<ResellerProfile | null>(null)
   const [refreshOrders, setRefreshOrders] = useState<(() => Promise<void>) | null>(null)
   const { user } = useAuth()
   const section = useMemo<ClientSection>(() => {
-    const currentTab = new URLSearchParams(location.search).get("tab")
+    const currentTab = searchParams.get("tab")
     return allowedTabs.includes(currentTab as ClientSection) ? (currentTab as ClientSection) : "catalogo"
-  }, [location.search])
+  }, [searchParams])
+
+  useEffect(() => {
+    const currentTab = searchParams.get("tab")
+    if (!allowedTabs.includes(currentTab as ClientSection)) {
+      setSearchParams({ tab: "catalogo" }, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   useEffect(() => {
     findResellerProfileByCurrentUser().then(setResellerProfile).catch(() => setResellerProfile(null))
@@ -37,12 +43,12 @@ export default function ClientDashboard() {
   const managerWhatsapp = resellerProfile?.account_manager_whatsapp || DEFAULT_MANAGER_WHATSAPP
   const managerName = resellerProfile?.account_manager_name || "Gerente comercial"
   const displayManagerPhone = formatPhone(managerWhatsapp.replace(/\D/g, "").slice(-11))
+  const assignedManagerName = resellerProfile?.account_manager_name ?? null
+  const assignedManagerPhone = resellerProfile?.account_manager_whatsapp
+    ? formatPhone(resellerProfile.account_manager_whatsapp.replace(/\D/g, "").slice(-11))
+    : null
 
-  const changeSection = (next: ClientSection) => {
-    const params = new URLSearchParams(location.search)
-    params.set("tab", next)
-    navigate({ pathname: "/app", search: `?${params.toString()}` }, { replace: false })
-  }
+  const changeSection = (next: ClientSection) => setSearchParams({ tab: next })
 
   return (
     <AppShell title="Portal do Cliente">
@@ -71,7 +77,7 @@ export default function ClientDashboard() {
               <div className="mt-1 text-xs text-slate-200 sm:text-sm">{displayManagerPhone}</div>
               <Button
                 variant="secondary"
-                className="mt-3 h-auto w-full rounded-full px-3 py-2 text-sm leading-tight"
+                className="mt-3 h-10 w-full justify-center rounded-full bg-red-600 px-4 text-xs font-semibold text-white hover:bg-red-700 sm:text-sm"
                 onClick={() =>
                   window.open(
                     `https://wa.me/${managerWhatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(
@@ -81,7 +87,7 @@ export default function ClientDashboard() {
                   )
                 }
               >
-                Falar com gerente
+                Enviar mensagem
               </Button>
             </div>
           </CardContent>
@@ -95,7 +101,7 @@ export default function ClientDashboard() {
             {section === "pedidos" && (
               <ClientOrders email={user?.email} onRefreshReady={(refresh) => setRefreshOrders(() => refresh)} />
             )}
-            {section === "informacoes" && <ClientInfo managerName={managerName} />}
+            {section === "informacoes" && <ClientInfo managerName={assignedManagerName} managerPhone={assignedManagerPhone} />}
             {section === "perfil" && <ClientProfile profile={resellerProfile} />}
             {section === "gerente" && <ClientSupport profile={resellerProfile} />}
             {section === "carrinho" && (
