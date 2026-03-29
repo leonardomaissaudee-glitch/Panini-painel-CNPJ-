@@ -39,6 +39,11 @@ CREATE TABLE IF NOT EXISTS orders (
   seller_id UUID,
   account_manager_name TEXT,
   account_manager_whatsapp TEXT,
+  payment_instructions TEXT,
+  payment_copy_paste TEXT,
+  payment_link_url TEXT,
+  payment_boleto_line TEXT,
+  payment_boleto_pdf_url TEXT,
 
   -- Timestamps
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
