@@ -170,6 +170,7 @@ export function ClientCart({
             <div className="grid gap-2">
               {[
                 { value: "pix", label: "PIX", hint: "5% de desconto adicional" },
+                { value: "boleto", label: "Boleto", hint: "primeiro pedido à vista, liberado pelo gerente" },
                 { value: "credit_card", label: "Cartão", hint: "parcelamento validado com o gerente" },
               ].map((method) => (
                 <button
@@ -193,6 +194,12 @@ export function ClientCart({
           {subtotal < MIN_ORDER_TOTAL && (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               O pedido mínimo para compra no atacado é de {formatPrice(MIN_ORDER_TOTAL)}.
+            </div>
+          )}
+
+          {paymentMethod === "boleto" && (
+            <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+              O boleto é registrado no pedido e liberado pelo gerente comercial após a aprovação.
             </div>
           )}
 
