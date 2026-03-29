@@ -24,19 +24,19 @@ export function AppShell({ title, nav = [], actions, children, contentClassName 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b bg-white/90 backdrop-blur">
-        <div className="container mx-auto flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
+        <div className="container mx-auto flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
             <Link to="/" className="flex items-center gap-2">
               <img
                 src="https://pub-c0bfb119504542e0b2e6ebc8f6b3b1df.r2.dev/user-uploads/user_38XNRHxmsUPTGvoK09TMInYrBxw/09cf08fa-d355-4e36-811b-7f54f9f72f94.png"
                 alt="Logo"
                 className="h-10 w-auto"
               />
-              <span className="text-base font-semibold leading-tight">Painel</span>
+              <span className="text-sm font-semibold leading-tight sm:text-base">Painel</span>
             </Link>
-            <div className="text-sm text-muted-foreground">/ {title}</div>
+            <div className="truncate text-xs text-muted-foreground sm:text-sm">/ {title}</div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
             <ThemeToggle />
             {actions}
             {user && (
