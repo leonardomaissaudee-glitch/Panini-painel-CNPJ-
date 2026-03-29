@@ -44,6 +44,13 @@ CREATE TABLE IF NOT EXISTS orders (
   payment_link_url TEXT,
   payment_boleto_line TEXT,
   payment_boleto_pdf_url TEXT,
+  payment_pix_bank_name TEXT,
+  payment_pix_key TEXT,
+  payment_pix_beneficiary TEXT,
+  payment_pix_agency TEXT,
+  payment_pix_account TEXT,
+  payment_pix_amount TEXT,
+  payment_pix_qr_code TEXT,
 
   -- Timestamps
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
