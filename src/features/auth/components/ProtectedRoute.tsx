@@ -26,11 +26,8 @@ export function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) 
   }
 
   if (!profile) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Spinner className="size-8 text-primary" />
-      </div>
-    )
+    const fallbackLogin = allowedRoles?.some((role) => role === "admin" || role === "seller") ? "/loginadmin" : "/painel"
+    return <Navigate to={fallbackLogin} replace />
   }
 
   if (profile.status_cadastro === "pending") {
