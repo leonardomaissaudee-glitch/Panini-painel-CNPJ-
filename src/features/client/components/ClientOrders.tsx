@@ -165,6 +165,14 @@ function PaymentInfoCard({ order }: { order: OrderRow }) {
         {order.payment_method === "pix" && (
           <>
             <p>{order.payment_instructions || "Seu gerente comercial informou os dados PIX para pagamento deste pedido."}</p>
+            <div className="grid gap-3 md:grid-cols-2">
+              {order.payment_pix_bank_name && <PaymentField label="Banco" value={order.payment_pix_bank_name} />}
+              {order.payment_pix_beneficiary && <PaymentField label="Beneficiário" value={order.payment_pix_beneficiary} />}
+              {order.payment_pix_key && <PaymentField label="Chave PIX" value={order.payment_pix_key} />}
+              {order.payment_pix_amount && <PaymentField label="Valor" value={order.payment_pix_amount} />}
+              {order.payment_pix_agency && <PaymentField label="Agência" value={order.payment_pix_agency} />}
+              {order.payment_pix_account && <PaymentField label="Conta" value={order.payment_pix_account} />}
+            </div>
             {order.payment_copy_paste && (
               <div className="rounded-2xl border border-amber-200 bg-white p-3">
                 <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">PIX copia e cola</div>
@@ -177,6 +185,18 @@ function PaymentInfoCard({ order }: { order: OrderRow }) {
                 >
                   Copiar código PIX
                 </Button>
+              </div>
+            )}
+            {order.payment_pix_qr_code && (
+              <div className="rounded-2xl border border-amber-200 bg-white p-3">
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">QR Code / Referência PIX</div>
+                {isUrl(order.payment_pix_qr_code) ? (
+                  <a href={order.payment_pix_qr_code} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-medium text-blue-700 underline">
+                    Abrir QR Code
+                  </a>
+                ) : (
+                  <div className="mt-2 break-all text-xs text-slate-700">{order.payment_pix_qr_code}</div>
+                )}
               </div>
             )}
           </>
@@ -201,7 +221,7 @@ function PaymentInfoCard({ order }: { order: OrderRow }) {
             )}
             {order.payment_boleto_pdf_url && (
               <Button asChild variant="outline" size="sm">
-                <a href={order.payment_boleto_pdf_url} target="_blank" rel="noreferrer">
+                <a href={order.payment_boleto_pdf_url} target="_blank" rel="noreferrer" download>
                   Abrir boleto em PDF
                 </a>
               </Button>
@@ -222,6 +242,15 @@ function PaymentInfoCard({ order }: { order: OrderRow }) {
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+function PaymentField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-white px-3 py-2">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</div>
+      <div className="mt-1 break-words text-sm text-slate-800">{value}</div>
     </div>
   )
 }
@@ -248,4 +277,9 @@ function normalizeOrderStatus(status?: string | null) {
 
 function hasReached(target: (typeof orderTimeline)[number], current: (typeof orderTimeline)[number]) {
   return orderTimeline.indexOf(current) >= orderTimeline.indexOf(target)
+}
+
+function isUrl(value?: string | null) {
+  if (!value) return false
+  return /^https?:\/\//i.test(value)
 }
