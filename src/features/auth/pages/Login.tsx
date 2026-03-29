@@ -29,7 +29,7 @@ export default function LoginPage() {
         }
 
         if (profile) {
-          navigate(profile.status_cadastro === "approved" ? "/app" : "/painel", { replace: true })
+          navigate(profile.status_cadastro === "approved" ? "/app/catalogo" : "/painel", { replace: true })
           return
         }
 
@@ -74,7 +74,7 @@ export default function LoginPage() {
         throw new Error("Sua conta está indisponível no momento. Fale com seu gerente de contas para regularização.")
       }
 
-      navigate(resellerProfile.status_cadastro === "approved" ? "/app" : "/painel", { replace: true })
+      navigate(resellerProfile.status_cadastro === "approved" ? "/app/catalogo" : "/painel", { replace: true })
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Não foi possível entrar agora.")
     } finally {

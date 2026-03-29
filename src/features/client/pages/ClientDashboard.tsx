@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { useLocation, useNavigate } from "react-router-dom"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
 import { AppShell } from "@/components/layouts/AppShell"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -22,20 +22,26 @@ const allowedTabs: ClientSection[] = ["catalogo", "pedidos", "informacoes", "per
 export default function ClientDashboard() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { tab } = useParams()
   const [resellerProfile, setResellerProfile] = useState<ResellerProfile | null>(null)
   const [refreshOrders, setRefreshOrders] = useState<(() => Promise<void>) | null>(null)
   const { user } = useAuth()
   const section = useMemo<ClientSection>(() => {
-    const currentTab = new URLSearchParams(location.search).get("tab")
-    return allowedTabs.includes(currentTab as ClientSection) ? (currentTab as ClientSection) : "catalogo"
-  }, [location.search])
+    return allowedTabs.includes(tab as ClientSection) ? (tab as ClientSection) : "catalogo"
+  }, [tab])
 
   useEffect(() => {
-    const currentTab = new URLSearchParams(location.search).get("tab")
-    if (!allowedTabs.includes(currentTab as ClientSection)) {
-      navigate("/app?tab=catalogo", { replace: true })
+    const queryTab = new URLSearchParams(location.search).get("tab")
+
+    if (allowedTabs.includes(queryTab as ClientSection)) {
+      navigate(`/app/${queryTab}`, { replace: true })
+      return
     }
-  }, [location.search, navigate])
+
+    if (tab && !allowedTabs.includes(tab as ClientSection)) {
+      navigate("/app/catalogo", { replace: true })
+    }
+  }, [location.search, navigate, tab])
 
   useEffect(() => {
     findResellerProfileByCurrentUser().then(setResellerProfile).catch(() => setResellerProfile(null))
@@ -51,7 +57,7 @@ export default function ClientDashboard() {
 
   const changeSection = (next: ClientSection) => {
     if (section === next) return
-    navigate(`/app?tab=${next}`, { replace: false })
+    navigate(`/app/${next}`, { replace: false })
   }
 
   return (
@@ -98,7 +104,7 @@ export default function ClientDashboard() {
         </Card>
 
         <div className="grid gap-4 xl:grid-cols-[260px_1fr]">
-          <ClientSidebar active={section} onChange={(next) => changeSection(next as ClientSection)} />
+          <ClientSidebar active={section} />
 
           <div key={section} className="min-w-0 space-y-4">
             {section === "catalogo" && <ClientCatalog />}

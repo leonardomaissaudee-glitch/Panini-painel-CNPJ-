@@ -19,7 +19,7 @@ export function PublicOnlyRoute({ children }: { children: ReactNode }) {
   }
 
   const destination =
-    profile?.role === "admin" ? "/admin" : profile?.role === "seller" ? "/seller" : profile?.role === "client" ? "/app" : "/painel"
+    profile?.role === "admin" ? "/admin" : profile?.role === "seller" ? "/seller" : profile?.role === "client" ? "/app/catalogo" : "/painel"
 
   return <Navigate to={destination} replace />
 }

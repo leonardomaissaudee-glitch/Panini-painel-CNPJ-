@@ -21,7 +21,7 @@ export function AppShell({ title, nav = [], actions, children, contentClassName 
   const { signOut, user, profile } = useAuth()
   const hasNav = nav.length > 0
   const dashboardPath =
-    profile?.role === "admin" ? "/admin" : profile?.role === "seller" ? "/seller" : profile?.role === "client" ? "/app" : "/painel"
+    profile?.role === "admin" ? "/admin" : profile?.role === "seller" ? "/seller" : profile?.role === "client" ? "/app/catalogo" : "/painel"
 
   return (
     <div className="min-h-screen bg-background text-foreground">

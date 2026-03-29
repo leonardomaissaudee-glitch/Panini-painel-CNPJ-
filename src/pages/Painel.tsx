@@ -52,7 +52,7 @@ export default function PainelPage() {
         }
 
         if (data.status_cadastro === "approved") {
-          navigate("/app", { replace: true })
+          navigate("/app/catalogo", { replace: true })
           return
         }
 

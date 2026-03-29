@@ -122,6 +122,14 @@ export function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/app/:tab"
+              element={
+                <ProtectedRoute allowedRoles={["client"]}>
+                  <ClientDashboard />
+                </ProtectedRoute>
+              }
+            />
 
             <Route
               path="/admin"

@@ -14,7 +14,7 @@ export function Header() {
   const cartCount = getCartCount();
 
   const showCart = !!profile && profile.role === "client";
-  const dashboardPath = profile?.role === "admin" ? "/admin" : profile?.role === "seller" ? "/seller" : profile?.role === "client" ? "/app" : "/painel";
+  const dashboardPath = profile?.role === "admin" ? "/admin" : profile?.role === "seller" ? "/seller" : profile?.role === "client" ? "/app/catalogo" : "/painel";
 
   const menuItems = [
     { label: "Home", href: "/" },
@@ -79,7 +79,7 @@ export function Header() {
           )}
           <ThemeToggle />
           {showCart && (
-            <Link to="/app?tab=carrinho">
+            <Link to="/app/carrinho">
               <Button variant="outline" size="icon" className="relative">
                 <ShoppingCart className="h-5 w-5" />
                 {cartCount > 0 && (

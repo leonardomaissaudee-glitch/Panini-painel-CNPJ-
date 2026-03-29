@@ -60,7 +60,7 @@ export function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) 
 
   if (allowedRoles && !allowedRoles.includes(profile.role ?? "client")) {
     const fallback =
-      profile.role === "admin" ? "/admin" : profile.role === "seller" ? "/seller" : "/app"
+      profile.role === "admin" ? "/admin" : profile.role === "seller" ? "/seller" : "/app/catalogo"
     return <Navigate to={fallback} replace />
   }
 
