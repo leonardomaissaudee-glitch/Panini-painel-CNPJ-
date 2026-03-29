@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useSearchParams } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { AppShell } from "@/components/layouts/AppShell"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -20,11 +20,12 @@ type ClientSection = "catalogo" | "pedidos" | "informacoes" | "perfil" | "gerent
 const allowedTabs: ClientSection[] = ["catalogo", "pedidos", "informacoes", "perfil", "gerente", "carrinho"]
 
 export default function ClientDashboard() {
-  const [searchParams, setSearchParams] = useSearchParams()
+  const location = useLocation()
+  const navigate = useNavigate()
   const [resellerProfile, setResellerProfile] = useState<ResellerProfile | null>(null)
   const [refreshOrders, setRefreshOrders] = useState<(() => Promise<void>) | null>(null)
   const { user } = useAuth()
-  const currentTab = searchParams.get("tab")
+  const currentTab = new URLSearchParams(location.search).get("tab")
   const section: ClientSection = allowedTabs.includes(currentTab as ClientSection)
     ? (currentTab as ClientSection)
     : "catalogo"
@@ -37,9 +38,7 @@ export default function ClientDashboard() {
   const managerName = resellerProfile?.account_manager_name || "Gerente comercial"
   const displayManagerPhone = formatPhone(managerWhatsapp.replace(/\D/g, "").slice(-11))
 
-  const changeSection = (next: string) => {
-    setSearchParams({ tab: next })
-  }
+  const changeSection = (next: ClientSection) => navigate(`/app?tab=${next}`)
 
   return (
     <AppShell title="Portal do Cliente">
@@ -82,7 +81,7 @@ export default function ClientDashboard() {
         </Card>
 
         <div className="grid gap-4 xl:grid-cols-[260px_1fr]">
-          <ClientSidebar active={section} onChange={changeSection} />
+          <ClientSidebar active={section} />
 
           <div className="min-w-0 space-y-4">
             {section === "catalogo" && <ClientCatalog />}
