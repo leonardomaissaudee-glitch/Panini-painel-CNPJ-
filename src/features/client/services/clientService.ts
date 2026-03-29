@@ -109,6 +109,10 @@ function getClientOrderErrorMessage(error: { message?: string; details?: string 
     return "A estrutura de pedidos da base ainda não foi atualizada. O pedido não pôde ser salvo."
   }
 
+  if (text.includes("cliente_id")) {
+    return "Seu cadastro ainda não está totalmente vinculado ao portal de pedidos. Fale com o administrador para concluir a ativação."
+  }
+
   if (text.includes("payment_method") || text.includes("boleto")) {
     return "O método de pagamento selecionado ainda não foi liberado na base de dados."
   }
