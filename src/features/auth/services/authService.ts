@@ -46,8 +46,16 @@ export async function signInWithEmail(email: string, password: string) {
 }
 
 function normalizeApprovalStatus(status?: string | null): ApprovalStatus {
-  if (status === "approved" || status === "rejected" || status === "blocked") {
-    return status
+  if (status === "approved" || status === "aprovado") {
+    return "approved"
+  }
+
+  if (status === "rejected" || status === "reprovado") {
+    return "rejected"
+  }
+
+  if (status === "blocked" || status === "bloqueado") {
+    return "blocked"
   }
 
   return "pending"
