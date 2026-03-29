@@ -222,9 +222,12 @@ function PaymentInfoCard({ order }: { order: OrderRow }) {
             {order.payment_boleto_pdf_url && (
               <Button asChild variant="outline" size="sm">
                 <a href={order.payment_boleto_pdf_url} target="_blank" rel="noreferrer" download>
-                  Abrir boleto em PDF
+                  Baixar boleto em PDF
                 </a>
               </Button>
+            )}
+            {!order.payment_boleto_pdf_url && (
+              <div className="text-xs text-slate-500">O PDF do boleto ainda não foi anexado pela equipe comercial.</div>
             )}
           </>
         )}
