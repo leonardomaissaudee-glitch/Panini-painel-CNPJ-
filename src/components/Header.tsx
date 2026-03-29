@@ -79,7 +79,7 @@ export function Header() {
           )}
           <ThemeToggle />
           {showCart && (
-            <Link to="/cart">
+            <Link to="/app?tab=carrinho">
               <Button variant="outline" size="icon" className="relative">
                 <ShoppingCart className="h-5 w-5" />
                 {cartCount > 0 && (
