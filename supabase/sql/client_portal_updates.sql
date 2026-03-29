@@ -42,7 +42,12 @@ alter table public.orders
   add column if not exists tracking_code text,
   add column if not exists seller_id uuid,
   add column if not exists account_manager_name text,
-  add column if not exists account_manager_whatsapp text;
+  add column if not exists account_manager_whatsapp text,
+  add column if not exists payment_instructions text,
+  add column if not exists payment_copy_paste text,
+  add column if not exists payment_link_url text,
+  add column if not exists payment_boleto_line text,
+  add column if not exists payment_boleto_pdf_url text;
 
 update public.orders
 set status = 'novo_pedido'
@@ -59,5 +64,72 @@ alter table public.orders
   check (payment_method in ('pix', 'credit_card', 'boleto'));
 
 create index if not exists idx_orders_status on public.orders(status);
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'order-payment-files',
+  'order-payment-files',
+  true,
+  5242880,
+  array['application/pdf']
+)
+on conflict (id) do update
+set public = true,
+    file_size_limit = 5242880,
+    allowed_mime_types = array['application/pdf'];
+
+drop policy if exists "Admin e seller upload payment pdf" on storage.objects;
+create policy "Admin e seller upload payment pdf"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'order-payment-files'
+  and exists (
+    select 1
+    from public.profiles p
+    where p.auth_user_id = auth.uid()
+      and p.role in ('admin', 'seller')
+  )
+);
+
+drop policy if exists "Admin e seller update payment pdf" on storage.objects;
+create policy "Admin e seller update payment pdf"
+on storage.objects
+for update
+to authenticated
+using (
+  bucket_id = 'order-payment-files'
+  and exists (
+    select 1
+    from public.profiles p
+    where p.auth_user_id = auth.uid()
+      and p.role in ('admin', 'seller')
+  )
+)
+with check (
+  bucket_id = 'order-payment-files'
+  and exists (
+    select 1
+    from public.profiles p
+    where p.auth_user_id = auth.uid()
+      and p.role in ('admin', 'seller')
+  )
+);
+
+drop policy if exists "Admin e seller delete payment pdf" on storage.objects;
+create policy "Admin e seller delete payment pdf"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'order-payment-files'
+  and exists (
+    select 1
+    from public.profiles p
+    where p.auth_user_id = auth.uid()
+      and p.role in ('admin', 'seller')
+  )
+);
 
 notify pgrst, 'reload schema';
