@@ -26,6 +26,7 @@ export function ClientOrders({
 }) {
   const [orders, setOrders] = useState<OrderRow[]>([])
   const [loading, setLoading] = useState(false)
+  const estimatedDeliveryLabel = getEstimatedDeliveryLabel()
 
   const load = async () => {
     if (!email) return
@@ -64,7 +65,7 @@ export function ClientOrders({
       </CardHeader>
       <CardContent className="space-y-4">
         {orders.map((order) => (
-          <div key={order.id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div key={order.id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
@@ -76,10 +77,11 @@ export function ClientOrders({
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <Metric label="Total" value={`R$ ${Number(order.total || 0).toFixed(2)}`} />
                 <Metric label="NF" value={order.invoice_number || "Aguardando"} />
                 <Metric label="Localizador" value={order.tracking_code || "Aguardando"} />
+                <Metric label="Previsão de entrega" value={estimatedDeliveryLabel} />
               </div>
             </div>
 
@@ -90,12 +92,13 @@ export function ClientOrders({
                   <p>Pagamento: {order.payment_method || "A definir com o gerente"}</p>
                   <p>Status financeiro: {order.payment_status || "pending"}</p>
                   <p>Status atual: {getOrderStatusLabel(order.status)}</p>
+                  <p>Previsão de entrega: {estimatedDeliveryLabel}</p>
                 </div>
               </div>
 
               <div className="rounded-2xl border border-slate-200 p-4">
                 <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-800">Linha do pedido</div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {orderTimeline.map((step) => {
                     const isActive = step === normalizeOrderStatus(order.status)
                     const isReached = hasReached(step, normalizeOrderStatus(order.status))
@@ -139,6 +142,17 @@ function Metric({ label, value }: { label: string; value: string }) {
       <div className="mt-1 text-sm font-semibold text-slate-950">{value}</div>
     </div>
   )
+}
+
+function getEstimatedDeliveryLabel() {
+  const estimatedDate = new Date()
+  estimatedDate.setHours(0, 0, 0, 0)
+  estimatedDate.setDate(estimatedDate.getDate() + 15)
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "numeric",
+    month: "long",
+  }).format(estimatedDate)
 }
 
 function normalizeOrderStatus(status?: string | null) {
