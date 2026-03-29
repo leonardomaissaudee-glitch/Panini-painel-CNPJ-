@@ -7,6 +7,7 @@ import { getManagerByName } from "@/shared/constants/accountManagers"
 export type ResellerProfile = {
   id: string
   user_id: string
+  legacy_profile_id?: string | null
   cnpj: string
   razao_social: string
   nome_fantasia: string | null
@@ -136,7 +137,7 @@ export async function findResellerProfileByCurrentUser() {
 
   const { data: legacyProfile } = await supabase
     .from("profiles")
-    .select("role, status_cadastro, motivo_reprovacao")
+    .select("id, role, status_cadastro, motivo_reprovacao")
     .eq("auth_user_id", authData.user.id)
     .maybeSingle()
 
@@ -156,6 +157,7 @@ export async function findResellerProfileByCurrentUser() {
       data.motivo_reprovacao ??
       (legacyProfile?.role === "client" ? legacyProfile.motivo_reprovacao ?? null : null),
     role: "client",
+    legacy_profile_id: legacyProfile?.id ?? null,
     account_manager_name: data.account_manager_name ?? manager?.name ?? null,
     account_manager_whatsapp: data.account_manager_whatsapp ?? manager?.whatsapp ?? null,
   }
