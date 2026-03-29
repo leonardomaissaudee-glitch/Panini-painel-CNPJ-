@@ -20,23 +20,25 @@ export function AppShell({ title, nav = [], actions, children, contentClassName 
   const location = useLocation()
   const { signOut, user, profile } = useAuth()
   const hasNav = nav.length > 0
+  const dashboardPath =
+    profile?.role === "admin" ? "/admin" : profile?.role === "seller" ? "/seller" : profile?.role === "client" ? "/app" : "/painel"
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b bg-white/90 backdrop-blur">
-        <div className="container mx-auto flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            <Link to="/" className="flex items-center gap-2">
+        <div className="container mx-auto flex items-center justify-between gap-3 px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <Link to={dashboardPath} className="flex items-center gap-2">
               <img
                 src="https://pub-c0bfb119504542e0b2e6ebc8f6b3b1df.r2.dev/user-uploads/user_38XNRHxmsUPTGvoK09TMInYrBxw/09cf08fa-d355-4e36-811b-7f54f9f72f94.png"
                 alt="Logo"
-                className="h-10 w-auto"
+                className="h-8 w-auto sm:h-10"
               />
               <span className="text-sm font-semibold leading-tight sm:text-base">Painel</span>
             </Link>
-            <div className="truncate text-xs text-muted-foreground sm:text-sm">/ {title}</div>
+            <div className="truncate text-[11px] text-muted-foreground sm:text-sm">/ {title}</div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <div className="flex shrink-0 items-center gap-2">
             <ThemeToggle />
             {actions}
             {user && (

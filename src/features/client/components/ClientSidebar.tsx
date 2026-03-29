@@ -19,7 +19,8 @@ export function ClientSidebar({
 }) {
   return (
     <aside className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-1">
+      <div className="-mx-1 overflow-x-auto pb-2 xl:mx-0 xl:overflow-visible xl:pb-0">
+        <div className="flex min-w-max gap-3 px-1 xl:grid xl:min-w-0 xl:grid-cols-1 xl:px-0">
         {items.map((item) => {
           const Icon = item.icon
 
@@ -29,7 +30,7 @@ export function ClientSidebar({
               type="button"
               onClick={() => onChange(item.key)}
               className={cn(
-                "inline-flex min-h-[58px] w-full items-center gap-2 rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition",
+                "inline-flex min-h-[54px] min-w-[152px] items-center gap-2 rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition xl:w-full xl:min-w-0",
                 "justify-start",
                 active === item.key
                   ? "border-blue-900 bg-blue-950 text-white shadow-lg"
@@ -41,6 +42,7 @@ export function ClientSidebar({
             </button>
           )
         })}
+        </div>
       </div>
     </aside>
   )

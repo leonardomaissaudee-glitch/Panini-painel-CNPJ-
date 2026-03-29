@@ -48,27 +48,30 @@ export default function ClientDashboard() {
     <AppShell title="Portal do Cliente">
       <div className="space-y-6">
         <Card className="overflow-hidden border-0 bg-gradient-to-br from-blue-950 via-blue-900 to-slate-900 text-white shadow-2xl">
-          <CardContent className="grid gap-6 p-5 sm:p-6 md:p-8 lg:grid-cols-[1fr_auto] lg:items-center">
-            <div className="space-y-4">
+          <CardContent className="grid grid-cols-[minmax(0,1fr)_160px] gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_220px] sm:gap-5 sm:p-6 md:p-8">
+            <div className="min-w-0 space-y-3">
               <div className="inline-flex w-fit rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
                 Cliente aprovado
               </div>
               <div className="space-y-2">
-                <h1 className="text-2xl font-bold sm:text-3xl md:text-4xl">{resellerProfile?.razao_social || "Portal do Cliente"}</h1>
-                <p className="max-w-2xl text-sm leading-6 text-slate-200 md:text-base">
+                <h1 className="text-xl font-bold leading-tight sm:text-3xl md:text-4xl">{resellerProfile?.razao_social || "Portal do Cliente"}</h1>
+                <p className="text-xs leading-5 text-slate-200 sm:hidden">
+                  Catálogo liberado e acompanhamento direto com seu gerente comercial.
+                </p>
+                <p className="hidden max-w-2xl text-sm leading-6 text-slate-200 md:text-base sm:block">
                   Seu cadastro foi aprovado. Use o catálogo para montar pedidos, acompanhe cada etapa comercial e fale
                   diretamente com seu gerente de contas.
                 </p>
               </div>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/10 p-5 backdrop-blur lg:min-w-[280px]">
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-200">Gerente comercial</div>
-              <div className="mt-2 text-xl font-semibold text-white">{managerName}</div>
-              <div className="mt-1 text-sm text-slate-200">{displayManagerPhone}</div>
+            <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:min-w-[220px]">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200">Gerente</div>
+              <div className="mt-2 line-clamp-2 text-base font-semibold leading-tight text-white sm:text-xl">{managerName}</div>
+              <div className="mt-1 text-xs text-slate-200 sm:text-sm">{displayManagerPhone}</div>
               <Button
                 variant="secondary"
-                className="mt-4 w-full rounded-full sm:w-auto"
+                className="mt-3 w-full rounded-full"
                 onClick={() =>
                   window.open(
                     `https://wa.me/${managerWhatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(

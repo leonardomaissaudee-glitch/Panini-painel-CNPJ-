@@ -20,7 +20,14 @@ export function getSupabase(): SupabaseClient {
     )
   }
 
-  _client = createClient(supabaseUrl, supabaseAnonKey)
+  _client = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storageKey: "panini-painel-auth",
+    },
+  })
   return _client
 }
 

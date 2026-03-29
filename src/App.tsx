@@ -7,6 +7,7 @@ import CheckoutNew from "@/pages/CheckoutNew"
 import LoginPage from "@/features/auth/pages/Login"
 import AdminLoginPage from "@/features/auth/pages/AdminLogin"
 import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute"
+import { PublicOnlyRoute } from "@/features/auth/components/PublicOnlyRoute"
 import { AuthProvider } from "@/features/auth/context/AuthContext"
 import AdminDashboard from "@/features/admin/pages/AdminDashboard"
 import SellerDashboard from "@/features/seller/pages/SellerDashboard"
@@ -28,20 +29,90 @@ export function App() {
         <div className="min-h-screen bg-background">
           {!hideHeader && <Header />}
           <Routes>
-            <Route path="/" element={<Home />} />
+            <Route
+              path="/"
+              element={
+                <PublicOnlyRoute>
+                  <Home />
+                </PublicOnlyRoute>
+              }
+            />
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<CheckoutNew />} />
 
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/cadastro" element={<CadastroPage />} />
-            <Route path="/credenciamento" element={<CadastroPage />} />
-            <Route path="/register" element={<CadastroPage />} />
-            <Route path="/cadastro/sucesso" element={<CadastroSucesso />} />
+            <Route
+              path="/login"
+              element={
+                <PublicOnlyRoute>
+                  <LoginPage />
+                </PublicOnlyRoute>
+              }
+            />
+            <Route
+              path="/cadastro"
+              element={
+                <PublicOnlyRoute>
+                  <CadastroPage />
+                </PublicOnlyRoute>
+              }
+            />
+            <Route
+              path="/credenciamento"
+              element={
+                <PublicOnlyRoute>
+                  <CadastroPage />
+                </PublicOnlyRoute>
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                <PublicOnlyRoute>
+                  <CadastroPage />
+                </PublicOnlyRoute>
+              }
+            />
+            <Route
+              path="/cadastro/sucesso"
+              element={
+                <PublicOnlyRoute>
+                  <CadastroSucesso />
+                </PublicOnlyRoute>
+              }
+            />
             <Route path="/painel" element={<PainelPage />} />
-            <Route path="/loginadmin" element={<AdminLoginPage />} />
-            <Route path="/sobre" element={<AboutPage />} />
-            <Route path="/processo" element={<ProcessPage />} />
-            <Route path="/oportunidade" element={<OpportunityPage />} />
+            <Route
+              path="/loginadmin"
+              element={
+                <PublicOnlyRoute>
+                  <AdminLoginPage />
+                </PublicOnlyRoute>
+              }
+            />
+            <Route
+              path="/sobre"
+              element={
+                <PublicOnlyRoute>
+                  <AboutPage />
+                </PublicOnlyRoute>
+              }
+            />
+            <Route
+              path="/processo"
+              element={
+                <PublicOnlyRoute>
+                  <ProcessPage />
+                </PublicOnlyRoute>
+              }
+            />
+            <Route
+              path="/oportunidade"
+              element={
+                <PublicOnlyRoute>
+                  <OpportunityPage />
+                </PublicOnlyRoute>
+              }
+            />
 
             <Route
               path="/app"
