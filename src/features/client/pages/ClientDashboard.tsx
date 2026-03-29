@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useSearchParams } from "react-router-dom"
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
 import { AppShell } from "@/components/layouts/AppShell"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -20,7 +20,9 @@ type ClientSection = "catalogo" | "pedidos" | "informacoes" | "perfil" | "gerent
 const allowedTabs: ClientSection[] = ["catalogo", "pedidos", "informacoes", "perfil", "gerente", "carrinho"]
 
 export default function ClientDashboard() {
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const location = useLocation()
   const [resellerProfile, setResellerProfile] = useState<ResellerProfile | null>(null)
   const [refreshOrders, setRefreshOrders] = useState<(() => Promise<void>) | null>(null)
   const { user } = useAuth()
@@ -38,7 +40,10 @@ export default function ClientDashboard() {
   const displayManagerPhone = formatPhone(managerWhatsapp.replace(/\D/g, "").slice(-11))
 
   const changeSection = (next: string) => {
-    setSearchParams({ tab: next })
+    navigate({
+      pathname: location.pathname,
+      search: `?tab=${next}`,
+    })
   }
 
   return (
