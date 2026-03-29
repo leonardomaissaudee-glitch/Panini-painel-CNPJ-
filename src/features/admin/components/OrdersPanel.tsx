@@ -48,6 +48,11 @@ function getPaymentMethodLabel(method?: string | null) {
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message
+  if (error && typeof error === "object") {
+    const parts = [Reflect.get(error, "message"), Reflect.get(error, "details"), Reflect.get(error, "hint")]
+      .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    if (parts.length > 0) return parts.join(" | ")
+  }
   return "Não foi possível concluir a operação."
 }
 
