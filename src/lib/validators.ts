@@ -7,7 +7,10 @@ export const cnpjSchema = z
   .transform((v) => unformatCNPJ(v))
   .refine((v) => v.length === 14, "CNPJ inválido")
 
-const passwordSchema = z.string().min(8, "Senha deve ter ao menos 8 caracteres")
+const passwordSchema = z
+  .string()
+  .min(8, "Senha deve ter ao menos 8 caracteres")
+  .refine((value) => /[A-Za-z]/.test(value) && /\d/.test(value), "Use letras e números na senha")
 
 export const cadastroRevendedorSchema = z
   .object({
@@ -21,12 +24,28 @@ export const cadastroRevendedorSchema = z
     data_abertura: z.string().optional(),
     porte_empresa: z.string().optional(),
     nome_responsavel: z.string().min(2, "Nome do responsável obrigatório"),
-    cpf_responsavel: z.string().optional().transform((v) => unformatCPF(v || "")),
+    cpf_responsavel: z
+      .string()
+      .optional()
+      .transform((v) => unformatCPF(v || ""))
+      .refine((v) => !v || v.length === 11, "CPF inválido"),
     cargo_responsavel: z.string().optional(),
-    telefone: z.string().min(10, "Telefone obrigatório").transform((v) => unformatPhone(v)),
-    whatsapp: z.string().optional().transform((v) => unformatPhone(v || "")),
+    telefone: z
+      .string()
+      .min(10, "Telefone obrigatório")
+      .transform((v) => unformatPhone(v))
+      .refine((v) => v.length >= 10, "Telefone inválido"),
+    whatsapp: z
+      .string()
+      .optional()
+      .transform((v) => unformatPhone(v || ""))
+      .refine((v) => !v || v.length >= 10, "WhatsApp inválido"),
     email: z.string().email("E-mail inválido"),
-    cep: z.string().min(8, "CEP obrigatório").transform((v) => unformatCEP(v)),
+    cep: z
+      .string()
+      .min(8, "CEP obrigatório")
+      .transform((v) => unformatCEP(v))
+      .refine((v) => v.length === 8, "CEP inválido"),
     endereco: z.string().min(2, "Endereço obrigatório"),
     numero: z.string().min(1, "Número obrigatório"),
     complemento: z.string().optional(),
@@ -34,7 +53,10 @@ export const cadastroRevendedorSchema = z
     cidade: z.string().min(2, "Cidade obrigatória"),
     estado: z.string().min(2, "UF obrigatória"),
     canal_revenda: z.string().min(1, "Informe o canal de revenda"),
-    trabalha_com_colecionaveis: z.boolean(),
+    trabalha_com_colecionaveis: z.boolean({
+      required_error: "Informe se já trabalha com produtos colecionáveis",
+      invalid_type_error: "Informe se já trabalha com produtos colecionáveis",
+    }),
     faixa_investimento: z.string().min(1, "Selecione a faixa"),
     observacoes: z.string().optional(),
     aceitou_veracidade: z.boolean().refine((v) => v, "Necessário confirmar veracidade"),
