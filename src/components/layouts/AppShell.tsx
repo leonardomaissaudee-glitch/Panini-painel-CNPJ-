@@ -26,27 +26,28 @@ export function AppShell({ title, nav = [], actions, children, contentClassName 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b bg-white/90 backdrop-blur">
-        <div className="container mx-auto flex items-center justify-between gap-3 px-4 py-3">
-          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
             <Link to={dashboardPath} className="flex items-center gap-2">
               <img
                 src="https://pub-c0bfb119504542e0b2e6ebc8f6b3b1df.r2.dev/user-uploads/user_38XNRHxmsUPTGvoK09TMInYrBxw/09cf08fa-d355-4e36-811b-7f54f9f72f94.png"
                 alt="Logo"
                 className="h-8 w-auto sm:h-10"
               />
-              <span className="text-sm font-semibold leading-tight sm:text-base">Painel</span>
             </Link>
-            <div className="truncate text-[11px] text-muted-foreground sm:text-sm">/ {title}</div>
+            <div className="flex shrink-0 items-center gap-2">
+              <ThemeToggle />
+              {actions}
+              {user && (
+                <Button variant="outline" size="sm" onClick={() => signOut()}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sair
+                </Button>
+              )}
+            </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <ThemeToggle />
-            {actions}
-            {user && (
-              <Button variant="outline" size="sm" onClick={() => signOut()}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Sair
-              </Button>
-            )}
+          <div className="mt-3 text-center text-xs font-medium tracking-[0.16em] text-muted-foreground sm:text-sm">
+            {title}
           </div>
         </div>
       </header>

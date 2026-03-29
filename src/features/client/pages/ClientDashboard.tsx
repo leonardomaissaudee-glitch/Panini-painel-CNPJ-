@@ -48,7 +48,7 @@ export default function ClientDashboard() {
     <AppShell title="Portal do Cliente">
       <div className="space-y-6">
         <Card className="overflow-hidden border-0 bg-gradient-to-br from-blue-950 via-blue-900 to-slate-900 text-white shadow-2xl">
-          <CardContent className="grid grid-cols-[minmax(0,1fr)_160px] gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_220px] sm:gap-5 sm:p-6 md:p-8">
+          <CardContent className="grid grid-cols-[minmax(0,1fr)_150px] gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_220px] sm:gap-5 sm:p-6 md:p-8">
             <div className="min-w-0 space-y-3">
               <div className="inline-flex w-fit rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
                 Cliente aprovado
@@ -65,13 +65,13 @@ export default function ClientDashboard() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:min-w-[220px]">
+            <div className="rounded-3xl border border-white/10 bg-white/10 p-3 backdrop-blur sm:min-w-[220px]">
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200">Gerente</div>
-              <div className="mt-2 line-clamp-2 text-base font-semibold leading-tight text-white sm:text-xl">{managerName}</div>
+              <div className="mt-2 line-clamp-2 text-sm font-semibold leading-tight text-white sm:text-xl">{managerName}</div>
               <div className="mt-1 text-xs text-slate-200 sm:text-sm">{displayManagerPhone}</div>
               <Button
                 variant="secondary"
-                className="mt-3 w-full rounded-full"
+                className="mt-3 h-auto w-full rounded-full px-3 py-2 text-sm leading-tight"
                 onClick={() =>
                   window.open(
                     `https://wa.me/${managerWhatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(

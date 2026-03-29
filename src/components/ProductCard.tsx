@@ -37,7 +37,7 @@ export function ProductCard({ product }: ProductCardProps) {
   };
 
   return (
-    <Card className="h-full flex flex-col hover:shadow-lg transition-shadow duration-300">
+    <Card className="min-w-0 h-full flex flex-col hover:shadow-lg transition-shadow duration-300">
       <CardHeader className="p-0">
         <div className="relative aspect-square overflow-hidden rounded-t-lg bg-white">
           {/* CARD UI UPDATE */}
@@ -52,7 +52,7 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
       </CardHeader>
       <CardContent className="flex-1 p-2 md:p-3 space-y-2">
-        <h3 className="font-bold text-xs md:text-base min-h-[3rem] md:min-h-[2.5rem]">
+        <h3 className="min-h-[3rem] break-words font-bold text-[11px] leading-5 md:min-h-[2.5rem] md:text-base">
           {product.name}
         </h3>
         <div className="space-y-1 text-[11px] md:text-xs text-muted-foreground">
@@ -90,10 +90,10 @@ export function ProductCard({ product }: ProductCardProps) {
             </span>
           </div>
         </div>
-        <div className="w-full flex gap-1.5">
+        <div className="flex w-full flex-col gap-1.5 sm:flex-row">
           <Button
             onClick={handleAddToCart}
-            className="flex-[2] h-8 md:h-9"
+            className="h-8 w-full sm:flex-[2] md:h-9"
             size="sm"
             disabled={product.stock === 0}
             style={{ backgroundColor: '#22C55E', color: '#fff' }}
@@ -104,7 +104,7 @@ export function ProductCard({ product }: ProductCardProps) {
           <Button
             onClick={handleBuyNow}
             variant="outline"
-            className="flex-1 h-8 md:h-9"
+            className="h-8 w-full sm:flex-1 md:h-9"
             size="sm"
             disabled={product.stock === 0}
           >
