@@ -51,6 +51,11 @@ export default function PainelPage() {
           return
         }
 
+        if (data.status_cadastro === "approved") {
+          navigate("/app", { replace: true })
+          return
+        }
+
         setProfile(data)
         setLoading(false)
       })
