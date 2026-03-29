@@ -6,6 +6,7 @@ export interface Profile {
   id: string
   auth_user_id?: string | null
   full_name?: string | null
+  email?: string | null
   role: UserRole
   status_cadastro: ApprovalStatus
   tipo_documento?: "cpf" | "cnpj" | null
@@ -14,6 +15,8 @@ export interface Profile {
   endereco?: any | null
   seller_id?: string | null
   motivo_reprovacao?: string | null
+  account_manager_name?: string | null
+  account_manager_whatsapp?: string | null
   created_at?: string
   updated_at?: string
 }
