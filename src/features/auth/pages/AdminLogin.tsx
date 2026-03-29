@@ -28,7 +28,7 @@ export default function AdminLoginPage() {
       const userId = session?.user?.id
       if (!userId) throw new Error("Usuário não encontrado na sessão.")
 
-      const profile = await fetchProfile(userId)
+      const profile = await fetchProfile(userId, session?.user?.email ?? user)
       if (!profile) throw new Error("Perfil não encontrado.")
 
       if (profile.role === "admin") {
