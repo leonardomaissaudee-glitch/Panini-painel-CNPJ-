@@ -167,12 +167,14 @@ export async function uploadOrderPaymentPdf(orderId: string, file: File) {
   const path = `${orderId}/${Date.now()}-${sanitized}`
 
   const { error: uploadError } = await supabase.storage.from("order-payment-files").upload(path, file, {
-    upsert: true,
+    upsert: false,
     contentType: file.type || "application/pdf",
   })
 
   if (uploadError) {
-    throw new Error("Não foi possível enviar o PDF do boleto. Verifique o bucket e as permissões no Supabase.")
+    throw new Error(
+      `Não foi possível enviar o PDF do boleto. Verifique o bucket order-payment-files e as permissões no Supabase. Detalhe: ${uploadError.message}`
+    )
   }
 
   const { data } = supabase.storage.from("order-payment-files").getPublicUrl(path)

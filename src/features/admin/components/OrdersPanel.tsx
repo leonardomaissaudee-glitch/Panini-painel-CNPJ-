@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react"
-import { CreditCard, QrCode, RefreshCw, ReceiptText, Upload, Wallet } from "lucide-react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { ChevronDown, ChevronUp, CreditCard, QrCode, ReceiptText, RefreshCw, Upload, Wallet } from "lucide-react"
 import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -20,7 +20,7 @@ type OrderDraft = Partial<OrderRow> & {
   payment_boleto_pdf_file?: File | null
 }
 
-const normalizedStatuses = new Set<OrderStatus>(ORDER_STATUS_OPTIONS.map((option) => option.value))
+const validStatuses = new Set<OrderStatus>(ORDER_STATUS_OPTIONS.map((option) => option.value))
 
 function normalizeAdminOrderStatus(status?: string | null): OrderStatus {
   if (!status) return "aguardando_aprovacao"
@@ -35,11 +35,7 @@ function normalizeAdminOrderStatus(status?: string | null): OrderStatus {
 
   const mapped = legacyMap[status as OrderStatus]
   if (mapped) return mapped
-
-  if (normalizedStatuses.has(status as OrderStatus)) {
-    return status as OrderStatus
-  }
-
+  if (validStatuses.has(status as OrderStatus)) return status as OrderStatus
   return "aguardando_aprovacao"
 }
 
@@ -48,6 +44,11 @@ function getPaymentMethodLabel(method?: string | null) {
   if (method === "boleto") return "Boleto"
   if (method === "credit_card") return "Cartão"
   return "A definir"
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  return "Não foi possível concluir a operação."
 }
 
 function mergeOrderDraft(order: OrderRow, draft?: OrderDraft) {
@@ -71,17 +72,18 @@ function mergeOrderDraft(order: OrderRow, draft?: OrderDraft) {
   }
 }
 
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message
-  }
-
-  return "Não foi possível salvar as alterações do pedido."
+function getDefaultPaymentInstructions(order: OrderRow, merged: ReturnType<typeof mergeOrderDraft>) {
+  if (merged.payment_instructions?.trim()) return merged.payment_instructions
+  if (order.payment_method === "boleto") return "Explique como o cliente deve usar o boleto e qual etapa vem depois do pagamento."
+  if (order.payment_method === "pix") return "Descreva como o cliente deve efetuar o PIX e como confirmar o pagamento."
+  if (order.payment_method === "credit_card") return "Explique como o cliente deve acessar o link e concluir o pagamento por cartão."
+  return ""
 }
 
 export function OrdersPanel() {
   const [orders, setOrders] = useState<OrderRow[]>([])
   const [editing, setEditing] = useState<Record<string, OrderDraft>>({})
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(false)
   const [savingId, setSavingId] = useState<string | null>(null)
 
@@ -103,6 +105,8 @@ export function OrdersPanel() {
     load()
   }, [])
 
+  const orderedRows = useMemo(() => orders, [orders])
+
   const updateDraft = (orderId: string, patch: Partial<OrderDraft>) => {
     setEditing((current) => ({
       ...current,
@@ -113,50 +117,52 @@ export function OrdersPanel() {
     }))
   }
 
-  const handlePdfChange = async (orderId: string, file: File | null) => {
+  const toggleRow = (orderId: string) => {
+    setExpanded((current) => ({
+      ...current,
+      [orderId]: !current[orderId],
+    }))
+  }
+
+  const handlePdfChange = (orderId: string, file: File | null) => {
     if (!file) return
 
     if (file.type !== "application/pdf") {
       toast.error("Arquivo inválido", {
-        description: "Envie um arquivo PDF para o boleto.",
+        description: "Envie um PDF válido para o boleto.",
       })
       return
     }
 
     updateDraft(orderId, { payment_boleto_pdf_file: file })
-    toast.success("PDF selecionado", {
-      description: "Clique em salvar para enviar o boleto e atualizar o pedido.",
-    })
   }
 
   const validatePaymentData = (order: OrderRow, merged: ReturnType<typeof mergeOrderDraft>) => {
-    if (merged.status !== "aguardando_pagamento") {
-      return
-    }
+    if (merged.status !== "aguardando_pagamento") return
 
     if (order.payment_method === "boleto") {
+      const hasLine = Boolean(merged.payment_boleto_line.trim())
       const hasPdf = Boolean(merged.payment_boleto_pdf_url || merged.payment_boleto_pdf_file)
-      const hasLine = Boolean(merged.payment_boleto_line?.trim())
-      if (!hasPdf && !hasLine) {
+      if (!hasLine && !hasPdf) {
         throw new Error("Preencha a linha digitável ou anexe o PDF do boleto antes de salvar.")
       }
     }
 
     if (order.payment_method === "pix") {
-      const hasPixInfo =
-        Boolean(merged.payment_pix_key?.trim()) ||
-        Boolean(merged.payment_copy_paste?.trim()) ||
-        Boolean(merged.payment_pix_qr_code?.trim()) ||
-        Boolean(merged.payment_instructions?.trim())
+      const hasPixData =
+        Boolean(merged.payment_pix_key.trim()) ||
+        Boolean(merged.payment_copy_paste.trim()) ||
+        Boolean(merged.payment_pix_qr_code.trim()) ||
+        Boolean(merged.payment_instructions.trim())
 
-      if (!hasPixInfo) {
+      if (!hasPixData) {
         throw new Error("Preencha ao menos uma informação de pagamento PIX antes de salvar.")
       }
     }
 
     if (order.payment_method === "credit_card") {
-      const hasCardInfo = Boolean(merged.payment_link_url?.trim()) || Boolean(merged.payment_instructions?.trim())
-      if (!hasCardInfo) {
+      const hasCardData = Boolean(merged.payment_link_url.trim()) || Boolean(merged.payment_instructions.trim())
+      if (!hasCardData) {
         throw new Error("Informe o link de pagamento ou as orientações do cartão antes de salvar.")
       }
     }
@@ -171,8 +177,7 @@ export function OrdersPanel() {
       return
     }
 
-    const draft = editing[orderId]
-    const merged = mergeOrderDraft(order, draft)
+    const merged = mergeOrderDraft(order, editing[orderId])
 
     try {
       validatePaymentData(order, merged)
@@ -184,9 +189,9 @@ export function OrdersPanel() {
       }
 
       await updateOrderStatus(orderId, merged.status, {
-        invoice_number: merged.invoice_number,
-        tracking_code: merged.tracking_code,
-        payment_instructions: merged.payment_instructions || null,
+        invoice_number: merged.invoice_number || null,
+        tracking_code: merged.tracking_code || null,
+        payment_instructions: getDefaultPaymentInstructions(order, merged) || null,
         payment_copy_paste: merged.payment_copy_paste || null,
         payment_link_url: merged.payment_link_url || null,
         payment_boleto_line: merged.payment_boleto_line || null,
@@ -201,7 +206,7 @@ export function OrdersPanel() {
       })
 
       toast.success("Pedido atualizado", {
-        description: "As informações comerciais foram salvas com sucesso.",
+        description: "As informações do pedido foram salvas.",
       })
 
       setEditing((current) => {
@@ -226,7 +231,7 @@ export function OrdersPanel() {
         <div>
           <CardTitle>Pedidos</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Atualize o status do pedido, libere pagamentos e publique NF, rastreio e boleto em PDF.
+            Cada pedido aparece em uma linha. Abra o detalhe para editar pagamento, status, NF e rastreio.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={load} disabled={loading}>
@@ -235,113 +240,145 @@ export function OrdersPanel() {
         </Button>
       </CardHeader>
 
-      <CardContent className="space-y-4">
-        {orders.map((order) => {
+      <CardContent className="space-y-3">
+        {orderedRows.map((order) => {
           const merged = mergeOrderDraft(order, editing[order.id])
-          const activeStatus = normalizeAdminOrderStatus(merged.status)
+          const isExpanded = Boolean(expanded[order.id])
           const isSaving = savingId === order.id
+          const methodLabel = getPaymentMethodLabel(order.payment_method)
+          const statusLabel = getOrderStatusLabel(normalizeAdminOrderStatus(merged.status))
 
           return (
-            <div key={order.id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="text-base font-semibold text-slate-950">Pedido {order.id.slice(0, 8).toUpperCase()}</div>
-                    <StatusBadge status={order.status ?? activeStatus} />
-                  </div>
-                  <div className="space-y-1 text-sm text-muted-foreground">
-                    <div>{order.customer_name}</div>
-                    <div>{order.customer_email}</div>
-                    <div>{order.customer_phone}</div>
-                    <div>Método: {getPaymentMethodLabel(order.payment_method)}</div>
-                    <div>Total: R$ {Number(order.total || 0).toFixed(2)}</div>
+            <div key={order.id} className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="flex flex-col gap-3 p-4 md:grid md:grid-cols-[1.1fr_1.1fr_0.7fr_0.8fr_0.9fr_auto] md:items-center">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-slate-950">Pedido {order.id.slice(0, 8).toUpperCase()}</div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    {order.created_at ? new Date(order.created_at).toLocaleString("pt-BR") : "-"}
                   </div>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2 xl:min-w-[420px]">
-                  <FieldBox label="Status do pedido">
-                    <select
-                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                      value={activeStatus}
-                      onChange={(event) => updateDraft(order.id, { status: event.target.value as OrderStatus })}
-                    >
-                      {ORDER_STATUS_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </FieldBox>
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Cliente</div>
+                  <div className="truncate text-sm font-medium text-slate-900">{order.customer_name}</div>
+                </div>
 
-                  <FieldBox label="Status visível">
-                    <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
-                      {getOrderStatusLabel(activeStatus)}
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Valor</div>
+                  <div className="text-sm font-semibold text-slate-950">R$ {Number(order.total || 0).toFixed(2)}</div>
+                </div>
+
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Pagamento</div>
+                  <div className="text-sm text-slate-700">{methodLabel}</div>
+                </div>
+
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Status</div>
+                  <div className="mt-1">
+                    <StatusBadge status={normalizeAdminOrderStatus(merged.status)} />
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button variant="outline" size="sm" onClick={() => toggleRow(order.id)}>
+                    {isExpanded ? <ChevronUp className="mr-2 h-4 w-4" /> : <ChevronDown className="mr-2 h-4 w-4" />}
+                    {isExpanded ? "Fechar" : "Abrir"}
+                  </Button>
+                </div>
+              </div>
+
+              {isExpanded && (
+                <div className="border-t border-slate-200 px-4 pb-4 pt-4">
+                  <div className="grid gap-4 xl:grid-cols-[1.15fr_1fr]">
+                    <PaymentEditor
+                      order={order}
+                      merged={merged}
+                      onChange={(patch) => updateDraft(order.id, patch)}
+                      onPdfChange={(file) => handlePdfChange(order.id, file)}
+                    />
+
+                    <div className="space-y-4">
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-800">Status e documentos</div>
+                        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                          <FieldBox label="Status do pedido">
+                            <select
+                              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                              value={normalizeAdminOrderStatus(merged.status)}
+                              onChange={(event) => updateDraft(order.id, { status: event.target.value as OrderStatus })}
+                            >
+                              {ORDER_STATUS_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </FieldBox>
+
+                          <FieldBox label="Status visível">
+                            <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700">
+                              {statusLabel}
+                            </div>
+                          </FieldBox>
+
+                          <FieldBox label="Nota fiscal">
+                            <Input
+                              placeholder="Número da NF"
+                              value={merged.invoice_number}
+                              onChange={(event) => updateDraft(order.id, { invoice_number: event.target.value })}
+                            />
+                          </FieldBox>
+
+                          <FieldBox label="Rastreamento">
+                            <Input
+                              placeholder="Código de rastreio"
+                              value={merged.tracking_code}
+                              onChange={(event) => updateDraft(order.id, { tracking_code: event.target.value })}
+                            />
+                          </FieldBox>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-800">Resumo operacional</div>
+                        <div className="mt-4 space-y-2 text-sm text-slate-700">
+                          <p>Cliente ID: {order.cliente_id || "-"}</p>
+                          <p>Status financeiro: {order.payment_status || "pending"}</p>
+                          <p>E-mail: {order.customer_email}</p>
+                          <p>Telefone: {order.customer_phone}</p>
+                        </div>
+                        <div className="mt-5 flex flex-wrap gap-3">
+                          <Button onClick={() => handleUpdate(order.id)} disabled={isSaving}>
+                            {isSaving ? "Salvando..." : "Salvar"}
+                          </Button>
+                          {order.customer_phone && (
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                const phone = order.customer_phone.replace(/\D/g, "")
+                                const text = encodeURIComponent(
+                                  `Olá, ${order.customer_name}. Seu pedido ${order.id.slice(0, 8).toUpperCase()} foi atualizado.`
+                                )
+                                window.open(`https://wa.me/${phone}?text=${text}`, "_blank")
+                              }}
+                            >
+                              Notificar no WhatsApp
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </FieldBox>
-
-                  <FieldBox label="Nota fiscal">
-                    <Input
-                      placeholder="Número da NF"
-                      value={merged.invoice_number}
-                      onChange={(event) => updateDraft(order.id, { invoice_number: event.target.value })}
-                    />
-                  </FieldBox>
-
-                  <FieldBox label="Rastreamento">
-                    <Input
-                      placeholder="Código de rastreio"
-                      value={merged.tracking_code}
-                      onChange={(event) => updateDraft(order.id, { tracking_code: event.target.value })}
-                    />
-                  </FieldBox>
-                </div>
-              </div>
-
-              <div className="mt-5 grid gap-4 xl:grid-cols-[1.15fr_1fr]">
-                <PaymentEditor
-                  order={order}
-                  merged={merged}
-                  onChange={(patch) => updateDraft(order.id, patch)}
-                  onPdfChange={(file) => handlePdfChange(order.id, file)}
-                />
-
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-800">Resumo operacional</div>
-                  <div className="mt-4 space-y-3 text-sm text-slate-700">
-                    <p>Cliente ID: {order.cliente_id || "-"}</p>
-                    <p>Status financeiro: {order.payment_status || "pending"}</p>
-                    <p>NF atual: {order.invoice_number || "Aguardando"}</p>
-                    <p>Localizador atual: {order.tracking_code || "Aguardando"}</p>
-                    <p>Pagamento: {getPaymentMethodLabel(order.payment_method)}</p>
-                  </div>
-                  <div className="mt-6 flex flex-wrap gap-3">
-                    <Button onClick={() => handleUpdate(order.id)} disabled={isSaving}>
-                      {isSaving ? "Salvando..." : "Salvar"}
-                    </Button>
-                    {order.customer_phone && (
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          const phone = order.customer_phone.replace(/\D/g, "")
-                          const text = encodeURIComponent(
-                            `Olá, ${order.customer_name}. Seu pedido ${order.id.slice(0, 8).toUpperCase()} foi atualizado.`
-                          )
-                          window.open(`https://wa.me/${phone}?text=${text}`, "_blank")
-                        }}
-                      >
-                        Notificar no WhatsApp
-                      </Button>
-                    )}
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )
         })}
 
-        {!loading && orders.length === 0 && (
+        {!loading && orderedRows.length === 0 && (
           <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center text-sm text-muted-foreground">
-            Nenhum pedido encontrado no momento.
+            Nenhum pedido encontrado.
           </div>
         )}
       </CardContent>
@@ -360,67 +397,55 @@ function PaymentEditor({
   onChange: (patch: Partial<OrderDraft>) => void
   onPdfChange: (file: File | null) => void
 }) {
-  const method = order.payment_method
-
-  if (method === "boleto") {
+  if (order.payment_method === "boleto") {
     return (
-      <div className="rounded-2xl border border-slate-200 p-4">
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
-          <ReceiptText className="h-4 w-4 text-amber-600" />
-          Dados do boleto
-        </div>
-        <div className="mt-4 grid gap-4">
-          <FieldBox label="Linha digitável">
-            <Textarea
-              rows={3}
-              placeholder="Cole a linha digitável do boleto"
-              value={merged.payment_boleto_line}
-              onChange={(event) => onChange({ payment_boleto_line: event.target.value })}
-            />
-          </FieldBox>
+      <SectionCard icon={<ReceiptText className="h-4 w-4 text-amber-600" />} title="Dados do boleto">
+        <FieldBox label="Linha digitável">
+          <Textarea
+            rows={3}
+            placeholder="Cole a linha digitável do boleto"
+            value={merged.payment_boleto_line}
+            onChange={(event) => onChange({ payment_boleto_line: event.target.value })}
+          />
+        </FieldBox>
 
-          <FieldBox label="Orientações ao cliente">
-            <Textarea
-              rows={5}
-              placeholder="Explique como o cliente deve usar o boleto e qual etapa vem depois do pagamento."
-              value={merged.payment_instructions}
-              onChange={(event) => onChange({ payment_instructions: event.target.value })}
-            />
-          </FieldBox>
+        <FieldBox label="Orientações ao cliente">
+          <Textarea
+            rows={5}
+            placeholder="Explique como o cliente deve usar o boleto e qual etapa vem depois do pagamento."
+            value={merged.payment_instructions}
+            onChange={(event) => onChange({ payment_instructions: event.target.value })}
+          />
+        </FieldBox>
 
-          <FieldBox label="PDF do boleto">
-            <div className="space-y-3">
-              <Input type="file" accept="application/pdf" onChange={(event) => onPdfChange(event.target.files?.[0] ?? null)} />
-              {merged.payment_boleto_pdf_file && (
-                <div className="text-xs text-slate-500">Arquivo selecionado: {merged.payment_boleto_pdf_file.name}</div>
-              )}
-              {merged.payment_boleto_pdf_url && (
-                <Button asChild variant="outline" size="sm">
-                  <a href={merged.payment_boleto_pdf_url} target="_blank" rel="noreferrer">
-                    <Upload className="mr-2 h-4 w-4" />
-                    Abrir PDF atual
-                  </a>
-                </Button>
-              )}
-            </div>
-          </FieldBox>
-        </div>
-      </div>
+        <FieldBox label="PDF do boleto">
+          <div className="space-y-3">
+            <Input type="file" accept="application/pdf" onChange={(event) => onPdfChange(event.target.files?.[0] ?? null)} />
+            {merged.payment_boleto_pdf_file && (
+              <div className="text-xs text-slate-500">Arquivo selecionado: {merged.payment_boleto_pdf_file.name}</div>
+            )}
+            {merged.payment_boleto_pdf_url && (
+              <Button asChild variant="outline" size="sm">
+                <a href={merged.payment_boleto_pdf_url} target="_blank" rel="noreferrer">
+                  <Upload className="mr-2 h-4 w-4" />
+                  Abrir PDF atual
+                </a>
+              </Button>
+            )}
+          </div>
+        </FieldBox>
+      </SectionCard>
     )
   }
 
-  if (method === "pix") {
+  if (order.payment_method === "pix") {
     return (
-      <div className="rounded-2xl border border-slate-200 p-4">
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
-          <QrCode className="h-4 w-4 text-blue-700" />
-          Dados PIX
-        </div>
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
+      <SectionCard icon={<QrCode className="h-4 w-4 text-blue-700" />} title="Dados PIX">
+        <div className="grid gap-4 md:grid-cols-2">
           <FieldBox label="Orientações">
             <Textarea
               rows={6}
-              placeholder="Descreva como o cliente deve pagar via PIX."
+              placeholder="Descreva como o cliente deve efetuar o PIX."
               value={merged.payment_instructions}
               onChange={(event) => onChange({ payment_instructions: event.target.value })}
             />
@@ -438,7 +463,7 @@ function PaymentEditor({
 
             <FieldBox label="QR code / link do QR code">
               <Input
-                placeholder="Link do QR code ou texto de referência"
+                placeholder="Link do QR code ou referência"
                 value={merged.payment_pix_qr_code}
                 onChange={(event) => onChange({ payment_pix_qr_code: event.target.value })}
               />
@@ -463,7 +488,7 @@ function PaymentEditor({
 
           <FieldBox label="Chave PIX">
             <Input
-              placeholder="Chave aleatória / e-mail / CNPJ / telefone"
+              placeholder="Chave aleatória / CNPJ / e-mail / telefone"
               value={merged.payment_pix_key}
               onChange={(event) => onChange({ payment_pix_key: event.target.value })}
             />
@@ -493,55 +518,55 @@ function PaymentEditor({
             />
           </FieldBox>
         </div>
-      </div>
+      </SectionCard>
     )
   }
 
-  if (method === "credit_card") {
+  if (order.payment_method === "credit_card") {
     return (
-      <div className="rounded-2xl border border-slate-200 p-4">
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
-          <CreditCard className="h-4 w-4 text-blue-700" />
-          Pagamento por cartão
-        </div>
-        <div className="mt-4 grid gap-4">
-          <FieldBox label="Link de pagamento">
-            <Input
-              placeholder="Cole o link de pagamento"
-              value={merged.payment_link_url}
-              onChange={(event) => onChange({ payment_link_url: event.target.value })}
-            />
-          </FieldBox>
+      <SectionCard icon={<CreditCard className="h-4 w-4 text-blue-700" />} title="Pagamento por cartão">
+        <FieldBox label="Link de pagamento">
+          <Input
+            placeholder="Cole o link de pagamento"
+            value={merged.payment_link_url}
+            onChange={(event) => onChange({ payment_link_url: event.target.value })}
+          />
+        </FieldBox>
 
-          <FieldBox label="Orientações ao cliente">
-            <Textarea
-              rows={5}
-              placeholder="Descreva prazo, parcelamento ou instruções adicionais."
-              value={merged.payment_instructions}
-              onChange={(event) => onChange({ payment_instructions: event.target.value })}
-            />
-          </FieldBox>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="rounded-2xl border border-slate-200 p-4">
-      <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
-        <Wallet className="h-4 w-4 text-blue-700" />
-        Informações de pagamento
-      </div>
-      <div className="mt-4">
-        <FieldBox label="Orientações gerais">
+        <FieldBox label="Orientações ao cliente">
           <Textarea
             rows={5}
-            placeholder="Informe como o pagamento deve ser tratado para este pedido."
+            placeholder="Descreva prazo, parcelamento ou instruções adicionais."
             value={merged.payment_instructions}
             onChange={(event) => onChange({ payment_instructions: event.target.value })}
           />
         </FieldBox>
+      </SectionCard>
+    )
+  }
+
+  return (
+    <SectionCard icon={<Wallet className="h-4 w-4 text-blue-700" />} title="Informações de pagamento">
+      <FieldBox label="Orientações gerais">
+        <Textarea
+          rows={5}
+          placeholder="Informe como o pagamento deve ser tratado para este pedido."
+          value={merged.payment_instructions}
+          onChange={(event) => onChange({ payment_instructions: event.target.value })}
+        />
+      </FieldBox>
+    </SectionCard>
+  )
+}
+
+function SectionCard({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
+        {icon}
+        {title}
       </div>
+      <div className="mt-4 space-y-4">{children}</div>
     </div>
   )
 }
