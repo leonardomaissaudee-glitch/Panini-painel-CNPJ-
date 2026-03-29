@@ -37,6 +37,7 @@ export function ClientOrders({
   const [orders, setOrders] = useState<OrderRow[]>([])
   const [loading, setLoading] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [summaryExpanded, setSummaryExpanded] = useState<Record<string, boolean>>({})
   const [receiptDrafts, setReceiptDrafts] = useState<Record<string, ReceiptDraft>>({})
   const estimatedDeliveryLabel = getEstimatedDeliveryLabel()
 
@@ -176,35 +177,11 @@ export function ClientOrders({
 
               {isExpanded && (
                 <div className="space-y-4 border-t border-slate-200 px-4 pb-4 pt-4">
-                  <div className="grid gap-3 lg:grid-cols-[1.1fr_1fr]">
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Resumo do pedido</div>
-                      <div className="mt-3 space-y-2 text-sm text-slate-700">
-                        <p>Status atual: {getOrderStatusLabel(normalizedStatus)}</p>
-                        <p>Forma de pagamento: {getPaymentMethodLabel(order.payment_method)}</p>
-                        <p>Previsão de entrega: {estimatedDeliveryLabel}</p>
-                      </div>
-                      <div className="mt-4 space-y-3">
-                        {(order.items ?? []).map((item, index) => {
-                          const quantity = Number((item.quantity as number) || 0)
-                          const subtotal = Number((item.subtotal as number) || 0)
-                          return (
-                            <div key={`${order.id}-item-${index}`} className="rounded-2xl border border-slate-200 bg-white p-3">
-                              <div className="text-sm font-semibold text-slate-900">{String(item.name ?? "Produto")}</div>
-                              <div className="mt-1 text-xs text-slate-500">
-                                Ref. {String(item.reference ?? "-")} · Qtde: {quantity}
-                              </div>
-                              <div className="mt-2 text-sm font-medium text-slate-800">Subtotal: R$ {subtotal.toFixed(2)}</div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-
+                  <div className="space-y-3">
                     <div className="rounded-2xl border border-slate-200 p-4">
                       <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-800">Linha do pedido</div>
-                      <div className="mt-4 overflow-x-auto">
-                        <div className="flex min-w-max gap-3">
+                      <div className="mt-4">
+                        <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
                           {orderTimeline.map((step) => {
                             const isActive = step === normalizedStatus
                             const isReached = hasReached(step, normalizedStatus)
@@ -213,7 +190,7 @@ export function ClientOrders({
                               <div
                                 key={step}
                                 className={[
-                                  "min-w-[180px] rounded-2xl border px-4 py-3 text-sm transition",
+                                  "rounded-2xl border px-3 py-3 text-sm transition",
                                   isActive
                                     ? "border-blue-900 bg-blue-950 text-white"
                                     : isReached
@@ -221,7 +198,7 @@ export function ClientOrders({
                                       : "border-slate-200 bg-slate-50 text-slate-500",
                                 ].join(" ")}
                               >
-                                {getOrderStatusLabel(step)}
+                                {getCompactOrderStatusLabel(step)}
                               </div>
                             )
                           })}
@@ -257,6 +234,59 @@ export function ClientOrders({
                         />
                       </div>
                     </div>
+                  </div>
+
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Resumo do pedido</div>
+                        <div className="mt-2 space-y-1 text-sm text-slate-700">
+                          <p>Status atual: {getOrderStatusLabel(normalizedStatus)}</p>
+                          <p>Forma de pagamento: {getPaymentMethodLabel(order.payment_method)}</p>
+                          <p>Previsão de entrega: {estimatedDeliveryLabel}</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setSummaryExpanded((current) => ({
+                            ...current,
+                            [order.id]: !current[order.id],
+                          }))
+                        }
+                      >
+                        {summaryExpanded[order.id] ? (
+                          <>
+                            <ChevronUp className="mr-2 h-4 w-4" />
+                            Fechar resumo
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="mr-2 h-4 w-4" />
+                            Expandir resumo
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    {summaryExpanded[order.id] && (
+                      <div className="mt-4 space-y-3">
+                        {(order.items ?? []).map((item, index) => {
+                          const quantity = Number((item.quantity as number) || 0)
+                          const subtotal = Number((item.subtotal as number) || 0)
+                          return (
+                            <div key={`${order.id}-item-${index}`} className="rounded-2xl border border-slate-200 bg-white p-3">
+                              <div className="text-sm font-semibold text-slate-900">{String(item.name ?? "Produto")}</div>
+                              <div className="mt-1 text-xs text-slate-500">
+                                Ref. {String(item.reference ?? "-")} · Qtde: {quantity}
+                              </div>
+                              <div className="mt-2 text-sm font-medium text-slate-800">Subtotal: R$ {subtotal.toFixed(2)}</div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   {normalizedStatus === "aguardando_pagamento" && (
@@ -479,4 +509,19 @@ function getPaymentMethodLabel(method?: string | null) {
   if (method === "boleto") return "Boleto"
   if (method === "credit_card") return "Cartão"
   return "A definir"
+}
+
+function getCompactOrderStatusLabel(status: OrderTimelineStatus) {
+  const labels: Record<OrderTimelineStatus, string> = {
+    aguardando_aprovacao: "Pedido feito",
+    aguardando_pagamento: "Aguard. pagto",
+    aguardando_verificacao_financeira: "Verif. fin.",
+    pedido_pago: "Pago",
+    em_expedicao: "Expedição",
+    nota_fiscal_emitida: "NF emitida",
+    localizador_disponivel: "Localizador",
+    pedido_entregue: "Entregue",
+  }
+
+  return labels[status]
 }
