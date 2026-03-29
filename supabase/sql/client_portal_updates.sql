@@ -47,7 +47,14 @@ alter table public.orders
   add column if not exists payment_copy_paste text,
   add column if not exists payment_link_url text,
   add column if not exists payment_boleto_line text,
-  add column if not exists payment_boleto_pdf_url text;
+  add column if not exists payment_boleto_pdf_url text,
+  add column if not exists payment_pix_bank_name text,
+  add column if not exists payment_pix_key text,
+  add column if not exists payment_pix_beneficiary text,
+  add column if not exists payment_pix_agency text,
+  add column if not exists payment_pix_account text,
+  add column if not exists payment_pix_amount text,
+  add column if not exists payment_pix_qr_code text;
 
 update public.orders
 set status = 'novo_pedido'
