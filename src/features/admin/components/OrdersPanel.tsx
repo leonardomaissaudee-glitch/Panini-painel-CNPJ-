@@ -5,14 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { updateOrderStatus, fetchOrders, type OrderRow, type OrderStatus } from "@/features/admin/services/adminService"
-
-const statusOptions: { label: string; value: OrderStatus }[] = [
-  { label: "Novo pedido", value: "novo_pedido" },
-  { label: "Pago", value: "pago" },
-  { label: "Enviado", value: "enviado" },
-  { label: "Nota fiscal emitida", value: "nota_fiscal" },
-  { label: "Rastreamento", value: "rastreio" },
-]
+import { ORDER_STATUS_OPTIONS } from "@/shared/constants/orderStatus"
 
 export function OrdersPanel() {
   const [orders, setOrders] = useState<OrderRow[]>([])
@@ -86,7 +79,7 @@ export function OrdersPanel() {
                 <TableCell>
                   <select
                     className="h-9 w-full rounded-md border border-input bg-background text-sm"
-                    value={editing[order.id]?.status || order.status || "novo_pedido"}
+                    value={editing[order.id]?.status || order.status || "aguardando_aprovacao"}
                     onChange={(e) =>
                       setEditing((prev) => ({
                         ...prev,
@@ -94,7 +87,7 @@ export function OrdersPanel() {
                       }))
                     }
                   >
-                    {statusOptions.map((opt) => (
+                    {ORDER_STATUS_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>
