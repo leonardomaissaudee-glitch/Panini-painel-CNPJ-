@@ -52,10 +52,12 @@ export function OrdersPanel() {
     const paymentLink = state?.payment_link_url ?? order?.payment_link_url ?? ""
     const boletoLine = state?.payment_boleto_line ?? order?.payment_boleto_line ?? ""
     const boletoPdfUrl = state?.payment_boleto_pdf_url ?? order?.payment_boleto_pdf_url ?? ""
+    const pixKey = state?.payment_pix_key ?? order?.payment_pix_key ?? ""
+    const pixQrCode = state?.payment_pix_qr_code ?? order?.payment_pix_qr_code ?? ""
 
     if (nextStatus === "aguardando_pagamento") {
-      if (paymentMethod === "pix" && !instructions.trim() && !copyPaste.trim()) {
-        toast.error("Preencha as instruções PIX ou o código copia e cola antes de salvar.")
+      if (paymentMethod === "pix" && !instructions.trim() && !copyPaste.trim() && !pixKey.trim() && !pixQrCode.trim()) {
+        toast.error("Preencha os dados PIX antes de salvar.")
         return
       }
 
@@ -79,6 +81,13 @@ export function OrdersPanel() {
         payment_link_url: state?.payment_link_url,
         payment_boleto_line: state?.payment_boleto_line,
         payment_boleto_pdf_url: state?.payment_boleto_pdf_url,
+        payment_pix_bank_name: state?.payment_pix_bank_name,
+        payment_pix_key: state?.payment_pix_key,
+        payment_pix_beneficiary: state?.payment_pix_beneficiary,
+        payment_pix_agency: state?.payment_pix_agency,
+        payment_pix_account: state?.payment_pix_account,
+        payment_pix_amount: state?.payment_pix_amount,
+        payment_pix_qr_code: state?.payment_pix_qr_code,
       })
       toast.success("Pedido atualizado")
       setEditing((prev) => ({ ...prev, [id]: {} }))
@@ -178,6 +187,78 @@ export function OrdersPanel() {
                             setEditing((prev) => ({
                               ...prev,
                               [order.id]: { ...prev[order.id], payment_instructions: e.target.value },
+                            }))
+                          }
+                        />
+                        <div className="grid gap-2 md:grid-cols-2">
+                          <Input
+                            placeholder="Banco"
+                            value={editing[order.id]?.payment_pix_bank_name ?? order.payment_pix_bank_name ?? ""}
+                            onChange={(e) =>
+                              setEditing((prev) => ({
+                                ...prev,
+                                [order.id]: { ...prev[order.id], payment_pix_bank_name: e.target.value },
+                              }))
+                            }
+                          />
+                          <Input
+                            placeholder="Beneficiário"
+                            value={editing[order.id]?.payment_pix_beneficiary ?? order.payment_pix_beneficiary ?? ""}
+                            onChange={(e) =>
+                              setEditing((prev) => ({
+                                ...prev,
+                                [order.id]: { ...prev[order.id], payment_pix_beneficiary: e.target.value },
+                              }))
+                            }
+                          />
+                          <Input
+                            placeholder="Chave PIX"
+                            value={editing[order.id]?.payment_pix_key ?? order.payment_pix_key ?? ""}
+                            onChange={(e) =>
+                              setEditing((prev) => ({
+                                ...prev,
+                                [order.id]: { ...prev[order.id], payment_pix_key: e.target.value },
+                              }))
+                            }
+                          />
+                          <Input
+                            placeholder="Valor"
+                            value={editing[order.id]?.payment_pix_amount ?? order.payment_pix_amount ?? ""}
+                            onChange={(e) =>
+                              setEditing((prev) => ({
+                                ...prev,
+                                [order.id]: { ...prev[order.id], payment_pix_amount: e.target.value },
+                              }))
+                            }
+                          />
+                          <Input
+                            placeholder="Agência"
+                            value={editing[order.id]?.payment_pix_agency ?? order.payment_pix_agency ?? ""}
+                            onChange={(e) =>
+                              setEditing((prev) => ({
+                                ...prev,
+                                [order.id]: { ...prev[order.id], payment_pix_agency: e.target.value },
+                              }))
+                            }
+                          />
+                          <Input
+                            placeholder="Conta"
+                            value={editing[order.id]?.payment_pix_account ?? order.payment_pix_account ?? ""}
+                            onChange={(e) =>
+                              setEditing((prev) => ({
+                                ...prev,
+                                [order.id]: { ...prev[order.id], payment_pix_account: e.target.value },
+                              }))
+                            }
+                          />
+                        </div>
+                        <Input
+                          placeholder="QR Code (URL da imagem ou conteúdo de referência)"
+                          value={editing[order.id]?.payment_pix_qr_code ?? order.payment_pix_qr_code ?? ""}
+                          onChange={(e) =>
+                            setEditing((prev) => ({
+                              ...prev,
+                              [order.id]: { ...prev[order.id], payment_pix_qr_code: e.target.value },
                             }))
                           }
                         />
