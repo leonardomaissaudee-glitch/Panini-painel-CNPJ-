@@ -1,6 +1,6 @@
 import { supabase } from "@/shared/services/supabaseClient"
 import type { Profile } from "@/shared/types/auth"
-import type { OrderStatus } from "@/features/admin/services/adminService"
+import type { OrderStatus } from "@/shared/constants/orderStatus"
 
 export interface SellerOrder {
   id: string
@@ -132,7 +132,7 @@ export async function createManualOrder(input: {
     total,
     payment_method,
     payment_status: "pending",
-    status: "novo_pedido",
+    status: "aguardando_aprovacao",
     seller_id,
   })
   if (error) throw error
