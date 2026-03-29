@@ -82,17 +82,18 @@ to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
--- Function to map CNPJ -> auth email (minimal return)
+-- Function to map CNPJ -> auth email (minimal return for custom login)
 create or replace function public.get_auth_email_by_cnpj(cnpj_input text)
-returns table(user_id uuid, email text)
+returns text
 language sql
 security definer
+set search_path = public
 as $$
-  select rp.user_id, rp.email
+  select rp.email
   from public.reseller_profiles rp
-  where rp.cnpj = cnpj_input
+  where rp.cnpj = regexp_replace(cnpj_input, '\D', '', 'g')
   limit 1;
 $$;
 
 revoke all on function public.get_auth_email_by_cnpj from public;
-grant execute on function public.get_auth_email_by_cnpj to authenticated;
+grant execute on function public.get_auth_email_by_cnpj to anon, authenticated;
