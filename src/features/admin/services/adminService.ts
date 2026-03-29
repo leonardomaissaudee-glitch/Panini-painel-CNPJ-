@@ -25,6 +25,13 @@ export interface OrderRow {
   payment_link_url?: string | null
   payment_boleto_line?: string | null
   payment_boleto_pdf_url?: string | null
+  payment_pix_bank_name?: string | null
+  payment_pix_key?: string | null
+  payment_pix_beneficiary?: string | null
+  payment_pix_agency?: string | null
+  payment_pix_account?: string | null
+  payment_pix_amount?: string | null
+  payment_pix_qr_code?: string | null
   account_manager_name?: string | null
   account_manager_whatsapp?: string | null
   created_at?: string
@@ -118,6 +125,13 @@ export async function updateOrderStatus(
     payment_link_url?: string | null
     payment_boleto_line?: string | null
     payment_boleto_pdf_url?: string | null
+    payment_pix_bank_name?: string | null
+    payment_pix_key?: string | null
+    payment_pix_beneficiary?: string | null
+    payment_pix_agency?: string | null
+    payment_pix_account?: string | null
+    payment_pix_amount?: string | null
+    payment_pix_qr_code?: string | null
   }
 ) {
   const { data: current } = await supabase.from("orders").select("payment_status").eq("id", id).maybeSingle()
@@ -134,6 +148,13 @@ export async function updateOrderStatus(
       payment_link_url: extras?.payment_link_url ?? null,
       payment_boleto_line: extras?.payment_boleto_line ?? null,
       payment_boleto_pdf_url: extras?.payment_boleto_pdf_url ?? null,
+      payment_pix_bank_name: extras?.payment_pix_bank_name ?? null,
+      payment_pix_key: extras?.payment_pix_key ?? null,
+      payment_pix_beneficiary: extras?.payment_pix_beneficiary ?? null,
+      payment_pix_agency: extras?.payment_pix_agency ?? null,
+      payment_pix_account: extras?.payment_pix_account ?? null,
+      payment_pix_amount: extras?.payment_pix_amount ?? null,
+      payment_pix_qr_code: extras?.payment_pix_qr_code ?? null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)
