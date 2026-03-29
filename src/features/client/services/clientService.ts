@@ -71,6 +71,7 @@ export async function createClientOrder({
   const { data, error } = await supabase
     .from("orders")
     .insert({
+      cliente_id: profile.legacy_profile_id ?? profile.user_id,
       customer_name: profile.razao_social,
       customer_email: profile.email,
       customer_phone: profile.whatsapp || profile.telefone,
