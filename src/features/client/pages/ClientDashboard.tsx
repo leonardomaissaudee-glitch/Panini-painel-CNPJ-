@@ -25,10 +25,15 @@ export default function ClientDashboard() {
   const [resellerProfile, setResellerProfile] = useState<ResellerProfile | null>(null)
   const [refreshOrders, setRefreshOrders] = useState<(() => Promise<void>) | null>(null)
   const { user } = useAuth()
-  const currentTab = new URLSearchParams(location.search).get("tab")
-  const section: ClientSection = allowedTabs.includes(currentTab as ClientSection)
-    ? (currentTab as ClientSection)
-    : "catalogo"
+  const [section, setSection] = useState<ClientSection>("catalogo")
+
+  useEffect(() => {
+    const currentTab = new URLSearchParams(location.search).get("tab")
+    const nextSection: ClientSection = allowedTabs.includes(currentTab as ClientSection)
+      ? (currentTab as ClientSection)
+      : "catalogo"
+    setSection(nextSection)
+  }, [location.search])
 
   useEffect(() => {
     findResellerProfileByCurrentUser().then(setResellerProfile).catch(() => setResellerProfile(null))
@@ -81,9 +86,13 @@ export default function ClientDashboard() {
         </Card>
 
         <div className="grid gap-4 xl:grid-cols-[260px_1fr]">
-          <ClientSidebar active={section} />
+          <ClientSidebar active={section} onChange={(next) => {
+            const normalized = next as ClientSection
+            setSection(normalized)
+            changeSection(normalized)
+          }} />
 
-          <div className="min-w-0 space-y-4">
+          <div key={section} className="min-w-0 space-y-4">
             {section === "catalogo" && <ClientCatalog />}
             {section === "pedidos" && (
               <ClientOrders email={user?.email} onRefreshReady={(refresh) => setRefreshOrders(() => refresh)} />

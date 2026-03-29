@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom"
 import { LayoutGrid, CircleHelp, PackageSearch, ShoppingBag, UserRound, MessageCircleMore } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -13,8 +12,10 @@ const items = [
 
 export function ClientSidebar({
   active,
+  onChange,
 }: {
   active: string
+  onChange: (key: string) => void
 }) {
   return (
     <aside className="space-y-4">
@@ -23,9 +24,10 @@ export function ClientSidebar({
           const Icon = item.icon
 
           return (
-            <Link
+            <button
               key={item.key}
-              to={`/app?tab=${item.key}`}
+              type="button"
+              onClick={() => onChange(item.key)}
               className={cn(
                 "inline-flex min-h-[58px] w-full items-center gap-2 rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition",
                 "justify-start",
@@ -36,7 +38,7 @@ export function ClientSidebar({
             >
               <Icon className="h-4 w-4" />
               {item.label}
-            </Link>
+            </button>
           )
         })}
       </div>
