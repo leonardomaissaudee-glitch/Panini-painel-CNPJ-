@@ -11,15 +11,8 @@ import {
   updateSellerOrder,
   type SellerOrder,
 } from "@/features/seller/services/sellerService"
-import type { OrderStatus } from "@/features/admin/services/adminService"
-
-const statusOptions: { label: string; value: OrderStatus }[] = [
-  { label: "Novo pedido", value: "novo_pedido" },
-  { label: "Pago", value: "pago" },
-  { label: "Enviado", value: "enviado" },
-  { label: "Nota fiscal", value: "nota_fiscal" },
-  { label: "Rastreio", value: "rastreio" },
-]
+import type { OrderStatus } from "@/shared/constants/orderStatus"
+import { ORDER_STATUS_OPTIONS } from "@/shared/constants/orderStatus"
 
 export function SellerOrdersPanel({ sellerId }: { sellerId?: string }) {
   const [orders, setOrders] = useState<SellerOrder[]>([])
@@ -193,7 +186,7 @@ export function SellerOrdersPanel({ sellerId }: { sellerId?: string }) {
                   <TableCell>
                     <select
                       className="h-9 w-full rounded-md border border-input bg-background text-sm"
-                      value={editing[o.id]?.status || o.status || "novo_pedido"}
+                      value={editing[o.id]?.status || o.status || "aguardando_aprovacao"}
                       onChange={(e) =>
                         setEditing((prev) => ({
                           ...prev,
@@ -201,7 +194,7 @@ export function SellerOrdersPanel({ sellerId }: { sellerId?: string }) {
                         }))
                       }
                     >
-                      {statusOptions.map((opt) => (
+                      {ORDER_STATUS_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
                           {opt.label}
                         </option>
