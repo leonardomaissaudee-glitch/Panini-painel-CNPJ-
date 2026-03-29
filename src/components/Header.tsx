@@ -1,39 +1,32 @@
-import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { ShoppingCart, LogIn, UserPlus, Menu, X, ShieldCheck, Sparkles, Package, Percent, Truck, Wallet, Globe2, BarChart3 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ThemeToggle } from '@/components/theme-toggle';
-import { useCart } from '@/contexts/CartContext';
-import { useAuth } from '@/features/auth/context/AuthContext';
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { ShoppingCart, LogIn, UserPlus, Menu, X, LogOut, LayoutDashboard } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/features/auth/context/AuthContext";
 
 export function Header() {
-  const location = useLocation();
   const [open, setOpen] = useState(false);
-  const { profile } = useAuth();
+  const { profile, user, signOut } = useAuth();
   const { getCartCount } = useCart();
   const cartCount = getCartCount();
 
-  const isHome = location.pathname === '/';
-  const showCart = !!profile && profile.role === 'client';
+  const showCart = !!profile && profile.role === "client";
+  const dashboardPath = profile?.role === "admin" ? "/admin" : profile?.role === "seller" ? "/seller" : profile?.role === "client" ? "/app" : "/painel";
 
   const menuItems = [
-    { label: 'Home', href: '/' },
-    { label: 'Sobre a Panini', href: '/sobre' },
-    { label: 'Como funciona', href: '/processo' },
-    { label: 'Oportunidade', href: '/oportunidade' },
+    { label: "Home", href: "/" },
+    { label: "Sobre a Panini", href: "/sobre" },
+    { label: "Como funciona", href: "/processo" },
+    { label: "Oportunidade", href: "/oportunidade" },
   ];
 
-  const icons: Record<string, React.ComponentType<{ className?: string }>> = {
-    '#sobre': ShieldCheck,
-    '#processo': Sparkles,
-    '#produtos': Package,
-    '#planos': Percent,
-    '#logistica': Truck,
-    '#pagamento': Wallet,
-    '#mercado': Globe2,
-    '#dicas': BarChart3,
-  };
+  async function handleSignOut() {
+    await signOut();
+    setOpen(false);
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -59,16 +52,31 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <Link to="/login">
-            <Button variant="ghost" size="sm" className="hidden sm:inline-flex">
-              <LogIn className="h-4 w-4 mr-1" /> Entrar
-            </Button>
-          </Link>
-          <Link to="/register">
-            <Button size="sm" className="hidden sm:inline-flex">
-              <UserPlus className="h-4 w-4 mr-1" /> Cadastrar
-            </Button>
-          </Link>
+          {!user ? (
+            <>
+              <Link to="/login">
+                <Button variant="ghost" size="sm" className="hidden sm:inline-flex">
+                  <LogIn className="h-4 w-4 mr-1" /> Entrar
+                </Button>
+              </Link>
+              <Link to="/cadastro">
+                <Button size="sm" className="hidden sm:inline-flex">
+                  <UserPlus className="h-4 w-4 mr-1" /> Cadastrar
+                </Button>
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link to={dashboardPath}>
+                <Button variant="ghost" size="sm" className="hidden sm:inline-flex">
+                  <LayoutDashboard className="h-4 w-4 mr-1" /> Minha área
+                </Button>
+              </Link>
+              <Button variant="outline" size="sm" className="hidden sm:inline-flex" onClick={handleSignOut}>
+                <LogOut className="h-4 w-4 mr-1" /> Sair
+              </Button>
+            </>
+          )}
           <ThemeToggle />
           {showCart && (
             <Link to="/cart">
@@ -117,12 +125,23 @@ export function Header() {
               })}
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link to="/login" onClick={() => setOpen(false)}>
-                <Button variant="secondary" size="sm">Entrar</Button>
-              </Link>
-              <Link to="/register" onClick={() => setOpen(false)}>
-                <Button size="sm">Cadastrar</Button>
-              </Link>
+              {!user ? (
+                <>
+                  <Link to="/login" onClick={() => setOpen(false)}>
+                    <Button variant="secondary" size="sm">Entrar</Button>
+                  </Link>
+                  <Link to="/cadastro" onClick={() => setOpen(false)}>
+                    <Button size="sm">Cadastrar</Button>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link to={dashboardPath} onClick={() => setOpen(false)}>
+                    <Button variant="secondary" size="sm">Minha área</Button>
+                  </Link>
+                  <Button size="sm" variant="outline" onClick={handleSignOut}>Sair</Button>
+                </>
+              )}
             </div>
           </div>
         </div>
