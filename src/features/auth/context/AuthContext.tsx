@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isMounted = true
     const loadProfile = async () => {
       setLoading(true)
-      const data = await fetchProfile(user.id)
+      const data = await fetchProfile(user.id, user.email)
       if (isMounted) {
         setProfile(data)
         setLoading(false)
