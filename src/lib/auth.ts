@@ -2,6 +2,7 @@ import type { AuthError } from "@supabase/supabase-js"
 import { supabase } from "./supabase"
 import { unformatCNPJ } from "./masks"
 import type { CadastroRevendedorInput } from "./validators"
+import { getManagerByName } from "@/shared/constants/accountManagers"
 
 export type ResellerProfile = {
   id: string
@@ -9,12 +10,32 @@ export type ResellerProfile = {
   cnpj: string
   razao_social: string
   nome_fantasia: string | null
+  inscricao_estadual: string | null
+  segmento: string
+  data_abertura: string | null
+  porte_empresa: string | null
   nome_responsavel: string
+  cpf_responsavel: string | null
+  cargo_responsavel: string | null
   email: string
   telefone: string
+  whatsapp: string | null
+  cep: string
+  endereco: string
+  numero: string
+  complemento: string | null
+  bairro: string
   cidade: string
   estado: string
+  canal_revenda: string
+  trabalha_com_colecionaveis: boolean
+  faixa_investimento: string
+  observacoes: string | null
   status_cadastro: "pending" | "approved" | "rejected" | "blocked"
+  motivo_reprovacao?: string | null
+  role?: "client"
+  account_manager_name?: string | null
+  account_manager_whatsapp?: string | null
   created_at: string
 }
 
@@ -42,6 +63,23 @@ function mapAuthError(error: AuthError | Error | null | undefined) {
   }
 
   return error?.message || "Não foi possível concluir a operação."
+}
+
+function normalizeApprovalStatus(status?: string | null): ResellerProfile["status_cadastro"] {
+  if (status === "approved" || status === "rejected" || status === "blocked") {
+    return status
+  }
+
+  return "pending"
+}
+
+function mergeApprovalStatus(...statuses: Array<string | null | undefined>): ResellerProfile["status_cadastro"] {
+  const normalized = statuses.map(normalizeApprovalStatus)
+
+  if (normalized.includes("blocked")) return "blocked"
+  if (normalized.includes("rejected")) return "rejected"
+  if (normalized.includes("approved")) return "approved"
+  return "pending"
 }
 
 export async function getAuthEmailByCnpj(cnpj: string): Promise<AuthEmailLookup> {
@@ -80,7 +118,7 @@ export async function findResellerProfileByCurrentUser() {
 
   const { data, error } = await supabase
     .from("reseller_profiles")
-    .select("id, user_id, cnpj, razao_social, nome_fantasia, nome_responsavel, email, telefone, cidade, estado, status_cadastro, created_at")
+    .select("*")
     .eq("user_id", authData.user.id)
     .maybeSingle()
 
@@ -88,7 +126,31 @@ export async function findResellerProfileByCurrentUser() {
     throw new Error("Não foi possível carregar os dados do cadastro.")
   }
 
-  return data as ResellerProfile | null
+  const { data: legacyProfile } = await supabase
+    .from("profiles")
+    .select("role, status_cadastro, motivo_reprovacao")
+    .eq("auth_user_id", authData.user.id)
+    .maybeSingle()
+
+  if (!data) {
+    return null
+  }
+
+  const manager = getManagerByName(data.account_manager_name)
+
+  return {
+    ...(data as ResellerProfile),
+    status_cadastro: mergeApprovalStatus(
+      data.status_cadastro,
+      legacyProfile?.role === "client" ? legacyProfile.status_cadastro : null
+    ),
+    motivo_reprovacao:
+      data.motivo_reprovacao ??
+      (legacyProfile?.role === "client" ? legacyProfile.motivo_reprovacao ?? null : null),
+    role: "client",
+    account_manager_name: data.account_manager_name ?? manager?.name ?? null,
+    account_manager_whatsapp: data.account_manager_whatsapp ?? manager?.whatsapp ?? null,
+  }
 }
 
 export async function signInWithCnpjAndPassword(cnpj: string, password: string) {
@@ -190,6 +252,7 @@ export async function registerReseller(input: CadastroRevendedorInput) {
     aceitou_veracidade: input.aceitou_veracidade,
     aceitou_termos: input.aceitou_termos,
     aceitou_contato: input.aceitou_contato,
+    status_cadastro: "pending",
   }
 
   const { error: insertError } = await supabase.from("reseller_profiles").insert(payload)
