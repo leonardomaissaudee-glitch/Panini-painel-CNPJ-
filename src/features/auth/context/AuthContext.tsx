@@ -62,12 +62,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) {
       setProfile(null)
+      setLoading(false)
       return
     }
     let isMounted = true
     const loadProfile = async () => {
+      setLoading(true)
       const data = await fetchProfile(user.id)
-      if (isMounted) setProfile(data)
+      if (isMounted) {
+        setProfile(data)
+        setLoading(false)
+      }
     }
     loadProfile()
     return () => {
