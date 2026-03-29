@@ -10,14 +10,16 @@ type NavItem = { label: string; to: string }
 
 interface AppShellProps {
   title: string
-  nav: NavItem[]
+  nav?: NavItem[]
   actions?: ReactNode
   children: ReactNode
+  contentClassName?: string
 }
 
-export function AppShell({ title, nav, actions, children }: AppShellProps) {
+export function AppShell({ title, nav = [], actions, children, contentClassName }: AppShellProps) {
   const location = useLocation()
   const { signOut, user, profile } = useAuth()
+  const hasNav = nav.length > 0
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -47,41 +49,43 @@ export function AppShell({ title, nav, actions, children }: AppShellProps) {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6 grid gap-6 md:grid-cols-[240px_1fr]">
-        <aside className="space-y-3">
-          <nav className="rounded-lg border bg-white shadow-sm divide-y">
-            {nav.map((item) => {
-              const active = location.pathname === item.to
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={cn(
-                    "block px-4 py-3 text-sm font-medium transition-colors",
-                    active ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {item.label}
-                </Link>
-              )
-            })}
-          </nav>
+      <div className={cn("container mx-auto px-4 py-6", hasNav && "grid gap-6 md:grid-cols-[240px_1fr]")}>
+        {hasNav && (
+          <aside className="space-y-3">
+            <nav className="rounded-lg border bg-white shadow-sm divide-y">
+              {nav.map((item) => {
+                const active = location.pathname === item.to
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={cn(
+                      "block px-4 py-3 text-sm font-medium transition-colors",
+                      active ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </nav>
 
-          <div className="rounded-lg border bg-white p-4 shadow-sm space-y-1">
-            <div className="text-sm font-semibold">Sessão</div>
-            <div className="text-sm text-muted-foreground">
-              {profile?.full_name || user?.email}
+            <div className="rounded-lg border bg-white p-4 shadow-sm space-y-1">
+              <div className="text-sm font-semibold">Sessão</div>
+              <div className="text-sm text-muted-foreground">
+                {profile?.full_name || user?.email}
+              </div>
+              <div className="text-xs text-muted-foreground capitalize">
+                Role: {profile?.role || "-"}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Status: {profile?.status_cadastro || "-"}
+              </div>
             </div>
-            <div className="text-xs text-muted-foreground capitalize">
-              Role: {profile?.role || "-"}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Status: {profile?.status_cadastro || "-"}
-            </div>
-          </div>
-        </aside>
+          </aside>
+        )}
 
-        <main className="space-y-4">{children}</main>
+        <main className={cn("space-y-4", contentClassName)}>{children}</main>
       </div>
     </div>
   )
