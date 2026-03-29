@@ -32,7 +32,10 @@ create table if not exists public.reseller_profiles (
   aceitou_veracidade boolean not null default false,
   aceitou_termos boolean not null default false,
   aceitou_contato boolean not null default false,
-  status_cadastro text not null default 'pendente',
+  motivo_reprovacao text,
+  account_manager_name text,
+  account_manager_whatsapp text,
+  status_cadastro text not null default 'pending',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -59,6 +62,13 @@ execute function public.set_updated_at();
 
 -- RLS
 alter table public.reseller_profiles enable row level security;
+
+alter table public.reseller_profiles
+alter column status_cadastro set default 'pending';
+
+update public.reseller_profiles
+set status_cadastro = 'pending'
+where status_cadastro = 'pendente';
 
 drop policy if exists "reseller_insert_own" on public.reseller_profiles;
 create policy "reseller_insert_own"
@@ -91,9 +101,11 @@ set search_path = public
 as $$
   select rp.email
   from public.reseller_profiles rp
-  where rp.cnpj = regexp_replace(cnpj_input, '\D', '', 'g')
+  where regexp_replace(rp.cnpj, '\D', '', 'g') = regexp_replace(cnpj_input, '\D', '', 'g')
   limit 1;
 $$;
 
-revoke all on function public.get_auth_email_by_cnpj from public;
-grant execute on function public.get_auth_email_by_cnpj to anon, authenticated;
+revoke all on function public.get_auth_email_by_cnpj(text) from public;
+grant execute on function public.get_auth_email_by_cnpj(text) to anon, authenticated;
+
+notify pgrst, 'reload schema';
