@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { useSearchParams } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { AppShell } from "@/components/layouts/AppShell"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -20,21 +20,22 @@ type ClientSection = "catalogo" | "pedidos" | "informacoes" | "perfil" | "gerent
 const allowedTabs: ClientSection[] = ["catalogo", "pedidos", "informacoes", "perfil", "gerente", "carrinho"]
 
 export default function ClientDashboard() {
-  const [searchParams, setSearchParams] = useSearchParams()
+  const location = useLocation()
+  const navigate = useNavigate()
   const [resellerProfile, setResellerProfile] = useState<ResellerProfile | null>(null)
   const [refreshOrders, setRefreshOrders] = useState<(() => Promise<void>) | null>(null)
   const { user } = useAuth()
   const section = useMemo<ClientSection>(() => {
-    const currentTab = searchParams.get("tab")
+    const currentTab = new URLSearchParams(location.search).get("tab")
     return allowedTabs.includes(currentTab as ClientSection) ? (currentTab as ClientSection) : "catalogo"
-  }, [searchParams])
+  }, [location.search])
 
   useEffect(() => {
-    const currentTab = searchParams.get("tab")
+    const currentTab = new URLSearchParams(location.search).get("tab")
     if (!allowedTabs.includes(currentTab as ClientSection)) {
-      setSearchParams({ tab: "catalogo" }, { replace: true })
+      navigate("/app?tab=catalogo", { replace: true })
     }
-  }, [searchParams, setSearchParams])
+  }, [location.search, navigate])
 
   useEffect(() => {
     findResellerProfileByCurrentUser().then(setResellerProfile).catch(() => setResellerProfile(null))
@@ -48,7 +49,10 @@ export default function ClientDashboard() {
     ? formatPhone(resellerProfile.account_manager_whatsapp.replace(/\D/g, "").slice(-11))
     : null
 
-  const changeSection = (next: ClientSection) => setSearchParams({ tab: next })
+  const changeSection = (next: ClientSection) => {
+    if (section === next) return
+    navigate(`/app?tab=${next}`, { replace: false })
+  }
 
   return (
     <AppShell title="Portal do Cliente">
