@@ -4,7 +4,7 @@ import type { OrderStatus } from "@/shared/constants/orderStatus"
 import type { Cart } from "@/types"
 import type { ResellerProfile } from "@/lib/auth"
 
-export type ClientPaymentMethod = "pix" | "credit_card"
+export type ClientPaymentMethod = "pix" | "credit_card" | "boleto"
 
 type DiscountTier = {
   name: "Classic" | "Standard" | "Premium"
@@ -65,7 +65,7 @@ export async function createClientOrder({
     subtotal: Number((item.product.price * item.quantity).toFixed(2)),
   }))
 
-  const status: OrderStatus = "aguardando_aprovacao"
+  const status: OrderStatus = "novo_pedido"
   const paymentStatus = "pending"
 
   const { data, error } = await supabase
@@ -94,7 +94,27 @@ export async function createClientOrder({
     .select("*")
     .single()
 
-  if (error) throw error
+  if (error) {
+    throw new Error(getClientOrderErrorMessage(error))
+  }
 
   return data as OrderRow
+}
+
+function getClientOrderErrorMessage(error: { message?: string; details?: string | null }) {
+  const text = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase()
+
+  if (text.includes("order_status") || text.includes("status")) {
+    return "A estrutura de pedidos da base ainda não foi atualizada. O pedido não pôde ser salvo."
+  }
+
+  if (text.includes("payment_method") || text.includes("boleto")) {
+    return "O método de pagamento selecionado ainda não foi liberado na base de dados."
+  }
+
+  if (text.includes("violates row-level security") || text.includes("permission denied")) {
+    return "Sua sessão não tem permissão para gravar pedidos no momento."
+  }
+
+  return error.message || "Não foi possível registrar o pedido."
 }
