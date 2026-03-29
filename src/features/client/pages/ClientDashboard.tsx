@@ -1,15 +1,9 @@
 import { useEffect, useMemo, useState } from "react"
-import { useLocation, useNavigate, useParams } from "react-router-dom"
+import { Outlet, useLocation, useNavigate, useOutletContext, useParams } from "react-router-dom"
 import { AppShell } from "@/components/layouts/AppShell"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ClientSidebar } from "@/features/client/components/ClientSidebar"
-import { ClientCatalog } from "@/features/client/components/ClientCatalog"
-import { ClientInfo } from "@/features/client/components/ClientInfo"
-import { ClientOrders } from "@/features/client/components/ClientOrders"
-import { ClientProfile } from "@/features/client/components/ClientProfile"
-import { ClientSupport } from "@/features/client/components/ClientSupport"
-import { ClientCart } from "@/features/client/components/ClientCart"
 import { useAuth } from "@/features/auth/context/AuthContext"
 import { findResellerProfileByCurrentUser, type ResellerProfile } from "@/lib/auth"
 import { formatPhone } from "@/lib/masks"
@@ -19,21 +13,35 @@ type ClientSection = "catalogo" | "pedidos" | "informacoes" | "perfil" | "gerent
 
 const allowedTabs: ClientSection[] = ["catalogo", "pedidos", "informacoes", "perfil", "gerente", "carrinho"]
 
+export type ClientDashboardContext = {
+  resellerProfile: ResellerProfile | null
+  userEmail?: string
+}
+
+export function useClientDashboardContext() {
+  return useOutletContext<ClientDashboardContext>()
+}
+
 export default function ClientDashboard() {
   const location = useLocation()
   const navigate = useNavigate()
   const { tab } = useParams()
   const [resellerProfile, setResellerProfile] = useState<ResellerProfile | null>(null)
-  const [refreshOrders, setRefreshOrders] = useState<(() => Promise<void>) | null>(null)
   const { user } = useAuth()
-  const section = useMemo<ClientSection>(() => {
-    return allowedTabs.includes(tab as ClientSection) ? (tab as ClientSection) : "catalogo"
+  const section = useMemo<ClientSection | null>(() => {
+    return allowedTabs.includes(tab as ClientSection) ? (tab as ClientSection) : null
   }, [tab])
 
   useEffect(() => {
     const queryTab = new URLSearchParams(location.search).get("tab")
 
-    if (allowedTabs.includes(queryTab as ClientSection)) {
+    if (location.pathname === "/app") {
+      const nextTab = allowedTabs.includes(queryTab as ClientSection) ? (queryTab as ClientSection) : "catalogo"
+      navigate(`/app/${nextTab}`, { replace: true })
+      return
+    }
+
+    if (queryTab && allowedTabs.includes(queryTab as ClientSection)) {
       navigate(`/app/${queryTab}`, { replace: true })
       return
     }
@@ -41,7 +49,7 @@ export default function ClientDashboard() {
     if (tab && !allowedTabs.includes(tab as ClientSection)) {
       navigate("/app/catalogo", { replace: true })
     }
-  }, [location.search, navigate, tab])
+  }, [location.pathname, location.search, navigate, tab])
 
   useEffect(() => {
     findResellerProfileByCurrentUser().then(setResellerProfile).catch(() => setResellerProfile(null))
@@ -54,11 +62,6 @@ export default function ClientDashboard() {
   const assignedManagerPhone = resellerProfile?.account_manager_whatsapp
     ? formatPhone(resellerProfile.account_manager_whatsapp.replace(/\D/g, "").slice(-11))
     : null
-
-  const changeSection = (next: ClientSection) => {
-    if (section === next) return
-    navigate(`/app/${next}`, { replace: false })
-  }
 
   return (
     <AppShell title="Portal do Cliente">
@@ -104,25 +107,15 @@ export default function ClientDashboard() {
         </Card>
 
         <div className="grid gap-4 xl:grid-cols-[260px_1fr]">
-          <ClientSidebar active={section} />
+          <ClientSidebar active={section ?? "catalogo"} />
 
-          <div key={section} className="min-w-0 space-y-4">
-            {section === "catalogo" && <ClientCatalog />}
-            {section === "pedidos" && (
-              <ClientOrders email={user?.email} onRefreshReady={(refresh) => setRefreshOrders(() => refresh)} />
-            )}
-            {section === "informacoes" && <ClientInfo managerName={assignedManagerName} managerPhone={assignedManagerPhone} />}
-            {section === "perfil" && <ClientProfile profile={resellerProfile} />}
-            {section === "gerente" && <ClientSupport profile={resellerProfile} />}
-            {section === "carrinho" && (
-              <ClientCart
-                profile={resellerProfile}
-                onOrderCreated={() => {
-                  refreshOrders?.()
-                  changeSection("pedidos")
-                }}
-              />
-            )}
+          <div key={location.pathname} className="min-w-0 space-y-4">
+            <Outlet
+              context={{
+                resellerProfile,
+                userEmail: user?.email,
+              }}
+            />
           </div>
         </div>
       </div>
