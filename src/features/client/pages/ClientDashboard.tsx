@@ -21,31 +21,23 @@ const allowedTabs: ClientSection[] = ["catalogo", "pedidos", "informacoes", "per
 
 export default function ClientDashboard() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const initialTab = searchParams.get("tab")
-  const [section, setSection] = useState<ClientSection>(
-    allowedTabs.includes(initialTab as ClientSection) ? (initialTab as ClientSection) : "catalogo"
-  )
   const [resellerProfile, setResellerProfile] = useState<ResellerProfile | null>(null)
   const [refreshOrders, setRefreshOrders] = useState<(() => Promise<void>) | null>(null)
   const { user } = useAuth()
+  const currentTab = searchParams.get("tab")
+  const section: ClientSection = allowedTabs.includes(currentTab as ClientSection)
+    ? (currentTab as ClientSection)
+    : "catalogo"
 
   useEffect(() => {
     findResellerProfileByCurrentUser().then(setResellerProfile).catch(() => setResellerProfile(null))
   }, [])
-
-  useEffect(() => {
-    const nextTab = searchParams.get("tab")
-    if (allowedTabs.includes(nextTab as ClientSection) && nextTab !== section) {
-      setSection(nextTab as ClientSection)
-    }
-  }, [searchParams, section])
 
   const managerWhatsapp = resellerProfile?.account_manager_whatsapp || DEFAULT_MANAGER_WHATSAPP
   const managerName = resellerProfile?.account_manager_name || "Gerente comercial"
   const displayManagerPhone = formatPhone(managerWhatsapp.replace(/\D/g, "").slice(-11))
 
   const changeSection = (next: string) => {
-    setSection(next as ClientSection)
     setSearchParams({ tab: next })
   }
 
