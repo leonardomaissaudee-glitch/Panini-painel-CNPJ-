@@ -1,6 +1,7 @@
 export type OrderStatus =
   | "aguardando_aprovacao"
   | "aguardando_pagamento"
+  | "aguardando_verificacao_financeira"
   | "pedido_pago"
   | "em_expedicao"
   | "nota_fiscal_emitida"
@@ -16,6 +17,7 @@ export type OrderStatus =
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   aguardando_aprovacao: "Pedido feito · aguardando aprovação",
   aguardando_pagamento: "Aguardando pagamento",
+  aguardando_verificacao_financeira: "Aguardando verificação financeira",
   pedido_pago: "Pedido pago",
   em_expedicao: "Pedido na expedição",
   nota_fiscal_emitida: "Nota fiscal emitida",
@@ -32,6 +34,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 export const ORDER_STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: "aguardando_aprovacao", label: ORDER_STATUS_LABELS.aguardando_aprovacao },
   { value: "aguardando_pagamento", label: ORDER_STATUS_LABELS.aguardando_pagamento },
+  { value: "aguardando_verificacao_financeira", label: ORDER_STATUS_LABELS.aguardando_verificacao_financeira },
   { value: "pedido_pago", label: ORDER_STATUS_LABELS.pedido_pago },
   { value: "em_expedicao", label: ORDER_STATUS_LABELS.em_expedicao },
   { value: "nota_fiscal_emitida", label: ORDER_STATUS_LABELS.nota_fiscal_emitida },

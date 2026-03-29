@@ -5,6 +5,7 @@ import { getOrderStatusLabel } from "@/shared/constants/orderStatus"
 type StatusKind =
   | "aguardando_aprovacao"
   | "aguardando_pagamento"
+  | "aguardando_verificacao_financeira"
   | "pedido_pago"
   | "em_expedicao"
   | "nota_fiscal_emitida"
@@ -27,6 +28,7 @@ type StatusKind =
 const styles: Record<StatusKind, string> = {
   aguardando_aprovacao: "bg-amber-100 text-amber-800 border-amber-200",
   aguardando_pagamento: "bg-orange-100 text-orange-800 border-orange-200",
+  aguardando_verificacao_financeira: "bg-violet-100 text-violet-800 border-violet-200",
   pedido_pago: "bg-emerald-100 text-emerald-800 border-emerald-200",
   em_expedicao: "bg-blue-100 text-blue-800 border-blue-200",
   nota_fiscal_emitida: "bg-indigo-100 text-indigo-800 border-indigo-200",

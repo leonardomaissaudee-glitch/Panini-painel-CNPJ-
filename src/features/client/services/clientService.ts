@@ -44,6 +44,48 @@ export async function fetchMyOrders(customerEmail: string): Promise<OrderRow[]> 
   return (data ?? []) as OrderRow[]
 }
 
+export async function uploadClientPaymentReceipt(orderId: string, file: File) {
+  const sanitized = file.name.toLowerCase().replace(/[^a-z0-9.-]+/g, "-")
+  const path = `${orderId}/${Date.now()}-${sanitized}`
+
+  const { error: uploadError } = await supabase.storage.from("order-payment-proofs").upload(path, file, {
+    upsert: false,
+    contentType: file.type || "application/octet-stream",
+  })
+
+  if (uploadError) {
+    throw new Error(`Não foi possível enviar o comprovante. Detalhe: ${uploadError.message}`)
+  }
+
+  const { data } = supabase.storage.from("order-payment-proofs").getPublicUrl(path)
+  return data.publicUrl
+}
+
+export async function submitClientPaymentReceipt({
+  orderId,
+  receiptUrl,
+  receiptName,
+}: {
+  orderId: string
+  receiptUrl: string
+  receiptName: string
+}) {
+  const { error } = await supabase
+    .from("orders")
+    .update({
+      payment_receipt_url: receiptUrl,
+      payment_receipt_name: receiptName,
+      payment_receipt_uploaded_at: new Date().toISOString(),
+      status: "aguardando_verificacao_financeira",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", orderId)
+
+  if (error) {
+    throw new Error(error.message || "Não foi possível registrar o comprovante.")
+  }
+}
+
 export async function createClientOrder({
   profile,
   cart,

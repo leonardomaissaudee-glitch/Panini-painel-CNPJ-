@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { AppShell } from "@/components/layouts/AppShell"
 import { Card, CardContent } from "@/components/ui/card"
@@ -25,14 +25,9 @@ export default function ClientDashboard() {
   const [resellerProfile, setResellerProfile] = useState<ResellerProfile | null>(null)
   const [refreshOrders, setRefreshOrders] = useState<(() => Promise<void>) | null>(null)
   const { user } = useAuth()
-  const [section, setSection] = useState<ClientSection>("catalogo")
-
-  useEffect(() => {
+  const section = useMemo<ClientSection>(() => {
     const currentTab = new URLSearchParams(location.search).get("tab")
-    const nextSection: ClientSection = allowedTabs.includes(currentTab as ClientSection)
-      ? (currentTab as ClientSection)
-      : "catalogo"
-    setSection(nextSection)
+    return allowedTabs.includes(currentTab as ClientSection) ? (currentTab as ClientSection) : "catalogo"
   }, [location.search])
 
   useEffect(() => {
@@ -43,7 +38,11 @@ export default function ClientDashboard() {
   const managerName = resellerProfile?.account_manager_name || "Gerente comercial"
   const displayManagerPhone = formatPhone(managerWhatsapp.replace(/\D/g, "").slice(-11))
 
-  const changeSection = (next: ClientSection) => navigate(`/app?tab=${next}`)
+  const changeSection = (next: ClientSection) => {
+    const params = new URLSearchParams(location.search)
+    params.set("tab", next)
+    navigate({ pathname: "/app", search: `?${params.toString()}` }, { replace: false })
+  }
 
   return (
     <AppShell title="Portal do Cliente">
@@ -86,11 +85,7 @@ export default function ClientDashboard() {
         </Card>
 
         <div className="grid gap-4 xl:grid-cols-[260px_1fr]">
-          <ClientSidebar active={section} onChange={(next) => {
-            const normalized = next as ClientSection
-            setSection(normalized)
-            changeSection(normalized)
-          }} />
+          <ClientSidebar active={section} onChange={(next) => changeSection(next as ClientSection)} />
 
           <div key={section} className="min-w-0 space-y-4">
             {section === "catalogo" && <ClientCatalog />}

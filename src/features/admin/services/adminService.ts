@@ -32,6 +32,9 @@ export interface OrderRow {
   payment_pix_account?: string | null
   payment_pix_amount?: string | null
   payment_pix_qr_code?: string | null
+  payment_receipt_url?: string | null
+  payment_receipt_name?: string | null
+  payment_receipt_uploaded_at?: string | null
   account_manager_name?: string | null
   account_manager_whatsapp?: string | null
   created_at?: string
@@ -86,6 +89,10 @@ function derivePaymentStatus(status: OrderStatus, current?: string | null) {
 
   if (status === "aguardando_pagamento") {
     return "pending"
+  }
+
+  if (status === "aguardando_verificacao_financeira") {
+    return current ?? "pending"
   }
 
   return current ?? "pending"
