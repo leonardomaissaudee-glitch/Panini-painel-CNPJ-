@@ -34,7 +34,7 @@ export default function AboutPage() {
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-            {["Distribuição oficial", "Faturamento com NF", "Rastreio e controle", "Gerente de contas dedicado"].map(
+            {["Distribuição oficial", "Licença FIFA 2026™", "Presença global", "Qualidade reconhecida"].map(
               (pill) => (
                 <div
                   key={pill}
