@@ -53,6 +53,14 @@ function normalizeApprovalStatus(status?: string | null): ApprovalStatus {
   return "pending"
 }
 
+function normalizeRole(role?: string | null): UserRole {
+  if (role === "admin" || role === "seller" || role === "client") {
+    return role
+  }
+
+  return "client"
+}
+
 function mergeApprovalStatus(...statuses: Array<string | null | undefined>): ApprovalStatus {
   const normalized = statuses.map(normalizeApprovalStatus)
 
@@ -90,16 +98,28 @@ function buildResellerProfile(row: any): Profile {
   }
 }
 
-export async function fetchProfile(userId: string): Promise<Profile | null> {
-  const { data: legacyProfile, error: legacyError } = await supabase
+export async function fetchProfile(userId: string, email?: string | null): Promise<Profile | null> {
+  const { data: legacyById, error: legacyError } = await supabase
     .from("profiles")
     .select("*")
-    .eq("auth_user_id", userId)
+    .or(`auth_user_id.eq.${userId},id.eq.${userId}`)
     .maybeSingle()
 
   if (legacyError) {
     console.error("Erro ao carregar perfil legado", legacyError)
     return null
+  }
+
+  let legacyProfile = legacyById
+
+  if (!legacyProfile && email) {
+    const { data: legacyByEmail } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("email", email)
+      .maybeSingle()
+
+    legacyProfile = legacyByEmail
   }
 
   const { data: resellerProfile, error: resellerError } = await supabase
@@ -113,7 +133,11 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
   }
 
   if (legacyProfile?.role === "admin" || legacyProfile?.role === "seller") {
-    return legacyProfile as Profile
+    return {
+      ...(legacyProfile as Profile),
+      role: normalizeRole(legacyProfile.role),
+      status_cadastro: normalizeApprovalStatus(legacyProfile.status_cadastro),
+    }
   }
 
   if (resellerProfile) {
