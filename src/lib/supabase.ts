@@ -24,6 +24,8 @@ export function getSupabase(): SupabaseClient {
   return _client
 }
 
+export const supabase = getSupabase()
+
 // Tipos do banco de dados
 export interface Order {
   id: string
