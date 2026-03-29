@@ -41,32 +41,52 @@ export function OrdersPanel() {
     const state = editing[id]
     const nextStatus = (state?.status || order?.status) as OrderStatus | undefined
 
+    if (!order) {
+      toast.error("Pedido não encontrado para atualização.")
+      return
+    }
+
     if (!nextStatus) {
       toast.error("Defina um status")
       return
     }
 
-    const paymentMethod = order?.payment_method
-    const instructions = state?.payment_instructions ?? order?.payment_instructions ?? ""
-    const copyPaste = state?.payment_copy_paste ?? order?.payment_copy_paste ?? ""
-    const paymentLink = state?.payment_link_url ?? order?.payment_link_url ?? ""
-    const boletoLine = state?.payment_boleto_line ?? order?.payment_boleto_line ?? ""
-    const boletoPdfUrl = state?.payment_boleto_pdf_url ?? order?.payment_boleto_pdf_url ?? ""
-    const pixKey = state?.payment_pix_key ?? order?.payment_pix_key ?? ""
-    const pixQrCode = state?.payment_pix_qr_code ?? order?.payment_pix_qr_code ?? ""
+    const paymentMethod = order.payment_method
+    const merged = {
+      invoice_number: state?.invoice_number ?? order.invoice_number ?? "",
+      tracking_code: state?.tracking_code ?? order.tracking_code ?? "",
+      payment_instructions: state?.payment_instructions ?? order.payment_instructions ?? "",
+      payment_copy_paste: state?.payment_copy_paste ?? order.payment_copy_paste ?? "",
+      payment_link_url: state?.payment_link_url ?? order.payment_link_url ?? "",
+      payment_boleto_line: state?.payment_boleto_line ?? order.payment_boleto_line ?? "",
+      payment_boleto_pdf_url: state?.payment_boleto_pdf_url ?? order.payment_boleto_pdf_url ?? "",
+      payment_pix_bank_name: state?.payment_pix_bank_name ?? order.payment_pix_bank_name ?? "",
+      payment_pix_key: state?.payment_pix_key ?? order.payment_pix_key ?? "",
+      payment_pix_beneficiary: state?.payment_pix_beneficiary ?? order.payment_pix_beneficiary ?? "",
+      payment_pix_agency: state?.payment_pix_agency ?? order.payment_pix_agency ?? "",
+      payment_pix_account: state?.payment_pix_account ?? order.payment_pix_account ?? "",
+      payment_pix_amount: state?.payment_pix_amount ?? order.payment_pix_amount ?? "",
+      payment_pix_qr_code: state?.payment_pix_qr_code ?? order.payment_pix_qr_code ?? "",
+    }
 
     if (nextStatus === "aguardando_pagamento") {
-      if (paymentMethod === "pix" && !instructions.trim() && !copyPaste.trim() && !pixKey.trim() && !pixQrCode.trim()) {
+      if (
+        paymentMethod === "pix" &&
+        !merged.payment_instructions.trim() &&
+        !merged.payment_copy_paste.trim() &&
+        !merged.payment_pix_key.trim() &&
+        !merged.payment_pix_qr_code.trim()
+      ) {
         toast.error("Preencha os dados PIX antes de salvar.")
         return
       }
 
-      if (paymentMethod === "boleto" && !boletoLine.trim() && !boletoPdfUrl.trim()) {
+      if (paymentMethod === "boleto" && !merged.payment_boleto_line.trim() && !merged.payment_boleto_pdf_url.trim()) {
         toast.error("Anexe o boleto em PDF ou informe a linha digitável antes de salvar.")
         return
       }
 
-      if (paymentMethod === "credit_card" && !paymentLink.trim()) {
+      if (paymentMethod === "credit_card" && !merged.payment_link_url.trim()) {
         toast.error("Informe o link de pagamento do cartão antes de salvar.")
         return
       }
@@ -74,20 +94,20 @@ export function OrdersPanel() {
 
     try {
       await updateOrderStatus(id, nextStatus, {
-        invoice_number: state.invoice_number,
-        tracking_code: state.tracking_code,
-        payment_instructions: state?.payment_instructions,
-        payment_copy_paste: state?.payment_copy_paste,
-        payment_link_url: state?.payment_link_url,
-        payment_boleto_line: state?.payment_boleto_line,
-        payment_boleto_pdf_url: state?.payment_boleto_pdf_url,
-        payment_pix_bank_name: state?.payment_pix_bank_name,
-        payment_pix_key: state?.payment_pix_key,
-        payment_pix_beneficiary: state?.payment_pix_beneficiary,
-        payment_pix_agency: state?.payment_pix_agency,
-        payment_pix_account: state?.payment_pix_account,
-        payment_pix_amount: state?.payment_pix_amount,
-        payment_pix_qr_code: state?.payment_pix_qr_code,
+        invoice_number: merged.invoice_number,
+        tracking_code: merged.tracking_code,
+        payment_instructions: merged.payment_instructions,
+        payment_copy_paste: merged.payment_copy_paste,
+        payment_link_url: merged.payment_link_url,
+        payment_boleto_line: merged.payment_boleto_line,
+        payment_boleto_pdf_url: merged.payment_boleto_pdf_url,
+        payment_pix_bank_name: merged.payment_pix_bank_name,
+        payment_pix_key: merged.payment_pix_key,
+        payment_pix_beneficiary: merged.payment_pix_beneficiary,
+        payment_pix_agency: merged.payment_pix_agency,
+        payment_pix_account: merged.payment_pix_account,
+        payment_pix_amount: merged.payment_pix_amount,
+        payment_pix_qr_code: merged.payment_pix_qr_code,
       })
       toast.success("Pedido atualizado")
       setEditing((prev) => ({ ...prev, [id]: {} }))
