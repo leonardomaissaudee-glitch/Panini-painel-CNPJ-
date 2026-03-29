@@ -1,3 +1,4 @@
+import { type ReactNode } from "react"
 import { Link } from "react-router-dom"
 import { ArrowRight, BadgeCheck, BarChart3, Building2, Crown, Globe2, ShieldCheck, Sparkles, Sparkle } from "lucide-react"
 import { Footer } from "@/components/Footer"
@@ -54,7 +55,7 @@ function Hero() {
             frete grátis e atendimento exclusivo com gerente de contas.
           </p>
           <div className="flex flex-wrap gap-3">
-            <CTA to="/register" label="Quero revender Panini" primary />
+            <CTA to="/cadastro" label="Quero revender Panini" primary />
             <CTA to="/login" label="Já sou credenciado" />
           </div>
         </div>
@@ -125,7 +126,7 @@ function Market() {
         ))}
       </div>
       <div className="pt-6">
-        <CTA to="/register" label="Aproveitar a demanda" primary size="lg" dark />
+        <CTA to="/cadastro" label="Aproveitar a demanda" primary size="lg" dark />
       </div>
     </Section>
   )
@@ -151,7 +152,7 @@ function Tips() {
         ))}
       </div>
       <div className="pt-6">
-        <CTA to="/register" label="Aplicar agora" primary />
+        <CTA to="/cadastro" label="Aplicar agora" primary />
       </div>
     </Section>
   )
@@ -173,7 +174,7 @@ function FinalCTA() {
               com apoio de um gerente de contas dedicado. A hora de garantir estoque é agora.
             </p>
             <div className="flex flex-wrap gap-3">
-              <CTA to="/register" label="Quero revender Panini" primary dark />
+              <CTA to="/cadastro" label="Quero revender Panini" primary dark />
               <CTA to="/login" label="Falar com consultor" />
             </div>
           </div>
@@ -189,7 +190,7 @@ function FinalCTA() {
                 <li>• NF em todos os pedidos</li>
                 <li>• Acompanhamento por gerente de contas</li>
               </ul>
-              <CTA to="/register" label="Iniciar credenciamento" primary />
+              <CTA to="/cadastro" label="Iniciar credenciamento" primary />
             </CardContent>
           </Card>
         </div>
@@ -209,7 +210,7 @@ function Section({
   title: string
   subtitle?: string
   eyebrow?: string
-  children: React.ReactNode
+  children: ReactNode
   gradient?: boolean
   id?: string
 }) {
