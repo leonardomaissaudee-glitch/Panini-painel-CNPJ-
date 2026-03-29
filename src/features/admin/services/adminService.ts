@@ -6,6 +6,7 @@ export type { OrderStatus }
 
 export interface OrderRow {
   id: string
+  cliente_id?: string | null
   customer_name: string
   customer_email: string
   customer_phone: string
@@ -19,6 +20,11 @@ export interface OrderRow {
   payment_id?: string | null
   invoice_number?: string | null
   tracking_code?: string | null
+  payment_instructions?: string | null
+  payment_copy_paste?: string | null
+  payment_link_url?: string | null
+  payment_boleto_line?: string | null
+  payment_boleto_pdf_url?: string | null
   account_manager_name?: string | null
   account_manager_whatsapp?: string | null
   created_at?: string
@@ -107,6 +113,11 @@ export async function updateOrderStatus(
     invoice_number?: string
     tracking_code?: string
     payment_status?: string | null
+    payment_instructions?: string | null
+    payment_copy_paste?: string | null
+    payment_link_url?: string | null
+    payment_boleto_line?: string | null
+    payment_boleto_pdf_url?: string | null
   }
 ) {
   const { data: current } = await supabase.from("orders").select("payment_status").eq("id", id).maybeSingle()
@@ -118,11 +129,33 @@ export async function updateOrderStatus(
       payment_status: extras?.payment_status ?? derivePaymentStatus(status, current?.payment_status),
       invoice_number: extras?.invoice_number ?? null,
       tracking_code: extras?.tracking_code ?? null,
+      payment_instructions: extras?.payment_instructions ?? null,
+      payment_copy_paste: extras?.payment_copy_paste ?? null,
+      payment_link_url: extras?.payment_link_url ?? null,
+      payment_boleto_line: extras?.payment_boleto_line ?? null,
+      payment_boleto_pdf_url: extras?.payment_boleto_pdf_url ?? null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)
 
   if (error) throw error
+}
+
+export async function uploadOrderPaymentPdf(orderId: string, file: File) {
+  const sanitized = file.name.toLowerCase().replace(/[^a-z0-9.-]+/g, "-")
+  const path = `${orderId}/${Date.now()}-${sanitized}`
+
+  const { error: uploadError } = await supabase.storage.from("order-payment-files").upload(path, file, {
+    upsert: true,
+    contentType: file.type || "application/pdf",
+  })
+
+  if (uploadError) {
+    throw new Error("Não foi possível enviar o PDF do boleto. Verifique o bucket e as permissões no Supabase.")
+  }
+
+  const { data } = supabase.storage.from("order-payment-files").getPublicUrl(path)
+  return data.publicUrl
 }
 
 export async function fetchPendingProfiles(): Promise<ResellerApprovalRow[]> {
