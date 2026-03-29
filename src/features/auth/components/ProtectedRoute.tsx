@@ -30,7 +30,9 @@ export function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) 
     return <Navigate to={fallbackLogin} replace />
   }
 
-  if (profile.status_cadastro === "pending") {
+  const isBackoffice = profile.role === "admin" || profile.role === "seller"
+
+  if (!isBackoffice && profile.status_cadastro === "pending") {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="rounded-lg border p-6 text-center space-y-2">
@@ -41,7 +43,7 @@ export function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) 
     )
   }
 
-  if (profile.status_cadastro === "rejected" || profile.status_cadastro === "blocked") {
+  if (!isBackoffice && (profile.status_cadastro === "rejected" || profile.status_cadastro === "blocked")) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="rounded-lg border p-6 text-center space-y-2">
