@@ -33,7 +33,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
   const handleBuyNow = () => {
     addToCart(product);
-    navigate('/cart');
+    navigate('/app?tab=carrinho');
   };
 
   return (
