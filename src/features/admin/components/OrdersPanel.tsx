@@ -10,9 +10,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { products } from "@/data/products"
 import {
   deleteOrder,
+  fetchGifts,
   fetchOrders,
   saveOrder,
   uploadOrderPaymentPdf,
+  type GiftCatalogRow,
+  type GiftItemRow,
   type OrderItemRow,
   type OrderRow,
   type OrderStatus,
@@ -44,6 +47,11 @@ type EditableOrderItem = {
   price: number
 }
 
+type EditableGiftItem = {
+  gift_id: string
+  quantity: number
+}
+
 type OrderDraft = {
   status: OrderStatus
   payment_method: PaymentMethod
@@ -67,6 +75,7 @@ type OrderDraft = {
   admin_bonus_value: string
   admin_bonus_product_id: string
   admin_bonus_quantity: number
+  gift_items: EditableGiftItem[]
 }
 
 const STATUS_TABS: { value: StatusTab; label: string }[] = [
@@ -153,6 +162,13 @@ function createEmptyItem(): EditableOrderItem {
   }
 }
 
+function createEmptyGift(): EditableGiftItem {
+  return {
+    gift_id: "",
+    quantity: 1,
+  }
+}
+
 function toEditableItem(item: OrderItemRow): EditableOrderItem {
   const matchedProduct = productMap.get(item.id)
   return {
@@ -190,6 +206,13 @@ function buildDraft(order: OrderRow): OrderDraft {
     admin_bonus_value: order.admin_bonus_value ? String(order.admin_bonus_value) : "",
     admin_bonus_product_id: order.admin_bonus_product_id || "",
     admin_bonus_quantity: Math.max(1, Number(order.admin_bonus_quantity || 1)),
+    gift_items:
+      Array.isArray(order.gift_items) && order.gift_items.length
+        ? order.gift_items.map((item) => ({
+            gift_id: item.gift_id,
+            quantity: Math.max(1, Number(item.quantity || 1)),
+          }))
+        : [],
   }
 }
 
@@ -235,6 +258,7 @@ function getOrderSearchText(order: OrderRow) {
 
 export function OrdersPanel() {
   const [orders, setOrders] = useState<OrderRow[]>([])
+  const [gifts, setGifts] = useState<GiftCatalogRow[]>([])
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [savingId, setSavingId] = useState<string | null>(null)
@@ -244,14 +268,16 @@ export function OrdersPanel() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [drafts, setDrafts] = useState<Record<string, OrderDraft>>({})
   const [boletoFiles, setBoletoFiles] = useState<Record<string, File | null>>({})
+  const giftMap = useMemo(() => new Map(gifts.map((gift) => [gift.id, gift])), [gifts])
 
   const load = async (mode: "initial" | "refresh" = "initial") => {
     if (mode === "initial") setLoading(true)
     else setRefreshing(true)
 
     try {
-      const data = await fetchOrders()
+      const [data, giftRows] = await Promise.all([fetchOrders(), fetchGifts()])
       setOrders(data)
+      setGifts(giftRows.filter((gift) => gift.is_active))
       setDrafts((current) => {
         const next = { ...current }
         data.forEach((order) => {
@@ -316,10 +342,32 @@ export function OrdersPanel() {
 
   const addItem = (orderId: string) => updateDraft(orderId, (current) => ({ ...current, items: [...current.items, createEmptyItem()] }))
   const removeItem = (orderId: string, itemId: string) => updateDraft(orderId, (current) => ({ ...current, items: current.items.length > 1 ? current.items.filter((item) => item.id !== itemId) : current.items }))
+  const addGift = (orderId: string) => updateDraft(orderId, (current) => ({ ...current, gift_items: [...current.gift_items, createEmptyGift()] }))
+  const removeGift = (orderId: string, indexToRemove: number) =>
+    updateDraft(orderId, (current) => ({ ...current, gift_items: current.gift_items.filter((_, index) => index !== indexToRemove) }))
+  const updateGift = (orderId: string, index: number, patch: Partial<EditableGiftItem>) =>
+    updateDraft(orderId, (current) => ({
+      ...current,
+      gift_items: current.gift_items.map((item, currentIndex) => (currentIndex === index ? { ...item, ...patch } : item)),
+    }))
 
   const handleSave = async (order: OrderRow) => {
     const draft = drafts[order.id] ?? buildDraft(order)
     const totals = calculateDraftTotals(draft)
+    const giftItems: GiftItemRow[] = draft.gift_items
+      .filter((item) => item.gift_id)
+      .map((item) => {
+        const gift = giftMap.get(item.gift_id)
+        return {
+          gift_id: item.gift_id,
+          name: gift?.name || "Brinde",
+          quantity: Math.max(1, item.quantity),
+          description: gift?.description || null,
+          reference: gift?.reference || null,
+          image_url: gift?.image_url || null,
+          notes: gift?.notes || null,
+        }
+      })
 
     try {
       setSavingId(order.id)
@@ -355,6 +403,7 @@ export function OrdersPanel() {
         admin_bonus_product_id: draft.admin_bonus_type === "item" ? draft.admin_bonus_product_id || null : null,
         admin_bonus_product_name: draft.admin_bonus_type === "item" ? totals.bonusProductName || null : null,
         admin_bonus_quantity: draft.admin_bonus_type === "item" ? Math.max(1, draft.admin_bonus_quantity) : null,
+        gift_items: giftItems,
       })
 
       setOrders((current) => current.map((row) => (row.id === order.id ? updated : row)))
@@ -547,6 +596,50 @@ export function OrdersPanel() {
                               <div className="text-sm text-slate-600">Bonificacao calculada: <span className="font-semibold text-slate-950">{formatMoney(totals.bonusAmount)}</span></div>
                             </div>
                           </div>
+                        </SectionCard>
+                        <SectionCard title="Brindes do pedido" action={<Button variant="outline" size="sm" onClick={() => addGift(order.id)}><PackagePlus className="mr-2 h-4 w-4" />Adicionar brinde</Button>}>
+                          {draft.gift_items.length ? (
+                            <div className="space-y-3">
+                              {draft.gift_items.map((giftItem, index) => (
+                                <div key={`${order.id}-gift-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                                  <div className="grid gap-3 md:grid-cols-[1fr_120px_auto] md:items-end">
+                                    <DraftField label="Brinde">
+                                      <select
+                                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                                        value={giftItem.gift_id}
+                                        onChange={(event) => updateGift(order.id, index, { gift_id: event.target.value })}
+                                      >
+                                        <option value="">Selecione um brinde</option>
+                                        {gifts.map((gift) => (
+                                          <option key={gift.id} value={gift.id}>{gift.name}</option>
+                                        ))}
+                                      </select>
+                                    </DraftField>
+                                    <DraftField label="Quantidade">
+                                      <Input
+                                        type="number"
+                                        min={1}
+                                        value={giftItem.quantity}
+                                        onChange={(event) => updateGift(order.id, index, { quantity: Math.max(1, Number(event.target.value || 1)) })}
+                                      />
+                                    </DraftField>
+                                    <Button variant="outline" size="sm" onClick={() => removeGift(order.id, index)}>
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                  {giftItem.gift_id && giftMap.get(giftItem.gift_id) ? (
+                                    <div className="mt-2 text-xs text-slate-500">
+                                      {giftMap.get(giftItem.gift_id)?.reference || "Brinde cadastrado"} · Estoque: {giftMap.get(giftItem.gift_id)?.quantity_available ?? 0}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-muted-foreground">
+                              Nenhum brinde vinculado a este pedido.
+                            </div>
+                          )}
                         </SectionCard>
                         <SectionCard title="Resumo financeiro">
                           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

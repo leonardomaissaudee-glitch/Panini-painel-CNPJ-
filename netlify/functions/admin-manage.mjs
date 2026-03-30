@@ -56,6 +56,8 @@ function mapUserType(input) {
   const value = asText(input, 32)?.toLowerCase()
 
   switch (value) {
+    case "admin":
+      return { role: "admin", userType: "admin" }
     case "cliente":
       return { role: "client", userType: "cliente" }
     case "gerente":
@@ -78,6 +80,22 @@ function toDatabaseOrderStatus(status) {
     localizador_disponivel: "rastreio",
   }
   return legacyMap[normalized] || normalized
+}
+
+function buildAddressPayload(values) {
+  return {
+    cep: values.cep || null,
+    endereco: values.endereco || null,
+    numero: values.numero || null,
+    complemento: values.complemento || null,
+    bairro: values.bairro || null,
+    cidade: values.cidade || null,
+    estado: values.estado || null,
+  }
+}
+
+function getClientDisplayName({ razaoSocial, fullName }) {
+  return razaoSocial || fullName || "Razão social não informada"
 }
 
 function derivePaymentStatus(status, current = "pending") {
@@ -114,6 +132,22 @@ function sanitizeOrderItems(items) {
         subtotal,
       }
     })
+    .filter((item) => item.quantity > 0)
+}
+
+function sanitizeGiftItems(items) {
+  if (!Array.isArray(items)) return []
+
+  return items
+    .map((item) => ({
+      gift_id: asNullableText(item?.gift_id, 120) || crypto.randomUUID(),
+      name: asNullableText(item?.name, 255) || "Brinde",
+      quantity: Math.max(1, asInteger(item?.quantity, 1)),
+      description: asNullableText(item?.description, 1000),
+      reference: asNullableText(item?.reference, 120),
+      image_url: asNullableText(item?.image_url, 1000),
+      notes: asNullableText(item?.notes, 1000),
+    }))
     .filter((item) => item.quantity > 0)
 }
 
@@ -167,6 +201,38 @@ async function upsertLegacyProfile(supabase, payload) {
   return data.id
 }
 
+async function findResellerProfile(supabase, { resellerId, authUserId, email }) {
+  if (resellerId) {
+    const { data, error } = await supabase.from("reseller_profiles").select("*").eq("id", resellerId).maybeSingle()
+    if (error) throw error
+    if (data) return data
+  }
+
+  if (authUserId) {
+    const { data, error } = await supabase
+      .from("reseller_profiles")
+      .select("*")
+      .eq("user_id", authUserId)
+      .maybeSingle()
+
+    if (error) throw error
+    if (data) return data
+  }
+
+  if (email) {
+    const { data, error } = await supabase
+      .from("reseller_profiles")
+      .select("*")
+      .eq("email", email)
+      .maybeSingle()
+
+    if (error) throw error
+    if (data) return data
+  }
+
+  return null
+}
+
 async function handleUpdateOrder(supabase, body, adminUserId) {
   const orderId = asText(body.orderId, 120)
   if (!orderId) throw new Error("order_id_required")
@@ -181,6 +247,7 @@ async function handleUpdateOrder(supabase, body, adminUserId) {
   if (currentError || !currentOrder) throw new Error("order_not_found")
 
   const items = sanitizeOrderItems(body.items)
+  const giftItems = sanitizeGiftItems(body.gift_items)
   const subtotal = Number(items.reduce((sum, item) => sum + asNumber(item.subtotal), 0).toFixed(2))
 
   const discountType = asNullableText(body.admin_discount_type, 20)
@@ -224,6 +291,7 @@ async function handleUpdateOrder(supabase, body, adminUserId) {
     admin_bonus_product_id: asNullableText(body.admin_bonus_product_id, 120),
     admin_bonus_product_name: asNullableText(body.admin_bonus_product_name, 255),
     admin_bonus_quantity: bonusType === "item" ? Math.max(1, asInteger(body.admin_bonus_quantity, 1)) : null,
+    gift_items: giftItems,
     updated_by_admin_id: adminUserId,
     updated_at: new Date().toISOString(),
   }
@@ -278,23 +346,16 @@ async function handleApproveReseller(supabase, body) {
 
   await upsertLegacyProfile(supabase, {
     auth_user_id: reseller.user_id,
-    full_name: reseller.nome_responsavel,
+    full_name: getClientDisplayName({ razaoSocial: reseller.razao_social, fullName: reseller.nome_responsavel }),
     email: reseller.email,
     role: "client",
     user_type: "cliente",
+    company_name: reseller.razao_social,
     status_cadastro: "aprovado",
     tipo_documento: "cnpj",
     documento: reseller.cnpj,
     telefone: reseller.whatsapp || reseller.telefone,
-    endereco: {
-      cep: reseller.cep,
-      endereco: reseller.endereco,
-      numero: reseller.numero,
-      complemento: reseller.complemento,
-      bairro: reseller.bairro,
-      cidade: reseller.cidade,
-      estado: reseller.estado,
-    },
+    endereco: buildAddressPayload(reseller),
     motivo_reprovacao: null,
     account_manager_name: managerName,
     account_manager_whatsapp: managerWhatsapp,
@@ -331,23 +392,16 @@ async function handleRejectReseller(supabase, body) {
 
   await upsertLegacyProfile(supabase, {
     auth_user_id: reseller.user_id,
-    full_name: reseller.nome_responsavel,
+    full_name: getClientDisplayName({ razaoSocial: reseller.razao_social, fullName: reseller.nome_responsavel }),
     email: reseller.email,
     role: "client",
     user_type: "cliente",
+    company_name: reseller.razao_social,
     status_cadastro: "reprovado",
     tipo_documento: "cnpj",
     documento: reseller.cnpj,
     telefone: reseller.whatsapp || reseller.telefone,
-    endereco: {
-      cep: reseller.cep,
-      endereco: reseller.endereco,
-      numero: reseller.numero,
-      complemento: reseller.complemento,
-      bairro: reseller.bairro,
-      cidade: reseller.cidade,
-      estado: reseller.estado,
-    },
+    endereco: buildAddressPayload(reseller),
     motivo_reprovacao: reason,
     updated_at: now,
   })
@@ -395,23 +449,19 @@ async function handleUpdateClient(supabase, body) {
 
   await upsertLegacyProfile(supabase, {
     auth_user_id: reseller.user_id,
-    full_name: asNullableText(body.nome_responsavel, 255) || reseller.nome_responsavel,
+    full_name: getClientDisplayName({
+      razaoSocial: resellerPayload.razao_social,
+      fullName: resellerPayload.nome_responsavel,
+    }),
     email: resellerPayload.email,
     role: "client",
     user_type: asNullableText(body.user_type, 32) || "cliente",
+    company_name: resellerPayload.razao_social,
     status_cadastro: statusMap.profile,
     tipo_documento: "cnpj",
     documento: resellerPayload.cnpj,
     telefone: resellerPayload.whatsapp || resellerPayload.telefone,
-    endereco: {
-      cep: resellerPayload.cep,
-      endereco: resellerPayload.endereco,
-      numero: resellerPayload.numero,
-      complemento: resellerPayload.complemento,
-      bairro: resellerPayload.bairro,
-      cidade: resellerPayload.cidade,
-      estado: resellerPayload.estado,
-    },
+    endereco: buildAddressPayload(resellerPayload),
     motivo_reprovacao: resellerPayload.motivo_reprovacao,
     notes: asNullableText(body.notes, 2000),
     updated_at: now,
@@ -442,6 +492,8 @@ async function handleCreateUser(supabase, body) {
   const bairro = asNullableText(body.bairro, 120)
   const cidade = asNullableText(body.cidade, 120)
   const estado = asNullableText(body.estado, 80)
+  const companyName = asNullableText(body.company_name, 255)
+  const visualName = role === "client" ? getClientDisplayName({ razaoSocial: razaoSocial, fullName }) : fullName
 
   if (!fullName || !email || !password) {
     throw new Error("required_fields_missing")
@@ -471,11 +523,12 @@ async function handleCreateUser(supabase, body) {
     password,
     email_confirm: true,
     user_metadata: {
-      full_name: fullName,
+      full_name: visualName,
       telefone: phone,
       documento,
       tipo_documento: tipoDocumento,
       user_type: userType,
+      company_name: role === "client" ? razaoSocial : companyName,
     },
   })
 
@@ -485,10 +538,11 @@ async function handleCreateUser(supabase, body) {
   try {
     await upsertLegacyProfile(supabase, {
       auth_user_id: created.user.id,
-      full_name: fullName,
+      full_name: visualName,
       email,
       role,
       user_type: userType,
+      company_name: role === "client" ? razaoSocial : companyName,
       status_cadastro: statusMap.profile,
       tipo_documento: tipoDocumento,
       documento,
@@ -528,6 +582,197 @@ async function handleCreateUser(supabase, body) {
   }
 
   return { id: created.user.id, email, role, user_type: userType }
+}
+
+async function handleUpdateUser(supabase, body) {
+  const targetId = asText(body.userId, 120)
+  if (!targetId) throw new Error("user_id_required")
+
+  const { data: loadedProfile, error: existingProfileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .or(`id.eq.${targetId},auth_user_id.eq.${targetId}`)
+    .maybeSingle()
+
+  if (existingProfileError) throw existingProfileError
+  const resellerProfile = await findResellerProfile(supabase, {
+    resellerId: body.reseller_id || targetId,
+    authUserId: targetId,
+    email: asNullableText(body.email, 255),
+  })
+
+  let existingProfile = loadedProfile
+  if (!existingProfile && resellerProfile) {
+    existingProfile = {
+      id: resellerProfile.user_id || resellerProfile.id,
+      auth_user_id: resellerProfile.user_id,
+      full_name: resellerProfile.nome_responsavel || resellerProfile.razao_social,
+      email: resellerProfile.email,
+      role: "client",
+      user_type: "cliente",
+      company_name: resellerProfile.razao_social,
+      status_cadastro: normalizeApprovalStatus(resellerProfile.status_cadastro).profile,
+      tipo_documento: "cnpj",
+      documento: resellerProfile.cnpj,
+      telefone: resellerProfile.whatsapp || resellerProfile.telefone,
+      endereco: buildAddressPayload(resellerProfile),
+      motivo_reprovacao: resellerProfile.motivo_reprovacao || null,
+      account_manager_name: resellerProfile.account_manager_name || null,
+      account_manager_whatsapp: resellerProfile.account_manager_whatsapp || null,
+      notes: null,
+    }
+  }
+
+  if (!existingProfile) throw new Error("user_not_found")
+
+  const authUserId = existingProfile.auth_user_id || resellerProfile?.user_id || targetId
+  const targetType = asNullableText(body.user_type, 32) || existingProfile.user_type || existingProfile.role || "vendedor"
+  const { role, userType } = mapUserType(targetType)
+  const statusMap = normalizeApprovalStatus(body.status_cadastro || existingProfile.status_cadastro)
+  const notes = asNullableText(body.notes, 2000)
+  const companyName = asNullableText(body.company_name, 255)
+  const phone = asNullableText(body.telefone, 64)
+  const documento = asNullableText(body.documento, 64)
+  const tipoDocumento = asNullableText(body.tipo_documento, 16)
+  const razaoSocial = asNullableText(body.razao_social, 255)
+  const nomeFantasia = asNullableText(body.nome_fantasia, 255)
+  const segmento = asNullableText(body.segmento, 120)
+  const faixaInvestimento = asNullableText(body.faixa_investimento, 120)
+  const canalRevenda = asNullableText(body.canal_revenda, 120)
+  const cep = asNullableText(body.cep, 32)
+  const endereco = asNullableText(body.endereco, 255)
+  const numero = asNullableText(body.numero, 32)
+  const complemento = asNullableText(body.complemento, 120)
+  const bairro = asNullableText(body.bairro, 120)
+  const cidade = asNullableText(body.cidade, 120)
+  const estado = asNullableText(body.estado, 80)
+  const nomeResponsavel = asNullableText(body.nome_responsavel, 255)
+  const email = asNullableText(body.email, 255)?.toLowerCase()
+
+  const existingReseller =
+    resellerProfile ||
+    (await findResellerProfile(supabase, {
+      resellerId: body.reseller_id,
+      authUserId,
+      email: existingProfile.email,
+    }))
+
+  const finalRazaoSocial = role === "client"
+    ? razaoSocial || existingReseller?.razao_social || existingProfile.company_name || existingProfile.full_name
+    : null
+
+  const finalFullName = role === "client"
+    ? getClientDisplayName({
+        razaoSocial: finalRazaoSocial,
+        fullName: nomeResponsavel || existingReseller?.nome_responsavel || existingProfile.full_name,
+      })
+    : asNullableText(body.full_name, 255) || existingProfile.full_name
+
+  if (!email || !finalFullName) {
+    throw new Error("required_fields_missing")
+  }
+
+  if (
+    role === "client" &&
+    (!documento ||
+      (tipoDocumento && tipoDocumento !== "cnpj") ||
+      !finalRazaoSocial ||
+      !(segmento || existingReseller?.segmento) ||
+      !(faixaInvestimento || existingReseller?.faixa_investimento) ||
+      !(canalRevenda || existingReseller?.canal_revenda) ||
+      !(phone || existingReseller?.telefone || existingProfile.telefone) ||
+      !(cep || existingReseller?.cep) ||
+      !(endereco || existingReseller?.endereco) ||
+      !(numero || existingReseller?.numero) ||
+      !(bairro || existingReseller?.bairro) ||
+      !(cidade || existingReseller?.cidade) ||
+      !(estado || existingReseller?.estado))
+  ) {
+    throw new Error("required_client_fields_missing")
+  }
+
+  const { error: authUpdateError } = await supabase.auth.admin.updateUserById(authUserId, {
+    email,
+    user_metadata: {
+      full_name: finalFullName,
+      telefone: phone || existingReseller?.telefone || existingProfile.telefone || null,
+      documento: documento || existingReseller?.cnpj || existingProfile.documento || null,
+      tipo_documento: role === "client" ? "cnpj" : tipoDocumento || existingProfile.tipo_documento || null,
+      user_type: userType,
+      company_name: role === "client" ? finalRazaoSocial : companyName || existingProfile.company_name || null,
+    },
+  })
+
+  if (authUpdateError) throw authUpdateError
+
+  const now = new Date().toISOString()
+  await upsertLegacyProfile(supabase, {
+    auth_user_id: authUserId,
+    full_name: finalFullName,
+    email,
+    role,
+    user_type: userType,
+    company_name: role === "client" ? finalRazaoSocial : companyName,
+    status_cadastro: statusMap.profile,
+    tipo_documento: role === "client" ? "cnpj" : tipoDocumento || existingProfile.tipo_documento,
+    documento: documento || existingReseller?.cnpj || existingProfile.documento || null,
+    telefone: phone || existingReseller?.whatsapp || existingReseller?.telefone || existingProfile.telefone || null,
+    endereco: buildAddressPayload({
+      cep: cep || existingReseller?.cep || existingProfile.endereco?.cep,
+      endereco: endereco || existingReseller?.endereco || existingProfile.endereco?.endereco,
+      numero: numero || existingReseller?.numero || existingProfile.endereco?.numero,
+      complemento: complemento || existingReseller?.complemento || existingProfile.endereco?.complemento,
+      bairro: bairro || existingReseller?.bairro || existingProfile.endereco?.bairro,
+      cidade: cidade || existingReseller?.cidade || existingProfile.endereco?.cidade,
+      estado: estado || existingReseller?.estado || existingProfile.endereco?.estado,
+    }),
+    motivo_reprovacao: asNullableText(body.motivo_reprovacao, 1000),
+    notes,
+    account_manager_name: asNullableText(body.account_manager_name, 255) || existingProfile.account_manager_name || existingReseller?.account_manager_name || null,
+    account_manager_whatsapp: asNullableText(body.account_manager_whatsapp, 64) || existingProfile.account_manager_whatsapp || existingReseller?.account_manager_whatsapp || null,
+    updated_at: now,
+  })
+
+  if (role === "client") {
+    const resellerPayload = {
+      user_id: authUserId,
+      cnpj: documento || existingReseller?.cnpj,
+      razao_social: finalRazaoSocial,
+      nome_fantasia: nomeFantasia || existingReseller?.nome_fantasia || null,
+      segmento: segmento || existingReseller?.segmento,
+      nome_responsavel: nomeResponsavel || existingReseller?.nome_responsavel || finalFullName,
+      telefone: phone || existingReseller?.telefone || existingProfile.telefone,
+      whatsapp: asNullableText(body.whatsapp, 64) || existingReseller?.whatsapp || phone || existingProfile.telefone || null,
+      email,
+      cep: cep || existingReseller?.cep,
+      endereco: endereco || existingReseller?.endereco,
+      numero: numero || existingReseller?.numero,
+      complemento: complemento || existingReseller?.complemento || null,
+      bairro: bairro || existingReseller?.bairro,
+      cidade: cidade || existingReseller?.cidade,
+      estado: estado || existingReseller?.estado,
+      canal_revenda: canalRevenda || existingReseller?.canal_revenda,
+      faixa_investimento: faixaInvestimento || existingReseller?.faixa_investimento,
+      observacoes: asNullableText(body.observacoes, 2000) || existingReseller?.observacoes || null,
+      status_cadastro: statusMap.reseller,
+      motivo_reprovacao: asNullableText(body.motivo_reprovacao, 1000),
+      account_manager_name:
+        asNullableText(body.account_manager_name, 255) || existingReseller?.account_manager_name || existingProfile.account_manager_name || null,
+      account_manager_whatsapp:
+        asNullableText(body.account_manager_whatsapp, 64) || existingReseller?.account_manager_whatsapp || existingProfile.account_manager_whatsapp || null,
+      updated_at: now,
+    }
+
+    if (existingReseller?.id) {
+      const { error: resellerError } = await supabase.from("reseller_profiles").update(resellerPayload).eq("id", existingReseller.id)
+      if (resellerError) throw resellerError
+    } else {
+      const { error: resellerError } = await supabase.from("reseller_profiles").insert(resellerPayload)
+      if (resellerError) throw resellerError
+    }
+  }
+
+  return { id: authUserId }
 }
 
 export async function handler(event) {
@@ -582,6 +827,9 @@ export async function handler(event) {
         break
       case "update-client":
         data = await handleUpdateClient(supabase, body)
+        break
+      case "update-user":
+        data = await handleUpdateUser(supabase, body)
         break
       case "create-user":
         data = await handleCreateUser(supabase, body)

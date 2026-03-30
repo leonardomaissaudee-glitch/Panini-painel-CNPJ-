@@ -10,6 +10,7 @@ const adminNav = [
   { label: "Usuários", to: "/admin/usuarios" },
   { label: "Clientes aprovados", to: "/admin/clientes-aprovados" },
   { label: "Todos os clientes", to: "/admin/todos-clientes" },
+  { label: "Brindes", to: "/admin/brindes" },
 ]
 
 export default function AdminDashboard() {

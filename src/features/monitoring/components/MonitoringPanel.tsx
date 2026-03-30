@@ -122,6 +122,24 @@ export function MonitoringPanel() {
     void loadLogs(filters)
   }, [filters])
 
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return
+      void loadDashboard(preset)
+      void loadLogs(filters)
+    }
+
+    const intervalId = window.setInterval(refresh, 30_000)
+    window.addEventListener("focus", refresh)
+    document.addEventListener("visibilitychange", refresh)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener("focus", refresh)
+      document.removeEventListener("visibilitychange", refresh)
+    }
+  }, [preset, filters])
+
   const handleApplyFilters = () => {
     setFilters((current) => ({
       ...current,
@@ -218,6 +236,47 @@ export function MonitoringPanel() {
           loading={loadingDashboard}
         />
       </div>
+
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader>
+          <CardTitle>Usuários online agora</CardTitle>
+          <CardDescription>Sessões com atividade nos últimos 2 minutos.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loadingDashboard ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <Skeleton key={index} className="h-28 w-full rounded-3xl" />
+              ))}
+            </div>
+          ) : dashboard?.online_visitors?.length ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {dashboard.online_visitors.map((visitor) => (
+                <div key={visitor.session_id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-950">{visitor.user_name || "Visitante sem identificação"}</div>
+                      <div className="text-xs uppercase tracking-[0.16em] text-slate-500">{visitor.user_role || "visitante"}</div>
+                    </div>
+                    <StatusBadge online />
+                  </div>
+                  <div className="mt-3 space-y-1 text-sm text-slate-600">
+                    <div><span className="font-medium text-slate-900">Página:</span> {visitor.path || "-"}</div>
+                    <div><span className="font-medium text-slate-900">IP:</span> {visitor.ip || "-"}</div>
+                    <div><span className="font-medium text-slate-900">Origem:</span> {formatGeo(visitor)}</div>
+                    <div><span className="font-medium text-slate-900">Dispositivo:</span> {[visitor.browser, visitor.device_type].filter(Boolean).join(" · ") || "-"}</div>
+                    <div><span className="font-medium text-slate-900">Última atividade:</span> {format(new Date(visitor.last_seen), "dd/MM/yyyy HH:mm:ss")}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-slate-200 px-3 py-8 text-center text-sm text-slate-500">
+              Nenhum usuário online neste momento.
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 xl:grid-cols-[1.35fr_1fr]">
         <ChartCard
@@ -333,6 +392,7 @@ export function MonitoringPanel() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Data/hora</TableHead>
+                  <TableHead>Usuário</TableHead>
                   <TableHead>IP</TableHead>
                   <TableHead>Página</TableHead>
                   <TableHead>Origem</TableHead>
@@ -345,7 +405,7 @@ export function MonitoringPanel() {
                 {loadingLogs ? (
                   Array.from({ length: 6 }).map((_, index) => (
                     <TableRow key={index}>
-                      <TableCell colSpan={7}>
+                      <TableCell colSpan={8}>
                         <Skeleton className="h-12 w-full" />
                       </TableCell>
                     </TableRow>
@@ -356,6 +416,10 @@ export function MonitoringPanel() {
                       <TableCell>
                         <div className="font-medium text-slate-900">{format(new Date(row.created_at), "dd/MM/yyyy")}</div>
                         <div className="text-xs text-slate-500">{format(new Date(row.created_at), "HH:mm:ss")}</div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium text-slate-900">{row.user_name || "Visitante sem identificação"}</div>
+                        <div className="text-xs uppercase tracking-[0.14em] text-slate-500">{row.user_role || "visitante"}</div>
                       </TableCell>
                       <TableCell>{row.ip || "-"}</TableCell>
                       <TableCell>
@@ -380,7 +444,7 @@ export function MonitoringPanel() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7}>
+                      <TableCell colSpan={8}>
                       <Empty className="border-slate-200">
                         <EmptyHeader>
                           <EmptyMedia variant="icon">
@@ -403,15 +467,17 @@ export function MonitoringPanel() {
             ) : logs.rows.length ? (
               logs.rows.map((row) => (
                 <div key={row.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-semibold text-slate-950">{row.path}</div>
-                      <div className="text-xs text-slate-500">{format(new Date(row.created_at), "dd/MM/yyyy HH:mm:ss")}</div>
-                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-slate-950">{row.user_name || "Visitante sem identificação"}</div>
+                        <div className="text-xs uppercase tracking-[0.14em] text-slate-500">{row.user_role || "visitante"}</div>
+                        <div className="mt-1 text-sm text-slate-700">{row.path}</div>
+                        <div className="text-xs text-slate-500">{format(new Date(row.created_at), "dd/MM/yyyy HH:mm:ss")}</div>
+                      </div>
                     <StatusBadge online={row.is_online} />
                   </div>
-                  <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
-                    <div><span className="font-medium text-slate-900">IP:</span> {row.ip || "-"}</div>
+                    <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
+                      <div><span className="font-medium text-slate-900">IP:</span> {row.ip || "-"}</div>
                     <div><span className="font-medium text-slate-900">Origem:</span> {formatGeo(row)}</div>
                     <div><span className="font-medium text-slate-900">Navegador:</span> {row.browser || "-"}</div>
                     <div><span className="font-medium text-slate-900">Dispositivo:</span> {row.device_type || "-"}</div>

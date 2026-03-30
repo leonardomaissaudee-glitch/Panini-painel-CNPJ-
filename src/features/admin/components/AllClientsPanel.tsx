@@ -6,10 +6,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { StatusBadge } from "@/components/StatusBadge"
-import { fetchAllClients, saveClient, type ClientAdminRow, type UpdateClientInput } from "@/features/admin/services/adminService"
+import { fetchAllClients, saveUser, type ClientAdminRow, type UpdateUserInput } from "@/features/admin/services/adminService"
 import { toast } from "sonner"
 
-type ClientDraft = Partial<UpdateClientInput>
+type ClientDraft = Partial<UpdateUserInput>
 
 const STATUS_OPTIONS = [
   { value: "pending", label: "Pendente" },
@@ -57,8 +57,10 @@ export function AllClientsPanel() {
     })
   }, [clients, search, statusFilter])
 
-  const getDraft = (client: ClientAdminRow): UpdateClientInput => ({
-    resellerId: client.id,
+  const getDraft = (client: ClientAdminRow): UpdateUserInput => ({
+    userId: client.user_id || client.profile_id || client.id,
+    reseller_id: client.profile_id && client.profile_id !== client.id ? client.id : null,
+    full_name: client.nome_responsavel || client.razao_social,
     razao_social: drafts[client.id]?.razao_social ?? client.razao_social,
     nome_fantasia: drafts[client.id]?.nome_fantasia ?? client.nome_fantasia ?? "",
     cnpj: drafts[client.id]?.cnpj ?? client.cnpj,
@@ -76,11 +78,16 @@ export function AllClientsPanel() {
     status_cadastro: drafts[client.id]?.status_cadastro ?? client.status_cadastro,
     motivo_reprovacao: drafts[client.id]?.motivo_reprovacao ?? client.motivo_reprovacao ?? "",
     user_type: drafts[client.id]?.user_type ?? client.user_type ?? "cliente",
+    company_name: drafts[client.id]?.company_name ?? client.razao_social ?? "",
     notes: drafts[client.id]?.notes ?? client.notes ?? "",
     nome_responsavel: drafts[client.id]?.nome_responsavel ?? client.nome_responsavel,
+    documento: drafts[client.id]?.documento ?? client.cnpj,
+    tipo_documento: "cnpj",
+    account_manager_name: drafts[client.id]?.account_manager_name ?? client.account_manager_name ?? "",
+    account_manager_whatsapp: drafts[client.id]?.account_manager_whatsapp ?? client.account_manager_whatsapp ?? "",
   })
 
-  const updateDraft = (clientId: string, patch: Partial<UpdateClientInput>) => {
+  const updateDraft = (clientId: string, patch: Partial<UpdateUserInput>) => {
     setDrafts((current) => ({
       ...current,
       [clientId]: {
@@ -93,7 +100,7 @@ export function AllClientsPanel() {
   const handleSave = async (client: ClientAdminRow) => {
     try {
       setSavingId(client.id)
-      await saveClient(getDraft(client))
+      await saveUser(getDraft(client))
       toast.success("Cliente atualizado")
       await load()
     } catch (error) {
@@ -206,8 +213,8 @@ export function AllClientsPanel() {
                       <Field label="Status">
                         <select
                           className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                          value={draft.status_cadastro}
-                          onChange={(event) => updateDraft(client.id, { status_cadastro: event.target.value as UpdateClientInput["status_cadastro"] })}
+                            value={draft.status_cadastro}
+                            onChange={(event) => updateDraft(client.id, { status_cadastro: event.target.value as UpdateUserInput["status_cadastro"] })}
                         >
                           {STATUS_OPTIONS.map((option) => (
                             <option key={option.value} value={option.value}>

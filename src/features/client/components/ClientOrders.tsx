@@ -285,6 +285,42 @@ export function ClientOrders({
                             </div>
                           )
                         })}
+
+                        {order.admin_bonus_type === "value" && Number(order.admin_bonus_amount || 0) > 0 ? (
+                          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
+                            <div className="text-sm font-semibold text-emerald-900">Bonificação financeira</div>
+                            <div className="mt-1 text-xs text-emerald-800">
+                              Crédito aplicado ao pedido: R$ {Number(order.admin_bonus_amount || 0).toFixed(2)}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {order.admin_bonus_type === "item" && order.admin_bonus_product_name ? (
+                          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
+                            <div className="text-sm font-semibold text-emerald-900">Bonificação em produto</div>
+                            <div className="mt-1 text-xs text-emerald-800">
+                              {order.admin_bonus_product_name} · Qtde: {Number(order.admin_bonus_quantity || 1)}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {Array.isArray(order.gift_items) && order.gift_items.length ? (
+                          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3">
+                            <div className="text-sm font-semibold text-amber-900">Brindes adicionados</div>
+                            <div className="mt-3 space-y-2">
+                              {order.gift_items.map((gift, index) => (
+                                <div key={`${order.id}-gift-${index}`} className="rounded-2xl border border-amber-200 bg-white p-3">
+                                  <div className="text-sm font-semibold text-slate-900">{gift.name}</div>
+                                  <div className="mt-1 text-xs text-slate-500">
+                                    Qtde: {gift.quantity}
+                                    {gift.reference ? ` · Ref. ${gift.reference}` : ""}
+                                  </div>
+                                  {gift.description ? <div className="mt-2 text-xs text-slate-600">{gift.description}</div> : null}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                     )}
                   </div>

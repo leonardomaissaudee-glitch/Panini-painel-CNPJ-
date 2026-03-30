@@ -53,14 +53,72 @@ export interface CartAbandoned {
 
 // Clients
 export async function fetchClients(): Promise<Profile[]> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("role", "client")
-    .eq("status_cadastro", "approved")
-    .order("created_at", { ascending: true })
-  if (error) throw error
-  return (data ?? []) as Profile[]
+  const [{ data: profiles, error: profilesError }, { data: resellerProfiles, error: resellerError }] = await Promise.all([
+    supabase.from("profiles").select("*").order("created_at", { ascending: true }),
+    supabase.from("reseller_profiles").select("*").eq("status_cadastro", "approved").order("created_at", { ascending: true }),
+  ])
+
+  if (profilesError) throw profilesError
+  if (resellerError) throw resellerError
+
+  const profileRows = ((profiles ?? []) as Profile[]).filter((profile) => profile.role === "client" || profile.user_type === "cliente")
+  const resellerByUserId = new Map((resellerProfiles ?? []).map((row: any) => [row.user_id, row]))
+
+  const merged = profileRows.map((profile) => {
+    const reseller = resellerByUserId.get(profile.auth_user_id || "")
+    if (!reseller) return profile
+
+    return {
+      ...profile,
+      full_name: reseller.razao_social || profile.company_name || profile.full_name,
+      company_name: reseller.razao_social || profile.company_name || null,
+      documento: reseller.cnpj || profile.documento,
+      telefone: reseller.whatsapp || reseller.telefone || profile.telefone,
+      endereco: {
+        cep: reseller.cep,
+        endereco: reseller.endereco,
+        numero: reseller.numero,
+        complemento: reseller.complemento,
+        bairro: reseller.bairro,
+        cidade: reseller.cidade,
+        estado: reseller.estado,
+      },
+      status_cadastro: "approved",
+    } as Profile
+  })
+
+  const orphanResellers = (resellerProfiles ?? []).filter(
+    (row: any) => !profileRows.some((profile) => profile.auth_user_id === row.user_id)
+  )
+
+  return [
+    ...merged.filter((profile) => profile.status_cadastro === "approved"),
+    ...orphanResellers.map(
+      (row: any) =>
+        ({
+          id: row.id,
+          auth_user_id: row.user_id,
+          full_name: row.razao_social || "Razão social não informada",
+          company_name: row.razao_social || null,
+          email: row.email,
+          role: "client",
+          user_type: "cliente",
+          status_cadastro: "approved",
+          tipo_documento: "cnpj",
+          documento: row.cnpj,
+          telefone: row.whatsapp || row.telefone,
+          endereco: {
+            cep: row.cep,
+            endereco: row.endereco,
+            numero: row.numero,
+            complemento: row.complemento,
+            bairro: row.bairro,
+            cidade: row.cidade,
+            estado: row.estado,
+          },
+        }) as Profile
+    ),
+  ]
 }
 
 // Orders

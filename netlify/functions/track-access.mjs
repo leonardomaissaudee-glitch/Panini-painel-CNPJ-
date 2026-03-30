@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Content-Type": "application/json",
 }
@@ -110,6 +110,56 @@ function normalizePayload(payload) {
   }
 }
 
+async function resolveIdentity(supabase, headers) {
+  const authHeader = headers.authorization || headers.Authorization
+  const token = typeof authHeader === "string" ? authHeader.replace(/^Bearer\s+/i, "") : null
+
+  if (!token) {
+    return {
+      auth_user_id: null,
+      user_name: null,
+      user_role: null,
+    }
+  }
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser(token)
+
+  if (error || !user) {
+    return {
+      auth_user_id: null,
+      user_name: null,
+      user_role: null,
+    }
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("auth_user_id, full_name, email, role, user_type, company_name")
+    .or(`auth_user_id.eq.${user.id},email.eq.${user.email}`)
+    .maybeSingle()
+
+  const { data: reseller } = await supabase
+    .from("reseller_profiles")
+    .select("user_id, razao_social")
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  return {
+    auth_user_id: user.id,
+    user_name:
+      reseller?.razao_social ||
+      profile?.company_name ||
+      profile?.full_name ||
+      user.user_metadata?.full_name ||
+      user.email ||
+      null,
+    user_role: reseller ? "cliente" : profile?.user_type || profile?.role || null,
+  }
+}
+
 export async function handler(event) {
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: corsHeaders, body: "" }
@@ -148,8 +198,13 @@ export async function handler(event) {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 
+  const identity = await resolveIdentity(supabase, headers)
+
   const sessionPayload = {
     session_id: payload.sessionId,
+    auth_user_id: identity.auth_user_id,
+    user_name: identity.user_name,
+    user_role: identity.user_role,
     ip,
     country: geo.country,
     city: geo.city,
@@ -195,6 +250,9 @@ export async function handler(event) {
     if (!recentLogs?.length) {
       const { error: accessError } = await supabase.from("access_logs").insert({
         session_id: payload.sessionId,
+        auth_user_id: identity.auth_user_id,
+        user_name: identity.user_name,
+        user_role: identity.user_role,
         ip,
         country: geo.country,
         city: geo.city,

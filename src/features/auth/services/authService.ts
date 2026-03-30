@@ -82,9 +82,11 @@ function buildResellerProfile(row: any): Profile {
   return {
     id: row.id,
     auth_user_id: row.user_id,
-    full_name: row.nome_responsavel,
+    full_name: row.razao_social || row.nome_responsavel || "Razão social não informada",
     email: row.email,
     role: "client",
+    user_type: "cliente",
+    company_name: row.razao_social || null,
     status_cadastro: normalizeApprovalStatus(row.status_cadastro),
     tipo_documento: "cnpj",
     documento: row.cnpj,

@@ -5,6 +5,21 @@ export interface AccessSummaryDatum {
   total: number
 }
 
+export interface OnlineVisitorRow {
+  session_id: string
+  auth_user_id: string | null
+  user_name: string | null
+  user_role: string | null
+  ip: string | null
+  country: string | null
+  city: string | null
+  region: string | null
+  path: string | null
+  browser: string | null
+  device_type: string | null
+  last_seen: string
+}
+
 export interface AccessByDayDatum {
   day: string
   total: number
@@ -21,6 +36,7 @@ export interface MonitoringDashboardData {
   top_countries: AccessSummaryDatum[]
   top_devices: AccessSummaryDatum[]
   top_referrers: AccessSummaryDatum[]
+  online_visitors: OnlineVisitorRow[]
   range_start: string | null
   range_end: string | null
 }
@@ -39,6 +55,9 @@ export interface AccessLogRow {
   referer: string | null
   host: string | null
   session_id: string
+  auth_user_id: string | null
+  user_name: string | null
+  user_role: string | null
   app_section: string | null
   language: string | null
   screen_resolution: string | null

@@ -9,6 +9,8 @@ export interface Profile {
   email?: string | null
   role: UserRole
   status_cadastro: ApprovalStatus
+  user_type?: string | null
+  company_name?: string | null
   tipo_documento?: "cpf" | "cnpj" | null
   documento?: string | null
   telefone?: string | null
@@ -17,6 +19,7 @@ export interface Profile {
   motivo_reprovacao?: string | null
   account_manager_name?: string | null
   account_manager_whatsapp?: string | null
+  notes?: string | null
   created_at?: string
   updated_at?: string
 }

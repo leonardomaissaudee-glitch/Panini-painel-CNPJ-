@@ -85,9 +85,16 @@ export function getAppSection(pathname: string) {
 }
 
 export async function sendAccessEvent(payload: TrackAccessPayload) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
   const response = await fetch(TRACKING_ENDPOINT, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+    },
     body: JSON.stringify(payload),
     keepalive: true,
   })
@@ -117,6 +124,7 @@ export async function fetchMonitoringDashboard(preset: MonitoringRangePreset) {
     top_countries: [],
     top_devices: [],
     top_referrers: [],
+    online_visitors: [],
     range_start: start,
     range_end: end,
   }) as MonitoringDashboardData

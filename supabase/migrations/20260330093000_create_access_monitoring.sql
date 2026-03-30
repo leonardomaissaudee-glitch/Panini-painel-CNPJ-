@@ -1,4 +1,4 @@
-create extension if not exists "pgcrypto";
+﻿create extension if not exists "pgcrypto";
 
 create or replace function public.is_admin_user()
 returns boolean
@@ -19,6 +19,9 @@ create table if not exists public.access_logs (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),
   session_id text not null,
+  auth_user_id uuid references auth.users(id) on delete set null,
+  user_name text,
+  user_role text,
   ip text,
   country text,
   city text,
@@ -42,6 +45,9 @@ create table if not exists public.access_logs (
 create table if not exists public.visitor_sessions (
   id uuid primary key default gen_random_uuid(),
   session_id text not null unique,
+  auth_user_id uuid references auth.users(id) on delete set null,
+  user_name text,
+  user_role text,
   ip text,
   country text,
   city text,
@@ -63,12 +69,26 @@ create table if not exists public.visitor_sessions (
   last_seen timestamptz not null default now()
 );
 
+alter table public.access_logs
+  add column if not exists auth_user_id uuid references auth.users(id) on delete set null,
+  add column if not exists user_name text,
+  add column if not exists user_role text;
+
+alter table public.visitor_sessions
+  add column if not exists auth_user_id uuid references auth.users(id) on delete set null,
+  add column if not exists user_name text,
+  add column if not exists user_role text;
+
 create index if not exists idx_access_logs_created_at on public.access_logs (created_at desc);
 create index if not exists idx_access_logs_session_id on public.access_logs (session_id);
+create index if not exists idx_access_logs_auth_user_id on public.access_logs (auth_user_id, created_at desc);
+create index if not exists idx_access_logs_user_role on public.access_logs (user_role);
 create index if not exists idx_access_logs_ip on public.access_logs (ip);
 create index if not exists idx_access_logs_path on public.access_logs (path);
 create index if not exists idx_access_logs_app_section on public.access_logs (app_section);
 create index if not exists idx_visitor_sessions_last_seen on public.visitor_sessions (last_seen desc);
+create index if not exists idx_visitor_sessions_auth_user_id on public.visitor_sessions (auth_user_id, last_seen desc);
+create index if not exists idx_visitor_sessions_user_role on public.visitor_sessions (user_role);
 create index if not exists idx_visitor_sessions_ip on public.visitor_sessions (ip);
 create index if not exists idx_visitor_sessions_path on public.visitor_sessions (path);
 
@@ -163,6 +183,25 @@ begin
     group by 1
     order by total desc, label asc
     limit 5
+  ),
+  online_visitors as (
+    select
+      session_id,
+      auth_user_id,
+      user_name,
+      user_role,
+      ip,
+      country,
+      city,
+      region,
+      path,
+      browser,
+      device_type,
+      last_seen
+    from public.visitor_sessions
+    where last_seen >= now() - interval '2 minutes'
+    order by last_seen desc
+    limit 12
   )
   select jsonb_build_object(
     'accesses_today', (
@@ -201,6 +240,7 @@ begin
     'top_countries', coalesce((select jsonb_agg(top_countries order by total desc, label asc) from top_countries), '[]'::jsonb),
     'top_devices', coalesce((select jsonb_agg(top_devices order by total desc, label asc) from top_devices), '[]'::jsonb),
     'top_referrers', coalesce((select jsonb_agg(top_referrers order by total desc, label asc) from top_referrers), '[]'::jsonb),
+    'online_visitors', coalesce((select jsonb_agg(online_visitors order by last_seen desc) from online_visitors), '[]'::jsonb),
     'range_start', v_start,
     'range_end', v_end
   )
@@ -249,6 +289,9 @@ begin
       l.referer,
       l.host,
       l.session_id,
+      coalesce(l.auth_user_id, s.auth_user_id) as auth_user_id,
+      coalesce(l.user_name, s.user_name) as user_name,
+      coalesce(l.user_role, s.user_role) as user_role,
       l.app_section,
       l.language,
       l.screen_resolution,
@@ -276,7 +319,9 @@ begin
           coalesce(l.os, ''),
           coalesce(l.device_type, ''),
           coalesce(l.referer, ''),
-          coalesce(l.page_title, '')
+          coalesce(l.page_title, ''),
+          coalesce(l.user_name, ''),
+          coalesce(l.user_role, '')
         ) ilike '%' || p_search || '%'
       )
   ),
@@ -301,3 +346,4 @@ grant execute on function public.admin_get_access_dashboard(timestamptz, timesta
 grant execute on function public.admin_get_access_logs(integer, integer, text, text, text, timestamptz, timestamptz) to authenticated;
 
 notify pgrst, 'reload schema';
+
