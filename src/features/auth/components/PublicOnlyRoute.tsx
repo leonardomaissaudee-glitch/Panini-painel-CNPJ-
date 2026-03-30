@@ -2,6 +2,7 @@ import { Navigate } from "react-router-dom"
 import type { ReactNode } from "react"
 import { useAuth } from "@/features/auth/context/AuthContext"
 import { Spinner } from "@/components/ui/spinner"
+import { isAnonymousAuthUser } from "@/features/auth/utils/authUser"
 
 export function PublicOnlyRoute({ children }: { children: ReactNode }) {
   const { user, profile, loading } = useAuth()
@@ -14,7 +15,7 @@ export function PublicOnlyRoute({ children }: { children: ReactNode }) {
     )
   }
 
-  if (!user) {
+  if (!user || isAnonymousAuthUser(user)) {
     return <>{children}</>
   }
 

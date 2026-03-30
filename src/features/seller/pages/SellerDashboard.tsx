@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/features/auth/context/AuthContext"
 import { CustomersPanel } from "@/features/seller/components/CustomersPanel"
 import { SellerOrdersPanel } from "@/features/seller/components/SellerOrdersPanel"
-import { ChatPanel } from "@/features/seller/components/ChatPanel"
+import { ChatsPanel } from "@/features/admin/components/ChatsPanel"
 import { AbandonedCartsPanel } from "@/features/seller/components/AbandonedCartsPanel"
 import { AppShell } from "@/components/layouts/AppShell"
 
@@ -38,7 +38,7 @@ export default function SellerDashboard() {
         </TabsContent>
 
         <TabsContent value="chat">
-          <ChatPanel sellerId={sellerId} />
+          <ChatsPanel />
         </TabsContent>
 
         <TabsContent value="carrinhos">

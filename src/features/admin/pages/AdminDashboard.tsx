@@ -3,6 +3,7 @@ import { PendingApprovals } from "@/features/admin/components/PendingApprovals"
 import { OrdersPanel } from "@/features/admin/components/OrdersPanel"
 import { ProductsPanel } from "@/features/admin/components/ProductsPanel"
 import { UsersPanel } from "@/features/admin/components/UsersPanel"
+import { ChatsPanel } from "@/features/admin/components/ChatsPanel"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { AppShell } from "@/components/layouts/AppShell"
 
@@ -36,9 +37,12 @@ export default function AdminDashboard() {
         </Card>
 
         <Tabs defaultValue="pedidos" className="space-y-4">
-          <TabsList className="grid h-auto grid-cols-2 gap-2 rounded-3xl bg-transparent p-0 xl:grid-cols-4">
+          <TabsList className="grid h-auto grid-cols-2 gap-2 rounded-3xl bg-transparent p-0 xl:grid-cols-5">
             <TabsTrigger value="pedidos" className="rounded-2xl border border-slate-200 bg-white px-4 py-3 data-[state=active]:border-blue-900 data-[state=active]:bg-blue-950 data-[state=active]:text-white">
               Pedidos
+            </TabsTrigger>
+            <TabsTrigger value="chats" className="rounded-2xl border border-slate-200 bg-white px-4 py-3 data-[state=active]:border-blue-900 data-[state=active]:bg-blue-950 data-[state=active]:text-white">
+              Chats
             </TabsTrigger>
             <TabsTrigger value="cadastros" className="rounded-2xl border border-slate-200 bg-white px-4 py-3 data-[state=active]:border-blue-900 data-[state=active]:bg-blue-950 data-[state=active]:text-white">
               Cadastros pendentes
@@ -53,6 +57,10 @@ export default function AdminDashboard() {
 
           <TabsContent value="pedidos">
             <OrdersPanel />
+          </TabsContent>
+
+          <TabsContent value="chats">
+            <ChatsPanel />
           </TabsContent>
 
           <TabsContent value="cadastros">

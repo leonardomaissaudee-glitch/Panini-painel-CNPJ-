@@ -10,6 +10,7 @@ import type { Session, User } from "@supabase/supabase-js"
 import type { Profile, UserRole } from "@/shared/types/auth"
 import { fetchProfile, signInWithEmail, signUpWithEmail } from "@/features/auth/services/authService"
 import { supabase } from "@/shared/services/supabaseClient"
+import { isAnonymousAuthUser } from "@/features/auth/utils/authUser"
 
 interface AuthContextValue {
   session: Session | null
@@ -61,6 +62,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Load profile when user changes
   useEffect(() => {
     if (!user) {
+      setProfile(null)
+      setLoading(false)
+      return
+    }
+    if (isAnonymousAuthUser(user)) {
       setProfile(null)
       setLoading(false)
       return

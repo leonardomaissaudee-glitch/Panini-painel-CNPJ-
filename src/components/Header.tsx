@@ -6,21 +6,25 @@ import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/features/auth/context/AuthContext";
+import { isAnonymousAuthUser } from "@/features/auth/utils/authUser";
 
 export function Header() {
   const [open, setOpen] = useState(false);
   const { profile, user, signOut } = useAuth();
   const { getCartCount } = useCart();
   const cartCount = getCartCount();
+  const isAnonymous = isAnonymousAuthUser(user);
+  const isAuthenticatedUser = !!user && !isAnonymous;
 
   const showCart = !!profile && profile.role === "client";
-  const dashboardPath = profile?.role === "admin" ? "/admin" : profile?.role === "seller" ? "/seller" : profile?.role === "client" ? "/app/catalogo" : "/painel";
+  const dashboardPath = profile?.role === "admin" ? "/admin" : profile?.role === "seller" ? "/seller" : profile?.role === "client" ? "/app/catalogo" : "/";
 
   const menuItems = [
     { label: "Home", href: "/" },
     { label: "Sobre a Panini", href: "/sobre" },
     { label: "Como funciona", href: "/processo" },
     { label: "Oportunidade", href: "/oportunidade" },
+    { label: "Atendimento", href: "/atendimento" },
   ];
 
   async function handleSignOut() {
@@ -31,7 +35,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <Link to={user ? dashboardPath : "/"} className="flex items-center space-x-2">
+        <Link to={isAuthenticatedUser ? dashboardPath : "/"} className="flex items-center space-x-2">
           <img
             src="https://pub-c0bfb119504542e0b2e6ebc8f6b3b1df.r2.dev/user-uploads/user_38XNRHxmsUPTGvoK09TMInYrBxw/09cf08fa-d355-4e36-811b-7f54f9f72f94.png"
             alt="Panini Logo"
@@ -52,7 +56,7 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
-          {!user ? (
+          {!isAuthenticatedUser ? (
             <>
               <Link to="/login">
                 <Button variant="ghost" size="sm" className="hidden sm:inline-flex">
@@ -125,7 +129,7 @@ export function Header() {
               })}
             </div>
             <div className="flex flex-wrap gap-2">
-              {!user ? (
+              {!isAuthenticatedUser ? (
                 <>
                   <Link to="/login" onClick={() => setOpen(false)}>
                     <Button variant="secondary" size="sm">Entrar</Button>

@@ -24,6 +24,7 @@ import OpportunityPage from "@/pages/Opportunity"
 import CadastroPage from "@/pages/Cadastro"
 import CadastroSucesso from "@/pages/CadastroSucesso"
 import PainelPage from "@/pages/Painel"
+import AtendimentoPage from "@/pages/Atendimento"
 
 export function App() {
   const location = useLocation()
@@ -45,6 +46,7 @@ export function App() {
             />
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<CheckoutNew />} />
+            <Route path="/atendimento" element={<AtendimentoPage />} />
 
             <Route
               path="/login"

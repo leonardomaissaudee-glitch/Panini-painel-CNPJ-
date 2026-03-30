@@ -3,6 +3,7 @@ import type { ReactNode } from "react"
 import type { UserRole } from "@/shared/types/auth"
 import { useAuth } from "@/features/auth/context/AuthContext"
 import { Spinner } from "@/components/ui/spinner"
+import { isAnonymousAuthUser } from "@/features/auth/utils/authUser"
 
 interface ProtectedRouteProps {
   allowedRoles?: UserRole[]
@@ -21,7 +22,7 @@ export function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) 
     )
   }
 
-  if (!user) {
+  if (!user || isAnonymousAuthUser(user)) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
