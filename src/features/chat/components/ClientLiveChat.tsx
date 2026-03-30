@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { useAuth } from "@/features/auth/context/AuthContext"
 import { ChatComposer } from "@/features/chat/components/ChatComposer"
 import { ChatConversationList } from "@/features/chat/components/ChatConversationList"
-import { ChatHeader, ChatConversationMeta } from "@/features/chat/components/ChatHeader"
+import { ChatConversationMeta, ChatStatusBar } from "@/features/chat/components/ChatHeader"
 import { ChatMessageList } from "@/features/chat/components/ChatMessageList"
 import { ChatStartForm } from "@/features/chat/components/ChatStartForm"
 import { useChatConversationList } from "@/features/chat/hooks/useChatConversationList"
@@ -93,7 +93,7 @@ export function ClientLiveChat({
     ? onlineStaff.some((entry) => entry.displayName?.trim().toLowerCase() === assignedManagerName.trim().toLowerCase())
     : false
   const managerOnline = assignedManagerName ? activeManagerOnline || assignedManagerOnline : onlineStaff.length > 0
-  const managerDisplayName = assignedManagerName || "Gerente comercial"
+  const managerDisplayName = resellerProfile?.account_manager_name || assignedManagerName || "Gerente comercial"
 
   const handleStartConversation = async (values: ChatConversationFormInput) => {
     setStarting(true)
@@ -173,34 +173,6 @@ export function ClientLiveChat({
 
   return (
     <div className="space-y-4">
-      <ChatHeader
-        title="Atendimento ao vivo"
-        subtitle={managerOnline ? `${managerDisplayName} online no momento` : "No momento estamos offline, mas sua mensagem será respondida."}
-        online={managerOnline}
-        connectionState={threadConnectionState === "connected" ? threadConnectionState : listConnectionState}
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            {conversations.length > 0 && (
-              <Button variant="outline" size="sm" onClick={() => setShowConversationMenu((current) => !current)}>
-                <MessageCircleMore className="mr-2 h-4 w-4" />
-                Conversas
-              </Button>
-            )}
-            {activeConversation?.status === "closed" ? (
-              <Button variant="outline" size="sm" onClick={handleReopenConversation}>
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Reabrir conversa
-              </Button>
-            ) : activeConversation ? (
-              <Button variant="outline" size="sm" onClick={handleCloseConversation}>
-                <XCircle className="mr-2 h-4 w-4" />
-                Finalizar chat
-              </Button>
-            ) : undefined}
-          </div>
-        }
-      />
-
       {connectionBanner && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{connectionBanner}</div>
       )}
@@ -269,6 +241,41 @@ export function ClientLiveChat({
                 customerLastSeen={customerLastSeen}
                 managerLabel={managerDisplayName}
               />
+
+              <ChatStatusBar online={managerOnline} connectionState={threadConnectionState === "connected" ? threadConnectionState : listConnectionState}>
+                {conversations.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    title="Conversas"
+                    aria-label="Conversas"
+                    onClick={() => setShowConversationMenu((current) => !current)}
+                  >
+                    <MessageCircleMore className="h-4 w-4" />
+                  </Button>
+                )}
+                {activeConversation?.status === "closed" ? (
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    title="Reabrir conversa"
+                    aria-label="Reabrir conversa"
+                    onClick={handleReopenConversation}
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </Button>
+                ) : activeConversation ? (
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    title="Finalizar chat"
+                    aria-label="Finalizar chat"
+                    onClick={handleCloseConversation}
+                  >
+                    <XCircle className="h-4 w-4" />
+                  </Button>
+                ) : undefined}
+              </ChatStatusBar>
             </>
           )}
 

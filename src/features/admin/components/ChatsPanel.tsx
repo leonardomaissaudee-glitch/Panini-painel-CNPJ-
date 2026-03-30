@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ChatComposer } from "@/features/chat/components/ChatComposer"
 import { ChatConversationList } from "@/features/chat/components/ChatConversationList"
-import { ChatHeader, ChatConversationMeta } from "@/features/chat/components/ChatHeader"
+import { ChatConversationMeta, ChatStatusBar } from "@/features/chat/components/ChatHeader"
 import { ChatMessageList } from "@/features/chat/components/ChatMessageList"
 import { useChatConversationList } from "@/features/chat/hooks/useChatConversationList"
 import { useChatPresence } from "@/features/chat/hooks/useChatPresence"
@@ -150,26 +150,6 @@ export function ChatsPanel() {
 
   return (
     <div className="space-y-4">
-      <ChatHeader
-        title="Atendimento ao vivo"
-        subtitle="Central de conversas em tempo real com clientes e visitantes."
-        online={onlineStaff.length > 0}
-        connectionState={threadConnectionState === "connected" ? threadConnectionState : connectionState}
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => reload().catch(() => undefined)}>
-              Atualizar
-            </Button>
-            {activeConversation && activeConversation.status !== "closed" && (
-              <Button variant="outline" size="sm" onClick={handleCloseConversation}>
-                <XCircle className="mr-2 h-4 w-4" />
-                Finalizar chat
-              </Button>
-            )}
-          </div>
-        }
-      />
-
       <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
         <ChatConversationList
           conversations={decoratedConversations}
@@ -273,6 +253,29 @@ export function ChatsPanel() {
                 customerLastSeen={presenceRows[activeConversation.customer_user_id]?.last_seen ?? null}
                 managerLabel={activeConversation.assigned_admin_name || profile?.full_name || "Gerente"}
               />
+
+              <ChatStatusBar online={onlineStaff.length > 0} connectionState={threadConnectionState === "connected" ? threadConnectionState : connectionState}>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  title="Atualizar"
+                  aria-label="Atualizar"
+                  onClick={() => reload().catch(() => undefined)}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+                {activeConversation && activeConversation.status !== "closed" && (
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    title="Finalizar chat"
+                    aria-label="Finalizar chat"
+                    onClick={handleCloseConversation}
+                  >
+                    <XCircle className="h-4 w-4" />
+                  </Button>
+                )}
+              </ChatStatusBar>
             </>
           )}
         </div>

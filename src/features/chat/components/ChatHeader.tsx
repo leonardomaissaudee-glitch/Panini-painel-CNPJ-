@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import { Circle, Clock3, MessageSquareText, UserRound, Wifi, WifiOff } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import type { ChatConversation } from "@/features/chat/types"
 import { formatRelativeLastSeen } from "@/features/chat/utils"
 
@@ -83,11 +84,63 @@ export function ChatConversationMeta({
   )
 }
 
+export function ChatStatusBar({
+  online,
+  connectionState,
+  children,
+}: {
+  online: boolean
+  connectionState?: "connecting" | "connected" | "closed" | "error"
+  children?: ReactNode
+}) {
+  const onlineLabel = online ? "Online" : "Offline"
+  const connectionLabel =
+    connectionState === "connected"
+      ? "Tempo real ativo"
+      : connectionState === "error"
+        ? "Conexão instável"
+        : connectionState === "closed"
+          ? "Desconectado"
+          : "Conectando"
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+      <IconStatusButton
+        icon={<Circle className={online ? "h-3.5 w-3.5 fill-current" : "h-3.5 w-3.5"} />}
+        label={onlineLabel}
+        tone={online ? "text-emerald-600" : "text-slate-500"}
+      />
+      <IconStatusButton
+        icon={connectionState === "connected" ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+        label={connectionLabel}
+        tone={connectionState === "connected" ? "text-blue-600" : "text-slate-500"}
+      />
+      {children}
+    </div>
+  )
+}
+
 function MetaPill({ icon, value }: { icon: ReactNode; value: string }) {
   return (
     <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700">
       <span className="shrink-0 text-slate-500">{icon}</span>
       <span className="truncate">{value}</span>
     </div>
+  )
+}
+
+function IconStatusButton({
+  icon,
+  label,
+  tone,
+}: {
+  icon: ReactNode
+  label: string
+  tone?: string
+}) {
+  return (
+    <Button type="button" variant="outline" size="icon-sm" className={tone} title={label} aria-label={label}>
+      {icon}
+    </Button>
   )
 }
