@@ -175,7 +175,7 @@ async function requireAdmin(event, supabase) {
 
   const { data: byAuthProfiles, error: byAuthError } = await supabase
     .from("profiles")
-    .select("id, auth_user_id, email, role, user_type, full_name")
+    .select("*")
     .eq("auth_user_id", user.id)
     .limit(10)
 
@@ -186,7 +186,7 @@ async function requireAdmin(event, supabase) {
   if (!profile && user.email) {
     const { data: exactEmailProfiles, error: exactEmailError } = await supabase
       .from("profiles")
-      .select("id, auth_user_id, email, role, user_type, full_name")
+      .select("*")
       .eq("email", user.email)
       .limit(10)
 
@@ -198,7 +198,7 @@ async function requireAdmin(event, supabase) {
   if (!profile && user.email) {
     const { data: insensitiveEmailProfiles, error: insensitiveEmailError } = await supabase
       .from("profiles")
-      .select("id, auth_user_id, email, role, user_type, full_name")
+      .select("*")
       .ilike("email", user.email)
       .limit(10)
 
