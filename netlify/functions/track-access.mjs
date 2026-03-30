@@ -135,11 +135,26 @@ async function resolveIdentity(supabase, headers) {
     }
   }
 
-  const { data: profile } = await supabase
+  let profile = null
+
+  const { data: byAuthProfile } = await supabase
     .from("profiles")
-    .select("auth_user_id, full_name, email, role, user_type, company_name")
-    .or(`auth_user_id.eq.${user.id},email.eq.${user.email}`)
+    .select("auth_user_id, full_name, email, role")
+    .eq("auth_user_id", user.id)
     .maybeSingle()
+
+  profile = byAuthProfile
+
+  if (!profile && user.email) {
+    const { data: byEmailProfiles } = await supabase
+      .from("profiles")
+      .select("auth_user_id, full_name, email, role")
+      .eq("email", user.email.toLowerCase())
+      .order("created_at", { ascending: false })
+      .limit(5)
+
+    profile = byEmailProfiles?.[0] ?? null
+  }
 
   const { data: reseller } = await supabase
     .from("reseller_profiles")
@@ -151,13 +166,44 @@ async function resolveIdentity(supabase, headers) {
     auth_user_id: user.id,
     user_name:
       reseller?.razao_social ||
-      profile?.company_name ||
       profile?.full_name ||
       user.user_metadata?.full_name ||
       user.email ||
       null,
-    user_role: reseller ? "cliente" : profile?.user_type || profile?.role || null,
+    user_role: reseller ? "cliente" : profile?.role || null,
   }
+}
+
+async function upsertVisitorSession(supabase, payload) {
+  const { error } = await supabase.from("visitor_sessions").upsert(payload, {
+    onConflict: "session_id",
+  })
+
+  if (!error) return
+
+  const fallbackPayload = { ...payload }
+  delete fallbackPayload.auth_user_id
+  delete fallbackPayload.user_name
+  delete fallbackPayload.user_role
+
+  const { error: fallbackError } = await supabase.from("visitor_sessions").upsert(fallbackPayload, {
+    onConflict: "session_id",
+  })
+
+  if (fallbackError) throw fallbackError
+}
+
+async function insertAccessLog(supabase, payload) {
+  const { error } = await supabase.from("access_logs").insert(payload)
+  if (!error) return
+
+  const fallbackPayload = { ...payload }
+  delete fallbackPayload.auth_user_id
+  delete fallbackPayload.user_name
+  delete fallbackPayload.user_role
+
+  const { error: fallbackError } = await supabase.from("access_logs").insert(fallbackPayload)
+  if (fallbackError) throw fallbackError
 }
 
 export async function handler(event) {
@@ -224,11 +270,9 @@ export async function handler(event) {
     extra: payload.extra,
   }
 
-  const { error: sessionError } = await supabase.from("visitor_sessions").upsert(sessionPayload, {
-    onConflict: "session_id",
-  })
-
-  if (sessionError) {
+  try {
+    await upsertVisitorSession(supabase, sessionPayload)
+  } catch (sessionError) {
     console.error("track-access visitor_sessions error", sessionError)
     return json(500, { ok: false, error: "session_upsert_failed" })
   }
@@ -248,10 +292,11 @@ export async function handler(event) {
     }
 
     if (!recentLogs?.length) {
-      const { error: accessError } = await supabase.from("access_logs").insert({
-        session_id: payload.sessionId,
-        auth_user_id: identity.auth_user_id,
-        user_name: identity.user_name,
+      try {
+        await insertAccessLog(supabase, {
+          session_id: payload.sessionId,
+          auth_user_id: identity.auth_user_id,
+          user_name: identity.user_name,
         user_role: identity.user_role,
         ip,
         country: geo.country,
@@ -267,13 +312,12 @@ export async function handler(event) {
         host: payload.host || normalizeText(headers.host || headers.Host, 255),
         query_params: payload.queryParams,
         language: payload.language,
-        screen_resolution: payload.screenResolution,
-        page_title: payload.pageTitle,
-        app_section: payload.appSection,
-        extra: payload.extra,
-      })
-
-      if (accessError) {
+          screen_resolution: payload.screenResolution,
+          page_title: payload.pageTitle,
+          app_section: payload.appSection,
+          extra: payload.extra,
+        })
+      } catch (accessError) {
         console.error("track-access access_logs insert error", accessError)
         return json(500, { ok: false, error: "access_log_insert_failed" })
       }

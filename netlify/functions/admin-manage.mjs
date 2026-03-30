@@ -168,13 +168,37 @@ async function requireAdmin(event, supabase) {
     throw new Error("unauthorized")
   }
 
-  const { data: profile, error: profileError } = await supabase
+  const { data: byAuthProfile, error: byAuthError } = await supabase
     .from("profiles")
-    .select("id, auth_user_id, email, role, full_name")
-    .or(`auth_user_id.eq.${user.id},email.eq.${user.email}`)
+    .select("id, auth_user_id, email, role, user_type, full_name")
+    .eq("auth_user_id", user.id)
     .maybeSingle()
 
-  if (profileError || !profile || profile.role !== "admin") {
+  if (byAuthError) {
+    throw new Error("forbidden")
+  }
+
+  let profile = byAuthProfile
+
+  if (!profile && user.email) {
+    const { data: byEmailProfiles, error: byEmailError } = await supabase
+      .from("profiles")
+      .select("id, auth_user_id, email, role, user_type, full_name")
+      .eq("email", user.email.toLowerCase())
+      .order("created_at", { ascending: false })
+      .limit(5)
+
+    if (byEmailError) {
+      throw new Error("forbidden")
+    }
+
+    profile =
+      byEmailProfiles?.find((row) => row.role === "admin" || row.user_type === "admin") ||
+      byEmailProfiles?.[0] ||
+      null
+  }
+
+  if (!profile || (profile.role !== "admin" && profile.user_type !== "admin")) {
     throw new Error("forbidden")
   }
 
