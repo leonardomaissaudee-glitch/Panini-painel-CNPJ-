@@ -240,15 +240,6 @@ export function ClientLiveChat({
 
           {activeConversation && (
             <>
-              <ChatConversationMeta
-                conversation={activeConversation}
-                statusLabel={getConversationStatusLabel(activeConversation.status)}
-                customerOnline={Boolean(user?.id && presenceRows[user.id]?.is_online)}
-                staffOnline={managerOnline}
-                customerLastSeen={customerLastSeen}
-                managerLabel={managerDisplayName}
-              />
-
               <Card className="border-slate-200 shadow-sm">
                 <CardContent className="space-y-4 p-4">
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
@@ -269,6 +260,15 @@ export function ClientLiveChat({
                   />
                 </CardContent>
               </Card>
+
+              <ChatConversationMeta
+                conversation={activeConversation}
+                statusLabel={getConversationStatusLabel(activeConversation.status)}
+                customerOnline={Boolean(user?.id && presenceRows[user.id]?.is_online)}
+                staffOnline={managerOnline}
+                customerLastSeen={customerLastSeen}
+                managerLabel={managerDisplayName}
+              />
             </>
           )}
 

@@ -197,14 +197,6 @@ export function ChatsPanel() {
 
           {activeConversation && (
             <>
-              <ChatConversationMeta
-                conversation={activeConversation}
-                statusLabel={getAdminStatusLabel(activeConversation.status)}
-                customerOnline={Boolean(presenceRows[activeConversation.customer_user_id]?.is_online)}
-                staffOnline={onlineStaff.length > 0}
-                customerLastSeen={presenceRows[activeConversation.customer_user_id]?.last_seen ?? null}
-              />
-
               <Card className="border-slate-200 shadow-sm">
                 <CardContent className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_320px]">
                   <div className="space-y-4">
@@ -272,6 +264,15 @@ export function ChatsPanel() {
                   </div>
                 </CardContent>
               </Card>
+
+              <ChatConversationMeta
+                conversation={activeConversation}
+                statusLabel={getAdminStatusLabel(activeConversation.status)}
+                customerOnline={Boolean(presenceRows[activeConversation.customer_user_id]?.is_online)}
+                staffOnline={onlineStaff.length > 0}
+                customerLastSeen={presenceRows[activeConversation.customer_user_id]?.last_seen ?? null}
+                managerLabel={activeConversation.assigned_admin_name || profile?.full_name || "Gerente"}
+              />
             </>
           )}
         </div>

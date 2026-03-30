@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { Circle, Wifi, WifiOff } from "lucide-react"
+import { Circle, Clock3, MessageSquareText, UserRound, Wifi, WifiOff } from "lucide-react"
 import type { ChatConversation } from "@/features/chat/types"
 import { formatRelativeLastSeen } from "@/features/chat/utils"
 
@@ -68,20 +68,26 @@ export function ChatConversationMeta({
   managerLabel?: string
 }) {
   return (
-    <div className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 xl:grid-cols-4">
-      <MetaPill label="Status" value={statusLabel} />
-      <MetaPill label="Motivo" value={conversation.subject} />
-      <MetaPill label="Cliente" value={customerOnline ? "Online" : customerLastSeen ? `Offline · ${formatRelativeLastSeen(customerLastSeen)}` : "Offline"} />
-      <MetaPill label={managerLabel || "Gerente"} value={staffOnline ? "Online" : "Offline"} />
+    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+      <MetaPill icon={<Clock3 className="h-3.5 w-3.5" />} value={statusLabel} />
+      <MetaPill icon={<MessageSquareText className="h-3.5 w-3.5" />} value={conversation.subject} />
+      <MetaPill
+        icon={<UserRound className="h-3.5 w-3.5" />}
+        value={customerOnline ? "Cliente online" : customerLastSeen ? `Cliente ${formatRelativeLastSeen(customerLastSeen)}` : "Cliente offline"}
+      />
+      <MetaPill
+        icon={<UserRound className="h-3.5 w-3.5" />}
+        value={staffOnline ? `${managerLabel || "Gerente"} online` : `${managerLabel || "Gerente"} offline`}
+      />
     </div>
   )
 }
 
-function MetaPill({ label, value }: { label: string; value: string }) {
+function MetaPill({ icon, value }: { icon: ReactNode; value: string }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</div>
-      <div className="mt-1 text-sm font-medium leading-5 text-slate-900">{value}</div>
+    <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700">
+      <span className="shrink-0 text-slate-500">{icon}</span>
+      <span className="truncate">{value}</span>
     </div>
   )
 }
