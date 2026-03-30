@@ -3,6 +3,7 @@ import { supabase } from "@/shared/services/supabaseClient"
 import {
   CHAT_ATTACHMENT_BUCKET,
   getMessageTypeFromFile,
+  normalizeMimeType,
   sanitizeFileName,
   validateChatAttachment,
 } from "@/features/chat/utils"
@@ -208,9 +209,10 @@ export async function uploadChatAttachment(conversationId: string, file: File): 
   validateChatAttachment(file)
   const messageType = getMessageTypeFromFile(file)
   const path = `${conversationId}/${Date.now()}-${sanitizeFileName(file.name)}`
+  const contentType = normalizeMimeType(file.type) || "application/octet-stream"
   const { error } = await supabase.storage.from(CHAT_ATTACHMENT_BUCKET).upload(path, file, {
     upsert: false,
-    contentType: file.type || "application/octet-stream",
+    contentType,
   })
 
   if (error) {
@@ -221,7 +223,7 @@ export async function uploadChatAttachment(conversationId: string, file: File): 
     path,
     fileName: file.name,
     fileSize: file.size,
-    mimeType: file.type || "application/octet-stream",
+    mimeType: contentType,
     messageType,
   }
 }

@@ -7,9 +7,11 @@ import type { ChatMessage, ChatViewerRole } from "@/features/chat/types"
 export function ChatMessageList({
   messages,
   viewerRole,
+  adminDisplayName,
 }: {
   messages: ChatMessage[]
   viewerRole: ChatViewerRole
+  adminDisplayName?: string | null
 }) {
   const [attachmentUrls, setAttachmentUrls] = useState<Record<string, string>>({})
   const viewportRef = useRef<HTMLDivElement | null>(null)
@@ -75,7 +77,9 @@ export function ChatMessageList({
                   ].join(" ")}
                 >
                   <div className="mb-2 flex items-center gap-2 text-xs">
-                    <span className={isOwn ? "text-slate-200" : "text-slate-500"}>{message.sender_name || (message.sender_type === "admin" ? "Gerente" : "Cliente")}</span>
+                    <span className={isOwn ? "text-slate-200" : "text-slate-500"}>
+                      {resolveSenderName(message, adminDisplayName)}
+                    </span>
                     <span className={isOwn ? "text-slate-300" : "text-slate-400"}>{formatChatTime(message.created_at)}</span>
                   </div>
 
@@ -140,4 +144,16 @@ export function ChatMessageList({
       {messages.length === 0 && <div className="py-10 text-center text-sm text-slate-500">Nenhuma mensagem ainda.</div>}
     </div>
   )
+}
+
+function resolveSenderName(message: ChatMessage, adminDisplayName?: string | null) {
+  if (message.sender_type === "admin") {
+    if (message.sender_name && !message.sender_name.includes("@")) {
+      return message.sender_name
+    }
+
+    return adminDisplayName || "Gerente comercial"
+  }
+
+  return message.sender_name || "Cliente"
 }

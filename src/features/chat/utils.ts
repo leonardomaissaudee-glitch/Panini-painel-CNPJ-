@@ -24,6 +24,13 @@ const audioMimeTypes = [
 
 export const CHAT_ALLOWED_MIME_TYPES = [...imageMimeTypes, ...pdfMimeTypes, ...documentMimeTypes, ...audioMimeTypes]
 
+export function normalizeMimeType(value?: string | null) {
+  return (value || "")
+    .split(";")[0]
+    .trim()
+    .toLowerCase()
+}
+
 export function sanitizeFileName(name: string) {
   return name
     .normalize("NFD")
@@ -34,15 +41,17 @@ export function sanitizeFileName(name: string) {
 }
 
 export function getMessageTypeFromFile(file: File): ChatMessageType {
-  if (file.type.startsWith("image/")) {
+  const mimeType = normalizeMimeType(file.type)
+
+  if (mimeType.startsWith("image/")) {
     return "image"
   }
 
-  if (file.type === "application/pdf") {
+  if (mimeType === "application/pdf") {
     return "pdf"
   }
 
-  if (file.type.startsWith("audio/")) {
+  if (mimeType.startsWith("audio/")) {
     return "audio"
   }
 
@@ -50,7 +59,9 @@ export function getMessageTypeFromFile(file: File): ChatMessageType {
 }
 
 export function validateChatAttachment(file: File) {
-  if (!CHAT_ALLOWED_MIME_TYPES.includes(file.type)) {
+  const mimeType = normalizeMimeType(file.type)
+
+  if (!mimeType || !CHAT_ALLOWED_MIME_TYPES.includes(mimeType)) {
     throw new Error("Formato de arquivo não permitido para o chat.")
   }
 

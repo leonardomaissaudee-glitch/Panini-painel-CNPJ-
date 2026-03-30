@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { BellDot, CheckCircle2, MessageCircleMore, RotateCcw } from "lucide-react"
+import { BellDot, CheckCircle2, MessageCircleMore, RotateCcw, XCircle } from "lucide-react"
 import { toast } from "sonner"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -103,7 +103,7 @@ export function ChatsPanel() {
       await sendConversationMessage({
         conversationId: activeConversation.id,
         senderType: "admin",
-        senderName: profile?.full_name || user?.email || "Gerente",
+        senderName: activeConversation.assigned_admin_name || profile?.full_name || "Gerente comercial",
         content: text,
         attachment,
       })
@@ -134,6 +134,20 @@ export function ChatsPanel() {
     }
   }
 
+  const handleCloseConversation = async () => {
+    if (!activeConversation?.id) return
+
+    try {
+      await updateConversationStatus(activeConversation.id, "closed")
+      await reload()
+      toast.success("Chat finalizado")
+    } catch (error) {
+      toast.error("Erro ao finalizar chat", {
+        description: error instanceof Error ? error.message : "Não foi possível finalizar o atendimento.",
+      })
+    }
+  }
+
   return (
     <div className="space-y-4">
       <ChatHeader
@@ -142,9 +156,17 @@ export function ChatsPanel() {
         online={onlineStaff.length > 0}
         connectionState={threadConnectionState === "connected" ? threadConnectionState : connectionState}
         action={
-          <Button variant="outline" size="sm" onClick={() => reload().catch(() => undefined)}>
-            Atualizar
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => reload().catch(() => undefined)}>
+              Atualizar
+            </Button>
+            {activeConversation && activeConversation.status !== "closed" && (
+              <Button variant="outline" size="sm" onClick={handleCloseConversation}>
+                <XCircle className="mr-2 h-4 w-4" />
+                Finalizar chat
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -186,7 +208,11 @@ export function ChatsPanel() {
               <Card className="border-slate-200 shadow-sm">
                 <CardContent className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_320px]">
                   <div className="space-y-4">
-                    <ChatMessageList messages={messages} viewerRole="admin" />
+                    <ChatMessageList
+                      messages={messages}
+                      viewerRole="admin"
+                      adminDisplayName={activeConversation.assigned_admin_name || profile?.full_name || "Gerente comercial"}
+                    />
                     <ChatComposer
                       loading={sending || threadLoading}
                       placeholder="Responder cliente ou visitante"
@@ -229,7 +255,7 @@ export function ChatsPanel() {
                           variant={activeConversation.status === "closed" ? "default" : "outline"}
                           onClick={() => handleStatusChange("closed")}
                         >
-                          Finalizar
+                          Finalizar chat
                         </Button>
                       </div>
                     </div>

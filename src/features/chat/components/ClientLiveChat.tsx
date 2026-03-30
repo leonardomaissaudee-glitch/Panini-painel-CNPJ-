@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { MessageCircleMore, RotateCcw } from "lucide-react"
+import { MessageCircleMore, RotateCcw, XCircle } from "lucide-react"
 import { toast } from "sonner"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -35,6 +35,7 @@ export function ClientLiveChat({
   const [starting, setStarting] = useState(false)
   const [sending, setSending] = useState(false)
   const [connectionBanner, setConnectionBanner] = useState("")
+  const [showConversationMenu, setShowConversationMenu] = useState(false)
 
   const { conversations, loading: loadingConversations, connectionState: listConnectionState, reload } = useChatConversationList({
     role: "customer",
@@ -64,6 +65,12 @@ export function ClientLiveChat({
   }, [activeConversationId, conversations])
 
   useEffect(() => {
+    if (!activeConversation) {
+      setShowConversationMenu(true)
+    }
+  }, [activeConversation])
+
+  useEffect(() => {
     if (threadConnectionState === "error" || listConnectionState === "error") {
       setConnectionBanner("Conexão instável. Tentando reconectar o atendimento...")
       return
@@ -78,10 +85,15 @@ export function ClientLiveChat({
   }, [listConnectionState, threadConnectionState])
 
   const customerLastSeen = user?.id ? presenceRows[user.id]?.last_seen ?? null : null
+  const assignedManagerName = activeConversation?.assigned_admin_name || resellerProfile?.account_manager_name || null
   const activeManagerOnline = activeConversation?.assigned_admin_id
     ? Boolean(presenceRows[activeConversation.assigned_admin_id]?.is_online)
     : false
-  const managerOnline = activeManagerOnline || onlineStaff.length > 0
+  const assignedManagerOnline = assignedManagerName
+    ? onlineStaff.some((entry) => entry.displayName?.trim().toLowerCase() === assignedManagerName.trim().toLowerCase())
+    : false
+  const managerOnline = assignedManagerName ? activeManagerOnline || assignedManagerOnline : onlineStaff.length > 0
+  const managerDisplayName = assignedManagerName || "Gerente comercial"
 
   const handleStartConversation = async (values: ChatConversationFormInput) => {
     setStarting(true)
@@ -91,6 +103,7 @@ export function ClientLiveChat({
       await reload()
       const conversation = await fetchConversationById(conversationId)
       setActiveConversationId(conversation?.id ?? conversationId)
+      setShowConversationMenu(false)
 
       toast.success("Atendimento iniciado", {
         description: managerOnline
@@ -124,6 +137,20 @@ export function ClientLiveChat({
     }
   }
 
+  const handleCloseConversation = async () => {
+    if (!activeConversation?.id) return
+
+    try {
+      await updateConversationStatus(activeConversation.id, "closed")
+      await Promise.all([reload(), reloadThread()])
+      toast.success("Chat finalizado")
+    } catch (error) {
+      toast.error("Não foi possível finalizar o chat", {
+        description: error instanceof Error ? error.message : "Tente novamente.",
+      })
+    }
+  }
+
   const handleReopenConversation = async () => {
     if (!activeConversation?.id) return
 
@@ -148,16 +175,29 @@ export function ClientLiveChat({
     <div className="space-y-4">
       <ChatHeader
         title="Atendimento ao vivo"
-        subtitle={managerOnline ? "Gerente online no momento" : "No momento estamos offline, mas sua mensagem será respondida."}
+        subtitle={managerOnline ? `${managerDisplayName} online no momento` : "No momento estamos offline, mas sua mensagem será respondida."}
         online={managerOnline}
         connectionState={threadConnectionState === "connected" ? threadConnectionState : listConnectionState}
         action={
-          activeConversation?.status === "closed" ? (
-            <Button variant="outline" size="sm" onClick={handleReopenConversation}>
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Reabrir conversa
-            </Button>
-          ) : undefined
+          <div className="flex flex-wrap items-center gap-2">
+            {conversations.length > 0 && (
+              <Button variant="outline" size="sm" onClick={() => setShowConversationMenu((current) => !current)}>
+                <MessageCircleMore className="mr-2 h-4 w-4" />
+                Conversas
+              </Button>
+            )}
+            {activeConversation?.status === "closed" ? (
+              <Button variant="outline" size="sm" onClick={handleReopenConversation}>
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Reabrir conversa
+              </Button>
+            ) : activeConversation ? (
+              <Button variant="outline" size="sm" onClick={handleCloseConversation}>
+                <XCircle className="mr-2 h-4 w-4" />
+                Finalizar chat
+              </Button>
+            ) : undefined}
+          </div>
         }
       />
 
@@ -165,24 +205,33 @@ export function ClientLiveChat({
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{connectionBanner}</div>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-[340px_1fr]">
-        <ChatConversationList
-          conversations={conversations.map((conversation) => ({
-            ...conversation,
-            customer_online: Boolean(user?.id && presenceRows[user.id]?.is_online),
-            staff_online: conversation.assigned_admin_id
-              ? Boolean(presenceRows[conversation.assigned_admin_id]?.is_online)
-              : managerOnline,
-            last_seen: customerLastSeen,
-          }))}
-          activeId={activeConversation?.id}
-          onSelect={setActiveConversationId}
-          search=""
-          onSearchChange={() => undefined}
-          viewerRole="customer"
-          showSearch={false}
-          loading={loadingConversations}
-        />
+      <div className={`grid gap-4 ${showConversationMenu ? "xl:grid-cols-[320px_1fr]" : "grid-cols-1"}`}>
+        {showConversationMenu && (
+          <ChatConversationList
+            conversations={conversations.map((conversation) => ({
+              ...conversation,
+              customer_online: Boolean(user?.id && presenceRows[user.id]?.is_online),
+              staff_online: conversation.assigned_admin_id
+                ? Boolean(presenceRows[conversation.assigned_admin_id]?.is_online)
+                : conversation.assigned_admin_name
+                  ? onlineStaff.some(
+                      (entry) => entry.displayName?.trim().toLowerCase() === conversation.assigned_admin_name?.trim().toLowerCase()
+                    )
+                  : managerOnline,
+              last_seen: customerLastSeen,
+            }))}
+            activeId={activeConversation?.id}
+            onSelect={(conversationId) => {
+              setActiveConversationId(conversationId)
+              setShowConversationMenu(false)
+            }}
+            search=""
+            onSearchChange={() => undefined}
+            viewerRole="customer"
+            showSearch={false}
+            loading={loadingConversations}
+          />
+        )}
 
         <div className="space-y-4">
           {!activeConversation && (
@@ -197,19 +246,25 @@ export function ClientLiveChat({
                 customerOnline={Boolean(user?.id && presenceRows[user.id]?.is_online)}
                 staffOnline={managerOnline}
                 customerLastSeen={customerLastSeen}
+                managerLabel={managerDisplayName}
               />
 
               <Card className="border-slate-200 shadow-sm">
                 <CardContent className="space-y-4 p-4">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Dados do atendimento</div>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      <MetaBox label="Motivo" value={activeConversation.subject} />
-                      <MetaBox label="Pedido / referência" value={activeConversation.order_reference || "-"} />
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Dados do atendimento</div>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <MetaBox label="Motivo" value={activeConversation.subject} />
+                        <MetaBox label="Pedido / referência" value={activeConversation.order_reference || "-"} />
+                        <MetaBox label="Gerente responsável" value={managerDisplayName} />
+                        <MetaBox
+                          label="WhatsApp"
+                          value={resellerProfile?.account_manager_whatsapp || "-"}
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <ChatMessageList messages={messages} viewerRole="customer" />
+                  <ChatMessageList messages={messages} viewerRole="customer" adminDisplayName={managerDisplayName} />
 
                   <ChatComposer
                     disabled={activeConversation.status === "closed"}

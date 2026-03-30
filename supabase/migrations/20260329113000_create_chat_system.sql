@@ -232,14 +232,15 @@ as $$
 declare
   v_conversation_id uuid;
   v_reseller_profile_id uuid;
+  v_assigned_admin_name text;
   v_user_id uuid := auth.uid();
 begin
   if v_user_id is null then
     raise exception 'auth_required';
   end if;
 
-  select rp.id
-    into v_reseller_profile_id
+  select rp.id, rp.account_manager_name
+    into v_reseller_profile_id, v_assigned_admin_name
   from public.reseller_profiles rp
   where rp.user_id = v_user_id
   limit 1;
@@ -263,6 +264,7 @@ begin
         subject,
         order_reference,
         status,
+        assigned_admin_name,
         last_message_at
       )
       values (
@@ -274,6 +276,7 @@ begin
         coalesce(nullif(trim(p_subject), ''), 'Atendimento comercial'),
         nullif(trim(coalesce(p_order_reference, '')), ''),
         'pending',
+        nullif(trim(coalesce(v_assigned_admin_name, '')), ''),
         now()
       )
       returning id into v_conversation_id;
@@ -293,6 +296,7 @@ begin
            customer_email = coalesce(nullif(trim(coalesce(p_customer_email, '')), ''), customer_email),
            customer_phone = coalesce(nullif(trim(coalesce(p_customer_phone, '')), ''), customer_phone),
            order_reference = coalesce(nullif(trim(coalesce(p_order_reference, '')), ''), order_reference),
+           assigned_admin_name = coalesce(assigned_admin_name, nullif(trim(coalesce(v_assigned_admin_name, '')), '')),
            updated_at = now()
      where id = v_conversation_id;
   end if;

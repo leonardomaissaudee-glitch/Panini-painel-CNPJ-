@@ -58,19 +58,21 @@ export function ChatConversationMeta({
   customerOnline,
   staffOnline,
   customerLastSeen,
+  managerLabel,
 }: {
   conversation: ChatConversation
   statusLabel: string
   customerOnline?: boolean
   staffOnline?: boolean
   customerLastSeen?: string | null
+  managerLabel?: string
 }) {
   return (
     <div className="grid gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-4">
       <MetaPill label="Status" value={statusLabel} />
       <MetaPill label="Motivo" value={conversation.subject} />
       <MetaPill label="Cliente" value={customerOnline ? "Online" : customerLastSeen ? `Offline · ${formatRelativeLastSeen(customerLastSeen)}` : "Offline"} />
-      <MetaPill label="Gerente" value={staffOnline ? "Online" : "Offline"} />
+      <MetaPill label={managerLabel || "Gerente"} value={staffOnline ? "Online" : "Offline"} />
     </div>
   )
 }
