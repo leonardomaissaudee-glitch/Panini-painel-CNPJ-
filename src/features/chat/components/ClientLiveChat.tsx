@@ -251,18 +251,13 @@ export function ClientLiveChat({
 
               <Card className="border-slate-200 shadow-sm">
                 <CardContent className="space-y-4 p-4">
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Dados do atendimento</div>
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        <MetaBox label="Motivo" value={activeConversation.subject} />
-                        <MetaBox label="Pedido / referência" value={activeConversation.order_reference || "-"} />
-                        <MetaBox label="Gerente responsável" value={managerDisplayName} />
-                        <MetaBox
-                          label="WhatsApp"
-                          value={resellerProfile?.account_manager_whatsapp || "-"}
-                        />
-                      </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      <MetaBox label="Pedido / referência" value={activeConversation.order_reference || "-"} />
+                      <MetaBox label="Gerente" value={managerDisplayName} />
+                      <MetaBox label="WhatsApp" value={resellerProfile?.account_manager_whatsapp || "-"} />
                     </div>
+                  </div>
 
                   <ChatMessageList messages={messages} viewerRole="customer" adminDisplayName={managerDisplayName} />
 
@@ -300,9 +295,9 @@ export function ClientLiveChat({
 
 function MetaBox({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</div>
-      <div className="mt-1 text-sm font-medium text-slate-900">{value}</div>
+    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</div>
+      <div className="mt-1 text-sm font-medium leading-5 text-slate-900">{value}</div>
     </div>
   )
 }

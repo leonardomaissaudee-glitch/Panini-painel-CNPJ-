@@ -68,7 +68,7 @@ export function ChatConversationMeta({
   managerLabel?: string
 }) {
   return (
-    <div className="grid gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 xl:grid-cols-4">
       <MetaPill label="Status" value={statusLabel} />
       <MetaPill label="Motivo" value={conversation.subject} />
       <MetaPill label="Cliente" value={customerOnline ? "Online" : customerLastSeen ? `Offline · ${formatRelativeLastSeen(customerLastSeen)}` : "Offline"} />
@@ -79,9 +79,9 @@ export function ChatConversationMeta({
 
 function MetaPill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</div>
-      <div className="mt-1 text-sm font-medium text-slate-900">{value}</div>
+    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</div>
+      <div className="mt-1 text-sm font-medium leading-5 text-slate-900">{value}</div>
     </div>
   )
 }
