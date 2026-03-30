@@ -25,9 +25,11 @@ import CadastroPage from "@/pages/Cadastro"
 import CadastroSucesso from "@/pages/CadastroSucesso"
 import PainelPage from "@/pages/Painel"
 import AtendimentoPage from "@/pages/Atendimento"
+import { useAccessTracking } from "@/features/monitoring/hooks/useAccessTracking"
 
 export function App() {
   const location = useLocation()
+  useAccessTracking()
   const hideHeader = /^\/(app|admin|seller|painel)(\/|$)/.test(location.pathname)
 
   return (
