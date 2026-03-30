@@ -24,7 +24,6 @@ export function Header() {
     { label: "Sobre a Panini", href: "/sobre" },
     { label: "Como funciona", href: "/processo" },
     { label: "Oportunidade", href: "/oportunidade" },
-    { label: "Atendimento", href: "/atendimento" },
   ];
 
   async function handleSignOut() {
