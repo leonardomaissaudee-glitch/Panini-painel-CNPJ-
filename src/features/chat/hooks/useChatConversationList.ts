@@ -22,6 +22,11 @@ export function useChatConversationList({
   const [loading, setLoading] = useState(enabled)
   const [connectionState, setConnectionState] = useState<RealtimeState>("connecting")
   const previousMapRef = useRef<Record<string, ChatConversation>>({})
+  const incomingCallbackRef = useRef<typeof onIncomingConversation>(onIncomingConversation)
+
+  useEffect(() => {
+    incomingCallbackRef.current = onIncomingConversation
+  }, [onIncomingConversation])
 
   const load = useCallback(async () => {
     if (!enabled) {
@@ -42,8 +47,12 @@ export function useChatConversationList({
         const previous = previousMapRef.current[row.id]
         if (!previous) return
 
-        if (role === "admin" && row.unread_admin_count > previous.unread_admin_count && onIncomingConversation) {
-          onIncomingConversation(row)
+        if (
+          role === "admin" &&
+          row.unread_admin_count > previous.unread_admin_count &&
+          incomingCallbackRef.current
+        ) {
+          incomingCallbackRef.current(row)
         }
       })
 
@@ -51,7 +60,7 @@ export function useChatConversationList({
     } finally {
       setLoading(false)
     }
-  }, [enabled, filter, onIncomingConversation, role, search])
+  }, [enabled, filter, role, search])
 
   useEffect(() => {
     load().catch(() => undefined)

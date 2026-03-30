@@ -367,7 +367,8 @@ begin
     update public.chat_conversations
        set unread_admin_count = 0,
            updated_at = now()
-     where id = p_conversation_id;
+     where id = p_conversation_id
+       and coalesce(unread_admin_count, 0) <> 0;
 
     update public.chat_messages
        set read_at = now()
@@ -379,7 +380,8 @@ begin
        set unread_customer_count = 0,
            updated_at = now()
      where id = p_conversation_id
-       and customer_user_id = v_user_id;
+       and customer_user_id = v_user_id
+       and coalesce(unread_customer_count, 0) <> 0;
 
     update public.chat_messages
        set read_at = now()

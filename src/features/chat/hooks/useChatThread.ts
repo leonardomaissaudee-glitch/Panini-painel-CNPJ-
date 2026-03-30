@@ -37,32 +37,18 @@ export function useChatThread(conversationId?: string | null) {
       return
     }
 
-    const channel = supabase
-      .channel(`chat-thread-${conversationId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "chat_messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        () => {
-          load().catch(() => undefined)
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "chat_conversations",
-          filter: `id=eq.${conversationId}`,
-        },
-        () => {
-          markConversationRead(conversationId).catch(() => undefined)
-        }
-      )
+    const channel = supabase.channel(`chat-thread-${conversationId}`).on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "chat_messages",
+        filter: `conversation_id=eq.${conversationId}`,
+      },
+      () => {
+        load().catch(() => undefined)
+      }
+    )
 
     channel.subscribe((status) => {
       if (status === "SUBSCRIBED") {
