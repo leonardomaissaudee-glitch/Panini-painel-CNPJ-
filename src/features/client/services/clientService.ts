@@ -38,6 +38,7 @@ export async function fetchMyOrders(customerEmail: string): Promise<OrderRow[]> 
     .from("orders")
     .select("*")
     .eq("customer_email", customerEmail)
+    .is("deleted_at", null)
     .order("created_at", { ascending: false })
 
   if (error) throw error

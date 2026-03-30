@@ -1,108 +1,273 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react"
-import { ChevronDown, ChevronUp, CreditCard, QrCode, ReceiptText, RefreshCw, Upload, Wallet } from "lucide-react"
+﻿import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { ChevronDown, ChevronUp, Eye, PackagePlus, Receipt, RefreshCw, Save, Trash2 } from "lucide-react"
 import { toast } from "sonner"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
 import { StatusBadge } from "@/components/StatusBadge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { products } from "@/data/products"
 import {
+  deleteOrder,
   fetchOrders,
-  updateOrderStatus,
+  saveOrder,
   uploadOrderPaymentPdf,
+  type OrderItemRow,
   type OrderRow,
   type OrderStatus,
 } from "@/features/admin/services/adminService"
-import { ORDER_STATUS_OPTIONS, getOrderStatusLabel } from "@/shared/constants/orderStatus"
+import { ORDER_STATUS_OPTIONS } from "@/shared/constants/orderStatus"
 
-type OrderDraft = Partial<OrderRow> & {
-  payment_boleto_pdf_file?: File | null
+type StatusTab =
+  | "todos"
+  | "pendente"
+  | "aguardando_pagamento"
+  | "pago"
+  | "em_analise"
+  | "em_processamento"
+  | "enviado"
+  | "finalizado"
+  | "cancelado"
+
+type DiscountType = "none" | "percent" | "value"
+type BonusType = "none" | "value" | "item"
+type PaymentMethod = "pix" | "boleto" | "credit_card"
+
+type EditableOrderItem = {
+  id: string
+  productId: string
+  name: string
+  category?: string | null
+  reference?: string | null
+  quantity: number
+  price: number
 }
 
-const validStatuses = new Set<OrderStatus>(ORDER_STATUS_OPTIONS.map((option) => option.value))
-
-function normalizeAdminOrderStatus(status?: string | null): OrderStatus {
-  if (!status) return "aguardando_aprovacao"
-
-  const legacyMap: Partial<Record<OrderStatus, OrderStatus>> = {
-    novo_pedido: "aguardando_aprovacao",
-    pago: "pedido_pago",
-    enviado: "em_expedicao",
-    nota_fiscal: "nota_fiscal_emitida",
-    rastreio: "localizador_disponivel",
-  }
-
-  const mapped = legacyMap[status as OrderStatus]
-  if (mapped) return mapped
-  if (validStatuses.has(status as OrderStatus)) return status as OrderStatus
-  return "aguardando_aprovacao"
+type OrderDraft = {
+  status: OrderStatus
+  payment_method: PaymentMethod
+  items: EditableOrderItem[]
+  invoice_number: string
+  tracking_code: string
+  payment_instructions: string
+  payment_copy_paste: string
+  payment_link_url: string
+  payment_boleto_line: string
+  payment_pix_bank_name: string
+  payment_pix_key: string
+  payment_pix_beneficiary: string
+  payment_pix_agency: string
+  payment_pix_account: string
+  payment_pix_amount: string
+  payment_pix_qr_code: string
+  admin_discount_type: DiscountType
+  admin_discount_value: string
+  admin_bonus_type: BonusType
+  admin_bonus_value: string
+  admin_bonus_product_id: string
+  admin_bonus_quantity: number
 }
 
-function getPaymentMethodLabel(method?: string | null) {
-  if (method === "pix") return "PIX"
-  if (method === "boleto") return "Boleto"
-  if (method === "credit_card") return "Cartão"
-  return "A definir"
+const STATUS_TABS: { value: StatusTab; label: string }[] = [
+  { value: "todos", label: "Todos" },
+  { value: "pendente", label: "Pendente" },
+  { value: "aguardando_pagamento", label: "Aguardando pagamento" },
+  { value: "pago", label: "Pago" },
+  { value: "em_analise", label: "Em analise" },
+  { value: "em_processamento", label: "Em processamento" },
+  { value: "enviado", label: "Enviado" },
+  { value: "finalizado", label: "Finalizado" },
+  { value: "cancelado", label: "Cancelado" },
+]
+
+const PAYMENT_OPTIONS: { value: PaymentMethod; label: string }[] = [
+  { value: "pix", label: "PIX" },
+  { value: "boleto", label: "Boleto" },
+  { value: "credit_card", label: "Cartao" },
+]
+
+const productMap = new Map(products.map((product) => [product.id, product]))
+
+function formatMoney(value?: number | null) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value || 0))
 }
 
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error) return error.message
-  if (error && typeof error === "object") {
-    const parts = [Reflect.get(error, "message"), Reflect.get(error, "details"), Reflect.get(error, "hint")]
-      .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
-    if (parts.length > 0) return parts.join(" | ")
-  }
-  return "Não foi possível concluir a operação."
+function formatDate(value?: string | null) {
+  if (!value) return "-"
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value))
 }
 
-function mergeOrderDraft(order: OrderRow, draft?: OrderDraft) {
+function formatOrderCode(orderId: string) {
+  return `Pedido ${orderId.slice(0, 8).toUpperCase()}`
+}
+
+function formatPaymentMethod(value?: string | null) {
+  if (value === "pix") return "PIX"
+  if (value === "boleto") return "Boleto"
+  if (value === "credit_card") return "Cartao"
+  return value || "-"
+}
+
+function normalizeOrderStatus(status?: string | null): OrderStatus {
+  if (status === "novo_pedido") return "aguardando_aprovacao"
+  if (status === "pago") return "pedido_pago"
+  if (status === "enviado") return "em_expedicao"
+  if (status === "nota_fiscal") return "nota_fiscal_emitida"
+  if (status === "rastreio") return "localizador_disponivel"
+  return (status as OrderStatus) || "aguardando_aprovacao"
+}
+
+function getStatusTab(status?: string | null): StatusTab {
+  const normalized = normalizeOrderStatus(status)
+  if (normalized === "aguardando_aprovacao") return "pendente"
+  if (normalized === "aguardando_pagamento") return "aguardando_pagamento"
+  if (normalized === "aguardando_verificacao_financeira") return "em_analise"
+  if (normalized === "pedido_pago") return "pago"
+  if (normalized === "em_expedicao" || normalized === "nota_fiscal_emitida") return "em_processamento"
+  if (normalized === "localizador_disponivel") return "enviado"
+  if (normalized === "pedido_entregue") return "finalizado"
+  if (normalized === "cancelado") return "cancelado"
+  return "todos"
+}
+
+function isImageResource(url?: string | null) {
+  return Boolean(url && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(url))
+}
+
+function parseNumber(value: string) {
+  const normalized = Number(String(value).replace(",", "."))
+  return Number.isFinite(normalized) ? normalized : 0
+}
+
+function createEmptyItem(): EditableOrderItem {
+  const product = products[0]
   return {
-    status: normalizeAdminOrderStatus(draft?.status ?? order.status),
-    invoice_number: draft?.invoice_number ?? order.invoice_number ?? "",
-    tracking_code: draft?.tracking_code ?? order.tracking_code ?? "",
-    payment_instructions: draft?.payment_instructions ?? order.payment_instructions ?? "",
-    payment_copy_paste: draft?.payment_copy_paste ?? order.payment_copy_paste ?? "",
-    payment_link_url: draft?.payment_link_url ?? order.payment_link_url ?? "",
-    payment_boleto_line: draft?.payment_boleto_line ?? order.payment_boleto_line ?? "",
-    payment_boleto_pdf_url: draft?.payment_boleto_pdf_url ?? order.payment_boleto_pdf_url ?? "",
-    payment_pix_bank_name: draft?.payment_pix_bank_name ?? order.payment_pix_bank_name ?? "",
-    payment_pix_key: draft?.payment_pix_key ?? order.payment_pix_key ?? "",
-    payment_pix_beneficiary: draft?.payment_pix_beneficiary ?? order.payment_pix_beneficiary ?? "",
-    payment_pix_agency: draft?.payment_pix_agency ?? order.payment_pix_agency ?? "",
-    payment_pix_account: draft?.payment_pix_account ?? order.payment_pix_account ?? "",
-    payment_pix_amount: draft?.payment_pix_amount ?? order.payment_pix_amount ?? "",
-    payment_pix_qr_code: draft?.payment_pix_qr_code ?? order.payment_pix_qr_code ?? "",
-    payment_boleto_pdf_file: draft?.payment_boleto_pdf_file ?? null,
+    id: crypto.randomUUID(),
+    productId: product?.id || "",
+    name: product?.name || "Produto",
+    category: product?.category || "",
+    reference: product?.reference || "",
+    quantity: Math.max(1, product?.wholesaleMin || 1),
+    price: Number(product?.price || 0),
   }
 }
 
-function getDefaultPaymentInstructions(order: OrderRow, merged: ReturnType<typeof mergeOrderDraft>) {
-  if (merged.payment_instructions?.trim()) return merged.payment_instructions
-  if (order.payment_method === "boleto") return "Explique como o cliente deve usar o boleto e qual etapa vem depois do pagamento."
-  if (order.payment_method === "pix") return "Descreva como o cliente deve efetuar o PIX e como confirmar o pagamento."
-  if (order.payment_method === "credit_card") return "Explique como o cliente deve acessar o link e concluir o pagamento por cartão."
-  return ""
+function toEditableItem(item: OrderItemRow): EditableOrderItem {
+  const matchedProduct = productMap.get(item.id)
+  return {
+    id: item.id || crypto.randomUUID(),
+    productId: matchedProduct?.id || item.id || "",
+    name: matchedProduct?.name || item.name,
+    category: matchedProduct?.category || item.category || "",
+    reference: matchedProduct?.reference || item.reference || "",
+    quantity: Math.max(1, Number(item.quantity || 1)),
+    price: Number(item.price || 0),
+  }
+}
+
+function buildDraft(order: OrderRow): OrderDraft {
+  return {
+    status: normalizeOrderStatus(order.status),
+    payment_method: (order.payment_method as PaymentMethod) || "pix",
+    items: Array.isArray(order.items) && order.items.length > 0 ? order.items.map(toEditableItem) : [createEmptyItem()],
+    invoice_number: order.invoice_number || "",
+    tracking_code: order.tracking_code || "",
+    payment_instructions: order.payment_instructions || "",
+    payment_copy_paste: order.payment_copy_paste || "",
+    payment_link_url: order.payment_link_url || "",
+    payment_boleto_line: order.payment_boleto_line || "",
+    payment_pix_bank_name: order.payment_pix_bank_name || "",
+    payment_pix_key: order.payment_pix_key || "",
+    payment_pix_beneficiary: order.payment_pix_beneficiary || "",
+    payment_pix_agency: order.payment_pix_agency || "",
+    payment_pix_account: order.payment_pix_account || "",
+    payment_pix_amount: order.payment_pix_amount || "",
+    payment_pix_qr_code: order.payment_pix_qr_code || "",
+    admin_discount_type: order.admin_discount_type || "none",
+    admin_discount_value: order.admin_discount_value ? String(order.admin_discount_value) : "",
+    admin_bonus_type: order.admin_bonus_type || "none",
+    admin_bonus_value: order.admin_bonus_value ? String(order.admin_bonus_value) : "",
+    admin_bonus_product_id: order.admin_bonus_product_id || "",
+    admin_bonus_quantity: Math.max(1, Number(order.admin_bonus_quantity || 1)),
+  }
+}
+
+function calculateDraftTotals(draft: OrderDraft) {
+  const originalSubtotal = Number(draft.items.reduce((sum, item) => sum + Math.max(1, item.quantity) * Math.max(0, item.price), 0).toFixed(2))
+  let discountAmount = 0
+  const discountValue = parseNumber(draft.admin_discount_value)
+  if (draft.admin_discount_type === "percent") discountAmount = Number((originalSubtotal * (discountValue / 100)).toFixed(2))
+  else if (draft.admin_discount_type === "value") discountAmount = Number(Math.min(originalSubtotal, discountValue).toFixed(2))
+
+  let bonusAmount = 0
+  const bonusValue = parseNumber(draft.admin_bonus_value)
+  let bonusProductName = ""
+  if (draft.admin_bonus_type === "value") bonusAmount = Number(Math.min(Math.max(0, originalSubtotal - discountAmount), bonusValue).toFixed(2))
+  else if (draft.admin_bonus_type === "item") {
+    const bonusProduct = productMap.get(draft.admin_bonus_product_id)
+    bonusProductName = bonusProduct?.name || ""
+    bonusAmount = Number((Math.max(0, bonusProduct?.price || 0) * Math.max(1, draft.admin_bonus_quantity)).toFixed(2))
+  }
+
+  const total = Number(Math.max(0, originalSubtotal - discountAmount - bonusAmount).toFixed(2))
+  return {
+    originalSubtotal,
+    discountAmount,
+    bonusAmount,
+    total,
+    items: draft.items.map((item) => ({
+      id: item.productId || item.id,
+      name: item.name,
+      category: item.category || null,
+      reference: item.reference || null,
+      quantity: Math.max(1, item.quantity),
+      price: Number(item.price.toFixed(2)),
+      subtotal: Number((Math.max(1, item.quantity) * Math.max(0, item.price)).toFixed(2)),
+    })),
+    bonusProductName,
+  }
+}
+
+function getOrderSearchText(order: OrderRow) {
+  return [order.id, order.customer_name, order.customer_email, order.customer_phone, order.customer_cpf].filter(Boolean).join(" ").toLowerCase()
 }
 
 export function OrdersPanel() {
   const [orders, setOrders] = useState<OrderRow[]>([])
-  const [editing, setEditing] = useState<Record<string, OrderDraft>>({})
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [search, setSearch] = useState("")
+  const [activeTab, setActiveTab] = useState<StatusTab>("todos")
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [drafts, setDrafts] = useState<Record<string, OrderDraft>>({})
+  const [boletoFiles, setBoletoFiles] = useState<Record<string, File | null>>({})
 
-  const load = async () => {
-    setLoading(true)
+  const load = async (mode: "initial" | "refresh" = "initial") => {
+    if (mode === "initial") setLoading(true)
+    else setRefreshing(true)
+
     try {
-      const rows = await fetchOrders()
-      setOrders(rows)
-    } catch (error) {
-      toast.error("Erro ao carregar pedidos", {
-        description: getErrorMessage(error),
+      const data = await fetchOrders()
+      setOrders(data)
+      setDrafts((current) => {
+        const next = { ...current }
+        data.forEach((order) => {
+          if (!next[order.id]) next[order.id] = buildDraft(order)
+        })
+        Object.keys(next).forEach((orderId) => {
+          if (!data.some((order) => order.id === orderId)) delete next[orderId]
+        })
+        return next
       })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao foi possivel carregar os pedidos."
+      toast.error("Erro ao carregar pedidos", { description: message })
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
@@ -110,473 +275,385 @@ export function OrdersPanel() {
     load()
   }, [])
 
-  const orderedRows = useMemo(() => orders, [orders])
+  const filteredOrders = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    return orders.filter((order) => {
+      const matchesTab = activeTab === "todos" || getStatusTab(order.status) === activeTab
+      const matchesSearch = !term || getOrderSearchText(order).includes(term)
+      return matchesTab && matchesSearch
+    })
+  }, [orders, search, activeTab])
 
-  const updateDraft = (orderId: string, patch: Partial<OrderDraft>) => {
-    setEditing((current) => ({
-      ...current,
-      [orderId]: {
-        ...current[orderId],
-        ...patch,
-      },
+  const updateDraft = (orderId: string, updater: (current: OrderDraft) => OrderDraft) => {
+    setDrafts((current) => {
+      const order = orders.find((row) => row.id === orderId)
+      if (!order) return current
+      return { ...current, [orderId]: updater(current[orderId] ?? buildDraft(order)) }
+    })
+  }
+
+  const setField = <K extends keyof OrderDraft>(orderId: string, key: K, value: OrderDraft[K]) => {
+    updateDraft(orderId, (current) => ({ ...current, [key]: value }))
+  }
+
+  const updateItem = (orderId: string, itemId: string, updater: (item: EditableOrderItem) => EditableOrderItem) => {
+    updateDraft(orderId, (current) => ({ ...current, items: current.items.map((item) => (item.id === itemId ? updater(item) : item)) }))
+  }
+
+  const changeItemProduct = (orderId: string, itemId: string, productId: string) => {
+    const product = productMap.get(productId)
+    if (!product) return
+    updateItem(orderId, itemId, (item) => ({
+      ...item,
+      productId: product.id,
+      name: product.name,
+      category: product.category,
+      reference: product.reference,
+      price: Number(product.price || 0),
+      quantity: Math.max(1, item.quantity || product.wholesaleMin || 1),
     }))
   }
 
-  const toggleRow = (orderId: string) => {
-    setExpanded((current) => ({
-      ...current,
-      [orderId]: !current[orderId],
-    }))
-  }
+  const addItem = (orderId: string) => updateDraft(orderId, (current) => ({ ...current, items: [...current.items, createEmptyItem()] }))
+  const removeItem = (orderId: string, itemId: string) => updateDraft(orderId, (current) => ({ ...current, items: current.items.length > 1 ? current.items.filter((item) => item.id !== itemId) : current.items }))
 
-  const handlePdfChange = (orderId: string, file: File | null) => {
-    if (!file) return
-
-    if (file.type !== "application/pdf") {
-      toast.error("Arquivo inválido", {
-        description: "Envie um PDF válido para o boleto.",
-      })
-      return
-    }
-
-    updateDraft(orderId, { payment_boleto_pdf_file: file })
-  }
-
-  const validatePaymentData = (order: OrderRow, merged: ReturnType<typeof mergeOrderDraft>) => {
-    if (merged.status !== "aguardando_pagamento") return
-
-    if (order.payment_method === "boleto") {
-      const hasLine = Boolean(merged.payment_boleto_line.trim())
-      const hasPdf = Boolean(merged.payment_boleto_pdf_url || merged.payment_boleto_pdf_file)
-      if (!hasLine && !hasPdf) {
-        throw new Error("Preencha a linha digitável ou anexe o PDF do boleto antes de salvar.")
-      }
-    }
-
-    if (order.payment_method === "pix") {
-      const hasPixData =
-        Boolean(merged.payment_pix_key.trim()) ||
-        Boolean(merged.payment_copy_paste.trim()) ||
-        Boolean(merged.payment_pix_qr_code.trim()) ||
-        Boolean(merged.payment_instructions.trim())
-
-      if (!hasPixData) {
-        throw new Error("Preencha ao menos uma informação de pagamento PIX antes de salvar.")
-      }
-    }
-
-    if (order.payment_method === "credit_card") {
-      const hasCardData = Boolean(merged.payment_link_url.trim()) || Boolean(merged.payment_instructions.trim())
-      if (!hasCardData) {
-        throw new Error("Informe o link de pagamento ou as orientações do cartão antes de salvar.")
-      }
-    }
-  }
-
-  const handleUpdate = async (orderId: string) => {
-    const order = orders.find((item) => item.id === orderId)
-    if (!order) {
-      toast.error("Pedido não encontrado", {
-        description: "Atualize a lista e tente novamente.",
-      })
-      return
-    }
-
-    const merged = mergeOrderDraft(order, editing[orderId])
+  const handleSave = async (order: OrderRow) => {
+    const draft = drafts[order.id] ?? buildDraft(order)
+    const totals = calculateDraftTotals(draft)
 
     try {
-      validatePaymentData(order, merged)
-      setSavingId(orderId)
+      setSavingId(order.id)
+      let boletoPdfUrl = order.payment_boleto_pdf_url || null
+      const boletoFile = boletoFiles[order.id]
+      if (boletoFile) boletoPdfUrl = await uploadOrderPaymentPdf(order.id, boletoFile)
 
-      let boletoPdfUrl = merged.payment_boleto_pdf_url
-      if (merged.payment_boleto_pdf_file) {
-        boletoPdfUrl = await uploadOrderPaymentPdf(orderId, merged.payment_boleto_pdf_file)
-      }
-
-      await updateOrderStatus(orderId, merged.status, {
-        invoice_number: merged.invoice_number || null,
-        tracking_code: merged.tracking_code || null,
-        payment_instructions: getDefaultPaymentInstructions(order, merged) || null,
-        payment_copy_paste: merged.payment_copy_paste || null,
-        payment_link_url: merged.payment_link_url || null,
-        payment_boleto_line: merged.payment_boleto_line || null,
-        payment_boleto_pdf_url: boletoPdfUrl || null,
-        payment_pix_bank_name: merged.payment_pix_bank_name || null,
-        payment_pix_key: merged.payment_pix_key || null,
-        payment_pix_beneficiary: merged.payment_pix_beneficiary || null,
-        payment_pix_agency: merged.payment_pix_agency || null,
-        payment_pix_account: merged.payment_pix_account || null,
-        payment_pix_amount: merged.payment_pix_amount || null,
-        payment_pix_qr_code: merged.payment_pix_qr_code || null,
+      const updated = await saveOrder({
+        orderId: order.id,
+        status: draft.status,
+        payment_method: draft.payment_method,
+        items: totals.items,
+        invoice_number: draft.invoice_number || null,
+        tracking_code: draft.tracking_code || null,
+        payment_instructions: draft.payment_instructions || null,
+        payment_copy_paste: draft.payment_copy_paste || null,
+        payment_link_url: draft.payment_link_url || null,
+        payment_boleto_line: draft.payment_boleto_line || null,
+        payment_boleto_pdf_url: boletoPdfUrl,
+        payment_pix_bank_name: draft.payment_pix_bank_name || null,
+        payment_pix_key: draft.payment_pix_key || null,
+        payment_pix_beneficiary: draft.payment_pix_beneficiary || null,
+        payment_pix_agency: draft.payment_pix_agency || null,
+        payment_pix_account: draft.payment_pix_account || null,
+        payment_pix_amount: draft.payment_pix_amount || null,
+        payment_pix_qr_code: draft.payment_pix_qr_code || null,
+        admin_discount_type: draft.admin_discount_type === "none" ? null : draft.admin_discount_type,
+        admin_discount_value: draft.admin_discount_type === "none" ? null : parseNumber(draft.admin_discount_value),
+        admin_discount_amount: totals.discountAmount,
+        admin_bonus_type: draft.admin_bonus_type === "none" ? null : draft.admin_bonus_type,
+        admin_bonus_value: draft.admin_bonus_type === "value" ? parseNumber(draft.admin_bonus_value) : null,
+        admin_bonus_amount: totals.bonusAmount,
+        admin_bonus_product_id: draft.admin_bonus_type === "item" ? draft.admin_bonus_product_id || null : null,
+        admin_bonus_product_name: draft.admin_bonus_type === "item" ? totals.bonusProductName || null : null,
+        admin_bonus_quantity: draft.admin_bonus_type === "item" ? Math.max(1, draft.admin_bonus_quantity) : null,
       })
 
-      toast.success("Pedido atualizado", {
-        description: "As informações do pedido foram salvas.",
-      })
-
-      setEditing((current) => {
-        const next = { ...current }
-        delete next[orderId]
-        return next
-      })
-
-      await load()
+      setOrders((current) => current.map((row) => (row.id === order.id ? updated : row)))
+      setDrafts((current) => ({ ...current, [order.id]: buildDraft(updated) }))
+      setBoletoFiles((current) => ({ ...current, [order.id]: null }))
+      toast.success("Pedido atualizado")
     } catch (error) {
-      toast.error("Erro ao atualizar", {
-        description: getErrorMessage(error),
-      })
+      const message = error instanceof Error ? error.message : "Nao foi possivel salvar o pedido."
+      toast.error("Erro ao salvar pedido", { description: message })
     } finally {
       setSavingId(null)
     }
   }
 
+  const handleDelete = async (order: OrderRow) => {
+    const confirmed = window.confirm(`Excluir ${formatOrderCode(order.id)}? O pedido nao aparecera mais para admin nem cliente.`)
+    if (!confirmed) return
+
+    try {
+      setDeletingId(order.id)
+      await deleteOrder(order.id)
+      setOrders((current) => current.filter((item) => item.id !== order.id))
+      setDrafts((current) => {
+        const next = { ...current }
+        delete next[order.id]
+        return next
+      })
+      setBoletoFiles((current) => {
+        const next = { ...current }
+        delete next[order.id]
+        return next
+      })
+      toast.success("Pedido excluido")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao foi possivel excluir o pedido."
+      toast.error("Erro ao excluir", { description: message })
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   return (
     <Card className="border-slate-200 shadow-sm">
-      <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <CardTitle>Pedidos</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Cada pedido aparece em uma linha. Abra o detalhe para editar pagamento, status, NF e rastreio.
-          </p>
+      <CardHeader className="space-y-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <CardTitle>Pedidos</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Controle pedidos por status, revise comprovantes, ajuste itens e aplique desconto ou bonificacao sem depender de edicao manual.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar por codigo, cliente, e-mail, telefone ou documento"
+              className="w-full sm:min-w-[320px]"
+            />
+            <Button variant="outline" onClick={() => load("refresh")} disabled={refreshing}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              Atualizar
+            </Button>
+          </div>
         </div>
-        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Atualizar
-        </Button>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {STATUS_TABS.map((tab) => (
+            <Button
+              key={tab.value}
+              type="button"
+              variant={activeTab === tab.value ? "default" : "outline"}
+              className="shrink-0 rounded-full"
+              onClick={() => setActiveTab(tab.value)}
+            >
+              {tab.label}
+            </Button>
+          ))}
+        </div>
       </CardHeader>
+      <CardContent className="space-y-4">
+        {loading ? (
+          <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center text-sm text-muted-foreground">
+            Carregando pedidos...
+          </div>
+        ) : filteredOrders.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center text-sm text-muted-foreground">
+            Nenhum pedido encontrado para os filtros selecionados.
+          </div>
+        ) : (
+          filteredOrders.map((order) => {
+            const draft = drafts[order.id] ?? buildDraft(order)
+            const totals = calculateDraftTotals(draft)
+            const isExpanded = Boolean(expanded[order.id])
+            const isSaving = savingId === order.id
+            const isDeleting = deletingId === order.id
+            const boletoFile = boletoFiles[order.id]
+            const receiptIsImage = isImageResource(order.payment_receipt_url)
 
-      <CardContent className="space-y-3">
-        {orderedRows.map((order) => {
-          const merged = mergeOrderDraft(order, editing[order.id])
-          const isExpanded = Boolean(expanded[order.id])
-          const isSaving = savingId === order.id
-          const methodLabel = getPaymentMethodLabel(order.payment_method)
-          const statusLabel = getOrderStatusLabel(normalizeAdminOrderStatus(merged.status))
-
-          return (
-            <div key={order.id} className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex flex-col gap-3 p-4 md:grid md:grid-cols-[1.1fr_1.1fr_0.7fr_0.8fr_0.9fr_auto] md:items-center">
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold text-slate-950">Pedido {order.id.slice(0, 8).toUpperCase()}</div>
-                  <div className="mt-1 text-xs text-slate-500">
-                    {order.created_at ? new Date(order.created_at).toLocaleString("pt-BR") : "-"}
+            return (
+              <div key={order.id} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <div className="grid gap-3 p-4 xl:grid-cols-[1.2fr_1.2fr_0.8fr_0.8fr_0.8fr_auto] xl:items-center">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-slate-950">{formatOrderCode(order.id)}</div>
+                    <div className="mt-1 text-sm text-slate-500">{formatDate(order.created_at)}</div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Cliente</div>
+                    <div className="truncate text-sm font-medium text-slate-900">{order.customer_name}</div>
+                    <div className="truncate text-xs text-slate-500">{order.customer_email}</div>
+                  </div>
+                  <SummaryChip label="Valor" value={formatMoney(order.total)} />
+                  <SummaryChip label="Pagamento" value={formatPaymentMethod(order.payment_method)} />
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Status</div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <StatusBadge status={normalizeOrderStatus(order.status)} />
+                      {order.payment_receipt_url ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">
+                          <Receipt className="h-3.5 w-3.5" />
+                          Comprovante
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button variant="outline" size="sm" onClick={() => setExpanded((current) => ({ ...current, [order.id]: !current[order.id] }))}>
+                      {isExpanded ? <ChevronUp className="mr-2 h-4 w-4" /> : <ChevronDown className="mr-2 h-4 w-4" />}
+                      {isExpanded ? "Fechar" : "Abrir"}
+                    </Button>
                   </div>
                 </div>
-
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Cliente</div>
-                  <div className="truncate text-sm font-medium text-slate-900">{order.customer_name}</div>
-                </div>
-
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Valor</div>
-                  <div className="text-sm font-semibold text-slate-950">R$ {Number(order.total || 0).toFixed(2)}</div>
-                </div>
-
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Pagamento</div>
-                  <div className="text-sm text-slate-700">{methodLabel}</div>
-                </div>
-
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Status</div>
-                  <div className="mt-1">
-                    <StatusBadge status={normalizeAdminOrderStatus(merged.status)} />
-                  </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <Button variant="outline" size="sm" onClick={() => toggleRow(order.id)}>
-                    {isExpanded ? <ChevronUp className="mr-2 h-4 w-4" /> : <ChevronDown className="mr-2 h-4 w-4" />}
-                    {isExpanded ? "Fechar" : "Abrir"}
-                  </Button>
-                </div>
-              </div>
-
-              {isExpanded && (
-                <div className="border-t border-slate-200 px-4 pb-4 pt-4">
-                  <div className="grid gap-4 xl:grid-cols-[1.15fr_1fr]">
-                    <PaymentEditor
-                      order={order}
-                      merged={merged}
-                      onChange={(patch) => updateDraft(order.id, patch)}
-                      onPdfChange={(file) => handlePdfChange(order.id, file)}
-                    />
-
-                    <div className="space-y-4">
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-800">Status e documentos</div>
-                        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                          <FieldBox label="Status do pedido">
-                            <select
-                              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                              value={normalizeAdminOrderStatus(merged.status)}
-                              onChange={(event) => updateDraft(order.id, { status: event.target.value as OrderStatus })}
-                            >
-                              {ORDER_STATUS_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                          </FieldBox>
-
-                          <FieldBox label="Status visível">
-                            <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700">
-                              {statusLabel}
+                {isExpanded ? (
+                  <div className="border-t border-slate-200 p-4 md:p-5">
+                    <div className="grid gap-5 xl:grid-cols-[1.4fr_0.9fr]">
+                      <div className="space-y-5">
+                        <SectionCard title="Itens do pedido" action={<Button variant="outline" size="sm" onClick={() => addItem(order.id)}><PackagePlus className="mr-2 h-4 w-4" />Adicionar item</Button>}>
+                          <div className="space-y-3">
+                            {draft.items.map((item) => (
+                              <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                                <div className="grid gap-3 md:grid-cols-[1.4fr_1fr_0.7fr_0.8fr_auto] md:items-end">
+                                  <DraftField label="Produto">
+                                    <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={item.productId} onChange={(event) => changeItemProduct(order.id, item.id, event.target.value)}>
+                                      {products.map((product) => (
+                                        <option key={product.id} value={product.id}>{product.name}</option>
+                                      ))}
+                                    </select>
+                                  </DraftField>
+                                  <DraftField label="Referencia"><Input value={item.reference || "-"} readOnly /></DraftField>
+                                  <DraftField label="Quantidade">
+                                    <Input type="number" min={1} value={item.quantity} onChange={(event) => updateItem(order.id, item.id, (current) => ({ ...current, quantity: Math.max(1, Number(event.target.value || 1)) }))} />
+                                  </DraftField>
+                                  <DraftField label="Preco un.">
+                                    <Input type="number" min={0} step="0.01" value={item.price} onChange={(event) => updateItem(order.id, item.id, (current) => ({ ...current, price: Math.max(0, Number(event.target.value || 0)) }))} />
+                                  </DraftField>
+                                  <Button variant="outline" size="sm" onClick={() => removeItem(order.id, item.id)} disabled={draft.items.length <= 1}><Trash2 className="h-4 w-4" /></Button>
+                                </div>
+                                <div className="mt-2 text-xs text-slate-500">Subtotal do item: {formatMoney(item.quantity * item.price)}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </SectionCard>
+                        <SectionCard title="Desconto e bonificacao">
+                          <div className="grid gap-4 lg:grid-cols-2">
+                            <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                              <Label className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Desconto</Label>
+                              <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={draft.admin_discount_type} onChange={(event) => setField(order.id, "admin_discount_type", event.target.value as DiscountType)}>
+                                <option value="none">Sem desconto</option>
+                                <option value="percent">Percentual (%)</option>
+                                <option value="value">Valor fixo</option>
+                              </select>
+                              {draft.admin_discount_type !== "none" ? <Input type="number" min={0} step="0.01" value={draft.admin_discount_value} onChange={(event) => setField(order.id, "admin_discount_value", event.target.value)} placeholder={draft.admin_discount_type === "percent" ? "Ex: 10" : "Ex: 150"} /> : null}
+                              <div className="text-sm text-slate-600">Desconto calculado: <span className="font-semibold text-slate-950">{formatMoney(totals.discountAmount)}</span></div>
                             </div>
-                          </FieldBox>
-
-                          <FieldBox label="Nota fiscal">
-                            <Input
-                              placeholder="Número da NF"
-                              value={merged.invoice_number}
-                              onChange={(event) => updateDraft(order.id, { invoice_number: event.target.value })}
-                            />
-                          </FieldBox>
-
-                          <FieldBox label="Rastreamento">
-                            <Input
-                              placeholder="Código de rastreio"
-                              value={merged.tracking_code}
-                              onChange={(event) => updateDraft(order.id, { tracking_code: event.target.value })}
-                            />
-                          </FieldBox>
-                        </div>
+                            <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                              <Label className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Bonificacao</Label>
+                              <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={draft.admin_bonus_type} onChange={(event) => setField(order.id, "admin_bonus_type", event.target.value as BonusType)}>
+                                <option value="none">Sem bonificacao</option>
+                                <option value="value">Valor bonificado</option>
+                                <option value="item">Item gratis</option>
+                              </select>
+                              {draft.admin_bonus_type === "value" ? <Input type="number" min={0} step="0.01" value={draft.admin_bonus_value} onChange={(event) => setField(order.id, "admin_bonus_value", event.target.value)} placeholder="Ex: 200" /> : null}
+                              {draft.admin_bonus_type === "item" ? (
+                                <div className="grid gap-3 md:grid-cols-[1fr_120px]">
+                                  <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={draft.admin_bonus_product_id} onChange={(event) => setField(order.id, "admin_bonus_product_id", event.target.value)}>
+                                    <option value="">Selecione o item gratis</option>
+                                    {products.map((product) => (<option key={product.id} value={product.id}>{product.name}</option>))}
+                                  </select>
+                                  <Input type="number" min={1} value={draft.admin_bonus_quantity} onChange={(event) => setField(order.id, "admin_bonus_quantity", Math.max(1, Number(event.target.value || 1)))} />
+                                </div>
+                              ) : null}
+                              <div className="text-sm text-slate-600">Bonificacao calculada: <span className="font-semibold text-slate-950">{formatMoney(totals.bonusAmount)}</span></div>
+                            </div>
+                          </div>
+                        </SectionCard>
+                        <SectionCard title="Resumo financeiro">
+                          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                            <MetricCard label="Valor original" value={formatMoney(totals.originalSubtotal)} />
+                            <MetricCard label="Desconto" value={formatMoney(totals.discountAmount)} />
+                            <MetricCard label="Bonificacao" value={formatMoney(totals.bonusAmount)} />
+                            <MetricCard label="Total final" value={formatMoney(totals.total)} highlight />
+                          </div>
+                        </SectionCard>
                       </div>
-
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-800">Resumo operacional</div>
-                        <div className="mt-4 space-y-2 text-sm text-slate-700">
-                          <p>Cliente ID: {order.cliente_id || "-"}</p>
-                          <p>Status financeiro: {order.payment_status || "pending"}</p>
-                          <p>E-mail: {order.customer_email}</p>
-                          <p>Telefone: {order.customer_phone}</p>
-                        </div>
-                        <div className="mt-5 flex flex-wrap gap-3">
-                          <Button onClick={() => handleUpdate(order.id)} disabled={isSaving}>
-                            {isSaving ? "Salvando..." : "Salvar"}
-                          </Button>
-                          {order.customer_phone && (
-                            <Button
-                              variant="outline"
-                              onClick={() => {
-                                const phone = order.customer_phone.replace(/\D/g, "")
-                                const text = encodeURIComponent(
-                                  `Olá, ${order.customer_name}. Seu pedido ${order.id.slice(0, 8).toUpperCase()} foi atualizado.`
-                                )
-                                window.open(`https://wa.me/${phone}?text=${text}`, "_blank")
-                              }}
-                            >
-                              Notificar no WhatsApp
-                            </Button>
+                      <div className="space-y-5">
+                        <SectionCard title="Status e entrega">
+                          <div className="grid gap-3">
+                            <DraftField label="Status do pedido">
+                              <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={draft.status} onChange={(event) => setField(order.id, "status", event.target.value as OrderStatus)}>
+                                {ORDER_STATUS_OPTIONS.map((option) => (<option key={option.value} value={option.value}>{option.label}</option>))}
+                              </select>
+                            </DraftField>
+                            <DraftField label="Metodo de pagamento">
+                              <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={draft.payment_method} onChange={(event) => setField(order.id, "payment_method", event.target.value as PaymentMethod)}>
+                                {PAYMENT_OPTIONS.map((option) => (<option key={option.value} value={option.value}>{option.label}</option>))}
+                              </select>
+                            </DraftField>
+                            <DraftField label="Nota fiscal"><Input value={draft.invoice_number} onChange={(event) => setField(order.id, "invoice_number", event.target.value)} /></DraftField>
+                            <DraftField label="Rastreamento / localizador"><Input value={draft.tracking_code} onChange={(event) => setField(order.id, "tracking_code", event.target.value)} /></DraftField>
+                          </div>
+                        </SectionCard>
+                        <SectionCard title="Comprovante do cliente">
+                          {order.payment_receipt_url ? (
+                            <div className="space-y-3">
+                              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                                <div className="font-medium text-slate-950">{order.payment_receipt_name || "Comprovante enviado"}</div>
+                                <div className="mt-1 text-xs text-slate-500">Enviado em {formatDate(order.payment_receipt_uploaded_at)}</div>
+                              </div>
+                              {receiptIsImage ? <img src={order.payment_receipt_url || ""} alt="Comprovante" className="max-h-56 w-full rounded-2xl border border-slate-200 object-cover" /> : null}
+                              <Button variant="outline" onClick={() => window.open(order.payment_receipt_url || "", "_blank", "noopener,noreferrer")}><Eye className="mr-2 h-4 w-4" />Visualizar comprovante</Button>
+                            </div>
+                          ) : (
+                            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-muted-foreground">Nenhum comprovante enviado pelo cliente.</div>
                           )}
+                        </SectionCard>
+                        {draft.payment_method === "pix" ? (
+                          <SectionCard title="Dados PIX">
+                            <div className="grid gap-3">
+                              <DraftField label="Orientacoes"><Textarea value={draft.payment_instructions} onChange={(event) => setField(order.id, "payment_instructions", event.target.value)} rows={4} /></DraftField>
+                              <DraftField label="Banco"><Input value={draft.payment_pix_bank_name} onChange={(event) => setField(order.id, "payment_pix_bank_name", event.target.value)} /></DraftField>
+                              <DraftField label="Beneficiario"><Input value={draft.payment_pix_beneficiary} onChange={(event) => setField(order.id, "payment_pix_beneficiary", event.target.value)} /></DraftField>
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <DraftField label="Agencia"><Input value={draft.payment_pix_agency} onChange={(event) => setField(order.id, "payment_pix_agency", event.target.value)} /></DraftField>
+                                <DraftField label="Conta"><Input value={draft.payment_pix_account} onChange={(event) => setField(order.id, "payment_pix_account", event.target.value)} /></DraftField>
+                              </div>
+                              <DraftField label="Chave PIX"><Input value={draft.payment_pix_key} onChange={(event) => setField(order.id, "payment_pix_key", event.target.value)} /></DraftField>
+                              <DraftField label="Valor"><Input value={draft.payment_pix_amount} onChange={(event) => setField(order.id, "payment_pix_amount", event.target.value)} placeholder={formatMoney(totals.total)} /></DraftField>
+                              <DraftField label="PIX copia e cola"><Textarea value={draft.payment_copy_paste} onChange={(event) => setField(order.id, "payment_copy_paste", event.target.value)} rows={3} /></DraftField>
+                              <DraftField label="PIX por QR code / referencia"><Textarea value={draft.payment_pix_qr_code} onChange={(event) => setField(order.id, "payment_pix_qr_code", event.target.value)} rows={3} /></DraftField>
+                            </div>
+                          </SectionCard>
+                        ) : null}
+                        {draft.payment_method === "boleto" ? (
+                          <SectionCard title="Dados do boleto">
+                            <div className="grid gap-3">
+                              <DraftField label="Linha digitavel"><Textarea value={draft.payment_boleto_line} onChange={(event) => setField(order.id, "payment_boleto_line", event.target.value)} rows={3} /></DraftField>
+                              <DraftField label="Orientacoes ao cliente"><Textarea value={draft.payment_instructions} onChange={(event) => setField(order.id, "payment_instructions", event.target.value)} rows={4} /></DraftField>
+                              <DraftField label="PDF do boleto"><Input type="file" accept="application/pdf" onChange={(event) => setBoletoFiles((current) => ({ ...current, [order.id]: event.target.files?.[0] || null }))} /></DraftField>
+                              {boletoFile ? <div className="text-xs text-slate-500">Arquivo selecionado: {boletoFile.name}</div> : null}
+                              {order.payment_boleto_pdf_url ? <Button variant="outline" onClick={() => window.open(order.payment_boleto_pdf_url || "", "_blank", "noopener,noreferrer")}><Eye className="mr-2 h-4 w-4" />Abrir boleto atual</Button> : null}
+                            </div>
+                          </SectionCard>
+                        ) : null}
+                        {draft.payment_method === "credit_card" ? (
+                          <SectionCard title="Dados do cartao">
+                            <div className="grid gap-3">
+                              <DraftField label="Link de pagamento"><Input value={draft.payment_link_url} onChange={(event) => setField(order.id, "payment_link_url", event.target.value)} /></DraftField>
+                              <DraftField label="Orientacoes ao cliente"><Textarea value={draft.payment_instructions} onChange={(event) => setField(order.id, "payment_instructions", event.target.value)} rows={4} /></DraftField>
+                            </div>
+                          </SectionCard>
+                        ) : null}
+                        <div className="flex flex-wrap justify-end gap-3">
+                          <Button variant="destructive" onClick={() => handleDelete(order)} disabled={isDeleting || isSaving}><Trash2 className="mr-2 h-4 w-4" />{isDeleting ? "Excluindo..." : "Excluir pedido"}</Button>
+                          <Button onClick={() => handleSave(order)} disabled={isSaving || isDeleting}><Save className="mr-2 h-4 w-4" />{isSaving ? "Salvando..." : "Salvar pedido"}</Button>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-          )
-        })}
-
-        {!loading && orderedRows.length === 0 && (
-          <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center text-sm text-muted-foreground">
-            Nenhum pedido encontrado.
-          </div>
+                ) : null}
+              </div>
+            )
+          })
         )}
       </CardContent>
     </Card>
   )
 }
 
-function PaymentEditor({
-  order,
-  merged,
-  onChange,
-  onPdfChange,
-}: {
-  order: OrderRow
-  merged: ReturnType<typeof mergeOrderDraft>
-  onChange: (patch: Partial<OrderDraft>) => void
-  onPdfChange: (file: File | null) => void
-}) {
-  if (order.payment_method === "boleto") {
-    return (
-      <SectionCard icon={<ReceiptText className="h-4 w-4 text-amber-600" />} title="Dados do boleto">
-        <FieldBox label="Linha digitável">
-          <Textarea
-            rows={3}
-            placeholder="Cole a linha digitável do boleto"
-            value={merged.payment_boleto_line}
-            onChange={(event) => onChange({ payment_boleto_line: event.target.value })}
-          />
-        </FieldBox>
-
-        <FieldBox label="Orientações ao cliente">
-          <Textarea
-            rows={5}
-            placeholder="Explique como o cliente deve usar o boleto e qual etapa vem depois do pagamento."
-            value={merged.payment_instructions}
-            onChange={(event) => onChange({ payment_instructions: event.target.value })}
-          />
-        </FieldBox>
-
-        <FieldBox label="PDF do boleto">
-          <div className="space-y-3">
-            <Input type="file" accept="application/pdf" onChange={(event) => onPdfChange(event.target.files?.[0] ?? null)} />
-            {merged.payment_boleto_pdf_file && (
-              <div className="text-xs text-slate-500">Arquivo selecionado: {merged.payment_boleto_pdf_file.name}</div>
-            )}
-            {merged.payment_boleto_pdf_url && (
-              <Button asChild variant="outline" size="sm">
-                <a href={merged.payment_boleto_pdf_url} target="_blank" rel="noreferrer">
-                  <Upload className="mr-2 h-4 w-4" />
-                  Abrir PDF atual
-                </a>
-              </Button>
-            )}
-          </div>
-        </FieldBox>
-      </SectionCard>
-    )
-  }
-
-  if (order.payment_method === "pix") {
-    return (
-      <SectionCard icon={<QrCode className="h-4 w-4 text-blue-700" />} title="Dados PIX">
-        <div className="grid gap-4 md:grid-cols-2">
-          <FieldBox label="Orientações">
-            <Textarea
-              rows={6}
-              placeholder="Descreva como o cliente deve efetuar o PIX."
-              value={merged.payment_instructions}
-              onChange={(event) => onChange({ payment_instructions: event.target.value })}
-            />
-          </FieldBox>
-
-          <div className="grid gap-4">
-            <FieldBox label="PIX copia e cola">
-              <Textarea
-                rows={4}
-                placeholder="Cole o código PIX copia e cola"
-                value={merged.payment_copy_paste}
-                onChange={(event) => onChange({ payment_copy_paste: event.target.value })}
-              />
-            </FieldBox>
-
-            <FieldBox label="QR code / link do QR code">
-              <Input
-                placeholder="Link do QR code ou referência"
-                value={merged.payment_pix_qr_code}
-                onChange={(event) => onChange({ payment_pix_qr_code: event.target.value })}
-              />
-            </FieldBox>
-          </div>
-
-          <FieldBox label="Banco">
-            <Input
-              placeholder="Nome do banco"
-              value={merged.payment_pix_bank_name}
-              onChange={(event) => onChange({ payment_pix_bank_name: event.target.value })}
-            />
-          </FieldBox>
-
-          <FieldBox label="Beneficiário">
-            <Input
-              placeholder="Nome do beneficiário"
-              value={merged.payment_pix_beneficiary}
-              onChange={(event) => onChange({ payment_pix_beneficiary: event.target.value })}
-            />
-          </FieldBox>
-
-          <FieldBox label="Chave PIX">
-            <Input
-              placeholder="Chave aleatória / CNPJ / e-mail / telefone"
-              value={merged.payment_pix_key}
-              onChange={(event) => onChange({ payment_pix_key: event.target.value })}
-            />
-          </FieldBox>
-
-          <FieldBox label="Valor">
-            <Input
-              placeholder="Ex.: R$ 5.170,28"
-              value={merged.payment_pix_amount}
-              onChange={(event) => onChange({ payment_pix_amount: event.target.value })}
-            />
-          </FieldBox>
-
-          <FieldBox label="Agência">
-            <Input
-              placeholder="Agência"
-              value={merged.payment_pix_agency}
-              onChange={(event) => onChange({ payment_pix_agency: event.target.value })}
-            />
-          </FieldBox>
-
-          <FieldBox label="Conta">
-            <Input
-              placeholder="Conta"
-              value={merged.payment_pix_account}
-              onChange={(event) => onChange({ payment_pix_account: event.target.value })}
-            />
-          </FieldBox>
-        </div>
-      </SectionCard>
-    )
-  }
-
-  if (order.payment_method === "credit_card") {
-    return (
-      <SectionCard icon={<CreditCard className="h-4 w-4 text-blue-700" />} title="Pagamento por cartão">
-        <FieldBox label="Link de pagamento">
-          <Input
-            placeholder="Cole o link de pagamento"
-            value={merged.payment_link_url}
-            onChange={(event) => onChange({ payment_link_url: event.target.value })}
-          />
-        </FieldBox>
-
-        <FieldBox label="Orientações ao cliente">
-          <Textarea
-            rows={5}
-            placeholder="Descreva prazo, parcelamento ou instruções adicionais."
-            value={merged.payment_instructions}
-            onChange={(event) => onChange({ payment_instructions: event.target.value })}
-          />
-        </FieldBox>
-      </SectionCard>
-    )
-  }
-
+function SectionCard({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
-    <SectionCard icon={<Wallet className="h-4 w-4 text-blue-700" />} title="Informações de pagamento">
-      <FieldBox label="Orientações gerais">
-        <Textarea
-          rows={5}
-          placeholder="Informe como o pagamento deve ser tratado para este pedido."
-          value={merged.payment_instructions}
-          onChange={(event) => onChange({ payment_instructions: event.target.value })}
-        />
-      </FieldBox>
-    </SectionCard>
-  )
-}
-
-function SectionCard({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
-        {icon}
-        {title}
+    <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="text-sm font-semibold text-slate-950">{title}</div>
+        {action}
       </div>
-      <div className="mt-4 space-y-4">{children}</div>
+      {children}
     </div>
   )
 }
 
-function FieldBox({ label, children }: { label: string; children: ReactNode }) {
+function DraftField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="space-y-2">
       <Label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</Label>
@@ -584,3 +661,23 @@ function FieldBox({ label, children }: { label: string; children: ReactNode }) {
     </div>
   )
 }
+
+function SummaryChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</div>
+      <div className="mt-2 text-sm font-semibold text-slate-950">{value}</div>
+    </div>
+  )
+}
+
+function MetricCard({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className={highlight ? "rounded-2xl border border-blue-200 bg-blue-50 p-4" : "rounded-2xl border border-slate-200 bg-slate-50 p-4"}>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</div>
+      <div className="mt-2 text-base font-semibold text-slate-950">{value}</div>
+    </div>
+  )
+}
+
+

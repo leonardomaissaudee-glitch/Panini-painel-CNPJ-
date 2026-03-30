@@ -70,6 +70,7 @@ export async function fetchSellerOrders(sellerId?: string): Promise<SellerOrder[
     .select(
       "id, customer_name, customer_email, customer_phone, subtotal, total, status, payment_status, payment_method, invoice_number, tracking_code, created_at, seller_id"
     )
+    .is("deleted_at", null)
     .order("created_at", { ascending: false })
 
   if (sellerId) {

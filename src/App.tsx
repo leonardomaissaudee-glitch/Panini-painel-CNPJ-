@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation, Navigate } from "react-router-dom"
+﻿import { Routes, Route, useLocation, Navigate } from "react-router-dom"
 import { Header } from "@/components/Header"
 import { CartProvider } from "@/contexts/CartContext"
 import Home from "@/pages/Home"
@@ -18,6 +18,13 @@ import ClientInfoPage from "@/features/client/pages/ClientInfoPage"
 import ClientProfilePage from "@/features/client/pages/ClientProfilePage"
 import ClientSupportPage from "@/features/client/pages/ClientSupportPage"
 import ClientCartPage from "@/features/client/pages/ClientCartPage"
+import { OrdersPanel } from "@/features/admin/components/OrdersPanel"
+import { ChatsPanel } from "@/features/admin/components/ChatsPanel"
+import { MonitoringPanel } from "@/features/monitoring/components/MonitoringPanel"
+import { PendingApprovals } from "@/features/admin/components/PendingApprovals"
+import { UsersPanel } from "@/features/admin/components/UsersPanel"
+import { ApprovedClientsPanel } from "@/features/admin/components/ApprovedClientsPanel"
+import { AllClientsPanel } from "@/features/admin/components/AllClientsPanel"
 import AboutPage from "@/pages/About"
 import ProcessPage from "@/pages/Process"
 import OpportunityPage from "@/pages/Opportunity"
@@ -149,7 +156,17 @@ export function App() {
                   <AdminDashboard />
                 </ProtectedRoute>
               }
-            />
+            >
+              <Route index element={<Navigate to="/admin/pedidos" replace />} />
+              <Route path="pedidos" element={<OrdersPanel />} />
+              <Route path="chats" element={<ChatsPanel />} />
+              <Route path="monitoramento" element={<MonitoringPanel />} />
+              <Route path="cadastros-pendentes" element={<PendingApprovals />} />
+              <Route path="usuarios" element={<UsersPanel />} />
+              <Route path="clientes-aprovados" element={<ApprovedClientsPanel />} />
+              <Route path="todos-clientes" element={<AllClientsPanel />} />
+              <Route path="*" element={<Navigate to="/admin/pedidos" replace />} />
+            </Route>
 
             <Route
               path="/seller"
@@ -166,4 +183,4 @@ export function App() {
   )
 }
 
-export default App;
+export default App
