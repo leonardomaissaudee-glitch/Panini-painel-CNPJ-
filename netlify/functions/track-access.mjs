@@ -135,32 +135,53 @@ async function resolveIdentity(supabase, headers) {
     }
   }
 
+  const pickProfile = (rows = []) => rows[0] ?? null
+
   let profile = null
 
-  const { data: byAuthProfile } = await supabase
-    .from("profiles")
-    .select("auth_user_id, full_name, email, role")
-    .eq("auth_user_id", user.id)
-    .maybeSingle()
-
-  profile = byAuthProfile
-
-  if (!profile && user.email) {
-    const { data: byEmailProfiles } = await supabase
+  try {
+    const { data: byAuthProfiles } = await supabase
       .from("profiles")
       .select("auth_user_id, full_name, email, role")
-      .eq("email", user.email.toLowerCase())
-      .order("created_at", { ascending: false })
+      .eq("auth_user_id", user.id)
       .limit(5)
 
-    profile = byEmailProfiles?.[0] ?? null
+    profile = pickProfile(byAuthProfiles || [])
+
+    if (!profile && user.email) {
+      const { data: byEmailProfiles } = await supabase
+        .from("profiles")
+        .select("auth_user_id, full_name, email, role")
+        .eq("email", user.email)
+        .limit(5)
+
+      profile = pickProfile(byEmailProfiles || [])
+    }
+
+    if (!profile && user.email) {
+      const { data: byInsensitiveEmailProfiles } = await supabase
+        .from("profiles")
+        .select("auth_user_id, full_name, email, role")
+        .ilike("email", user.email)
+        .limit(5)
+
+      profile = pickProfile(byInsensitiveEmailProfiles || [])
+    }
+  } catch {
+    profile = null
   }
 
-  const { data: reseller } = await supabase
-    .from("reseller_profiles")
-    .select("user_id, razao_social")
-    .eq("user_id", user.id)
-    .maybeSingle()
+  let reseller = null
+  try {
+    const { data } = await supabase
+      .from("reseller_profiles")
+      .select("user_id, razao_social")
+      .eq("user_id", user.id)
+      .maybeSingle()
+    reseller = data
+  } catch {
+    reseller = null
+  }
 
   return {
     auth_user_id: user.id,

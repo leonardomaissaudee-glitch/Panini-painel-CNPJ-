@@ -168,37 +168,60 @@ async function requireAdmin(event, supabase) {
     throw new Error("unauthorized")
   }
 
-  const { data: byAuthProfile, error: byAuthError } = await supabase
+  const pickAdminProfile = (rows = []) =>
+    rows.find((row) => row?.role === "admin" || row?.user_type === "admin") || rows[0] || null
+
+  let profile = null
+
+  const { data: byAuthProfiles, error: byAuthError } = await supabase
     .from("profiles")
     .select("id, auth_user_id, email, role, user_type, full_name")
     .eq("auth_user_id", user.id)
-    .maybeSingle()
+    .limit(10)
 
-  if (byAuthError) {
-    throw new Error("forbidden")
+  if (!byAuthError) {
+    profile = pickAdminProfile(byAuthProfiles || [])
   }
 
-  let profile = byAuthProfile
-
   if (!profile && user.email) {
-    const { data: byEmailProfiles, error: byEmailError } = await supabase
+    const { data: exactEmailProfiles, error: exactEmailError } = await supabase
       .from("profiles")
       .select("id, auth_user_id, email, role, user_type, full_name")
-      .eq("email", user.email.toLowerCase())
-      .order("created_at", { ascending: false })
-      .limit(5)
+      .eq("email", user.email)
+      .limit(10)
 
-    if (byEmailError) {
-      throw new Error("forbidden")
+    if (!exactEmailError) {
+      profile = pickAdminProfile(exactEmailProfiles || [])
     }
+  }
 
-    profile =
-      byEmailProfiles?.find((row) => row.role === "admin" || row.user_type === "admin") ||
-      byEmailProfiles?.[0] ||
-      null
+  if (!profile && user.email) {
+    const { data: insensitiveEmailProfiles, error: insensitiveEmailError } = await supabase
+      .from("profiles")
+      .select("id, auth_user_id, email, role, user_type, full_name")
+      .ilike("email", user.email)
+      .limit(10)
+
+    if (!insensitiveEmailError) {
+      profile = pickAdminProfile(insensitiveEmailProfiles || [])
+    }
   }
 
   if (!profile || (profile.role !== "admin" && profile.user_type !== "admin")) {
+    if (user.user_metadata?.user_type === "admin" || user.app_metadata?.role === "admin") {
+      return {
+        user,
+        profile: {
+          id: profile?.id || user.id,
+          auth_user_id: user.id,
+          email: user.email,
+          role: "admin",
+          user_type: "admin",
+          full_name: profile?.full_name || user.user_metadata?.full_name || user.email,
+        },
+      }
+    }
+
     throw new Error("forbidden")
   }
 
