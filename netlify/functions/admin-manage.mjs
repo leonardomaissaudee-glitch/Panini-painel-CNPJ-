@@ -266,6 +266,17 @@ async function findResellerProfile(supabase, { resellerId, authUserId, email }) 
     if (data) return data
   }
 
+  if (resellerId) {
+    const { data, error } = await supabase
+      .from("reseller_profiles")
+      .select("*")
+      .eq("user_id", resellerId)
+      .maybeSingle()
+
+    if (error) throw error
+    if (data) return data
+  }
+
   if (email) {
     const { data, error } = await supabase
       .from("reseller_profiles")
@@ -365,17 +376,19 @@ async function handleDeleteOrder(supabase, body, adminUserId) {
 
 async function handleApproveReseller(supabase, body) {
   const resellerId = asText(body.resellerId, 120)
+  const authUserId = asNullableText(body.userId, 120)
+  const email = asNullableText(body.email, 255)
   const managerName = asNullableText(body.managerName, 255)
   const managerWhatsapp = asNullableText(body.managerWhatsapp, 64)
   if (!resellerId) throw new Error("reseller_id_required")
 
-  const { data: reseller, error: loadError } = await supabase
-    .from("reseller_profiles")
-    .select("*")
-    .eq("id", resellerId)
-    .single()
+  const reseller = await findResellerProfile(supabase, {
+    resellerId,
+    authUserId: authUserId || resellerId,
+    email,
+  })
 
-  if (loadError || !reseller) throw new Error("reseller_not_found")
+  if (!reseller) throw new Error("reseller_not_found")
 
   const now = new Date().toISOString()
   const { error: resellerError } = await supabase
@@ -387,7 +400,7 @@ async function handleApproveReseller(supabase, body) {
       account_manager_whatsapp: managerWhatsapp,
       updated_at: now,
     })
-    .eq("id", resellerId)
+    .eq("id", reseller.id)
 
   if (resellerError) throw resellerError
 
@@ -409,21 +422,23 @@ async function handleApproveReseller(supabase, body) {
     updated_at: now,
   })
 
-  return { id: resellerId }
+  return { id: reseller.id }
 }
 
 async function handleRejectReseller(supabase, body) {
   const resellerId = asText(body.resellerId, 120)
+  const authUserId = asNullableText(body.userId, 120)
+  const email = asNullableText(body.email, 255)
   const reason = asText(body.reason, 1000) || "Cadastro reprovado pela equipe comercial."
   if (!resellerId) throw new Error("reseller_id_required")
 
-  const { data: reseller, error: loadError } = await supabase
-    .from("reseller_profiles")
-    .select("*")
-    .eq("id", resellerId)
-    .single()
+  const reseller = await findResellerProfile(supabase, {
+    resellerId,
+    authUserId: authUserId || resellerId,
+    email,
+  })
 
-  if (loadError || !reseller) throw new Error("reseller_not_found")
+  if (!reseller) throw new Error("reseller_not_found")
 
   const now = new Date().toISOString()
   const { error: resellerError } = await supabase
@@ -433,7 +448,7 @@ async function handleRejectReseller(supabase, body) {
       motivo_reprovacao: reason,
       updated_at: now,
     })
-    .eq("id", resellerId)
+    .eq("id", reseller.id)
 
   if (resellerError) throw resellerError
 
@@ -453,7 +468,7 @@ async function handleRejectReseller(supabase, body) {
     updated_at: now,
   })
 
-  return { id: resellerId }
+  return { id: reseller.id }
 }
 
 async function handleUpdateClient(supabase, body) {

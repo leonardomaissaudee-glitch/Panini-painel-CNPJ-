@@ -623,13 +623,15 @@ export async function fetchAdminUsers(): Promise<AdminUserRow[]> {
   return rows.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
 }
 
-export async function approveProfile(id: string, managerName: AccountManagerName) {
+export async function approveProfile(row: Pick<ResellerApprovalRow, "id" | "user_id" | "email">, managerName: AccountManagerName) {
   const manager = getManagerByName(managerName)
 
   return callAdminAction<{ id: string }>(
     {
       action: "approve-reseller",
-      resellerId: id,
+      resellerId: row.id,
+      userId: row.user_id,
+      email: row.email,
       managerName: manager?.name ?? managerName,
       managerWhatsapp: manager?.whatsapp ?? null,
     },
@@ -637,11 +639,13 @@ export async function approveProfile(id: string, managerName: AccountManagerName
   )
 }
 
-export async function rejectProfile(id: string, motivo: string) {
+export async function rejectProfile(row: Pick<ResellerApprovalRow, "id" | "user_id" | "email">, motivo: string) {
   return callAdminAction<{ id: string }>(
     {
       action: "reject-reseller",
-      resellerId: id,
+      resellerId: row.id,
+      userId: row.user_id,
+      email: row.email,
       reason: motivo,
     },
     "Não foi possível reprovar o cadastro."

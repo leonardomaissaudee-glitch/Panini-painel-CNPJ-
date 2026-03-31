@@ -295,7 +295,7 @@ export async function handler(event) {
     await upsertVisitorSession(supabase, sessionPayload)
   } catch (sessionError) {
     console.error("track-access visitor_sessions error", sessionError)
-    return json(500, { ok: false, error: "session_upsert_failed" })
+    return json(200, { ok: false, skipped: true, error: "session_upsert_failed" })
   }
 
   if (payload.eventType === "pageview") {
@@ -340,7 +340,7 @@ export async function handler(event) {
         })
       } catch (accessError) {
         console.error("track-access access_logs insert error", accessError)
-        return json(500, { ok: false, error: "access_log_insert_failed" })
+        return json(200, { ok: false, skipped: true, error: "access_log_insert_failed" })
       }
     }
   }

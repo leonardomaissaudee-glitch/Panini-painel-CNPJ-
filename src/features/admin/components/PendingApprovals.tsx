@@ -52,9 +52,14 @@ export function PendingApprovals() {
   }, [rows, search])
 
   const handleApprove = async (id: string) => {
+    const row = rows.find((item) => item.id === id)
+    if (!row) {
+      toast.error("Erro ao aprovar", { description: "Cliente não encontrado na lista local." })
+      return
+    }
     try {
       setSavingId(id)
-      await approveProfile(id, managerByUser[id] ?? ACCOUNT_MANAGERS[0].name)
+      await approveProfile(row, managerByUser[id] ?? ACCOUNT_MANAGERS[0].name)
       toast.success("Cadastro aprovado", { description: "Cliente liberado com gerente atribuído." })
       await load()
     } catch (error) {
@@ -66,10 +71,15 @@ export function PendingApprovals() {
   }
 
   const handleReject = async (id: string) => {
+    const row = rows.find((item) => item.id === id)
+    if (!row) {
+      toast.error("Erro ao reprovar", { description: "Cliente não encontrado na lista local." })
+      return
+    }
     const reason = rejectReason[id]?.trim() || "Cadastro reprovado pela equipe comercial."
     try {
       setSavingId(id)
-      await rejectProfile(id, reason)
+      await rejectProfile(row, reason)
       toast.success("Cadastro reprovado")
       await load()
     } catch (error) {
