@@ -193,9 +193,8 @@ function adaptLegacyProfilePayload(payload, schema) {
 
   if (!hasColumn(schema, "full_name")) {
     const displayName = asNullableText(normalizedPayload.full_name, 255)
-    const companyName = asNullableText(normalizedPayload.company_name, 255)
 
-    if (displayName && !companyName && hasColumn(schema, "company_name")) {
+    if (displayName && hasColumn(schema, "company_name")) {
       normalizedPayload.company_name = displayName
     }
   }

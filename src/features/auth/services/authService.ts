@@ -69,6 +69,19 @@ function normalizeRole(role?: string | null): UserRole {
   return "client"
 }
 
+function formatEmailDisplayName(email?: string | null) {
+  if (!email) return null
+  const localPart = email.split("@")[0]?.trim()
+  if (!localPart) return null
+
+  return localPart
+    .replace(/[._-]+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
 function mergeApprovalStatus(...statuses: Array<string | null | undefined>): ApprovalStatus {
   const normalized = statuses.map(normalizeApprovalStatus)
 
@@ -145,6 +158,11 @@ export async function fetchProfile(userId: string, email?: string | null): Promi
   if (legacyProfile?.role === "admin" || legacyProfile?.role === "seller") {
     return {
       ...(legacyProfile as Profile),
+      full_name:
+        legacyProfile.full_name ||
+        legacyProfile.company_name ||
+        formatEmailDisplayName(legacyProfile.email) ||
+        "Usuário sem nome",
       role: normalizeRole(legacyProfile.role),
       status_cadastro: normalizeApprovalStatus(legacyProfile.status_cadastro),
     }
