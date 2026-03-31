@@ -100,9 +100,128 @@ function compactObject(payload) {
   )
 }
 
+const tableSchemaCache = new Map()
+const fallbackTableSchemas = {
+  profiles: new Map(
+    [
+      "id",
+      "auth_user_id",
+      "full_name",
+      "email",
+      "role",
+      "user_type",
+      "company_name",
+      "status_cadastro",
+      "tipo_documento",
+      "documento",
+      "telefone",
+      "endereco",
+      "motivo_reprovacao",
+      "account_manager_name",
+      "account_manager_whatsapp",
+      "notes",
+      "updated_at",
+    ].map((column_name) => [column_name, { column_name, udt_name: column_name === "endereco" ? "jsonb" : "text" }])
+  ),
+  reseller_profiles: new Map(
+    [
+      "id",
+      "user_id",
+      "cnpj",
+      "razao_social",
+      "nome_fantasia",
+      "nome_responsavel",
+      "email",
+      "telefone",
+      "whatsapp",
+      "cep",
+      "endereco",
+      "numero",
+      "complemento",
+      "bairro",
+      "cidade",
+      "estado",
+      "segmento",
+      "faixa_investimento",
+      "canal_revenda",
+      "observacoes",
+      "status_cadastro",
+      "motivo_reprovacao",
+      "account_manager_name",
+      "account_manager_whatsapp",
+      "updated_at",
+    ].map((column_name) => [column_name, { column_name, udt_name: "text" }])
+  ),
+}
+
+async function loadTableSchema(supabase, tableName) {
+  if (tableSchemaCache.has(tableName)) {
+    return tableSchemaCache.get(tableName)
+  }
+
+  const { data, error } = await supabase
+    .schema("information_schema")
+    .from("columns")
+    .select("column_name,data_type,udt_name")
+    .eq("table_schema", "public")
+    .eq("table_name", tableName)
+
+  if (error) {
+    const fallback = fallbackTableSchemas[tableName] || new Map()
+    tableSchemaCache.set(tableName, fallback)
+    return fallback
+  }
+
+  const schema = new Map((data || []).map((row) => [row.column_name, row]))
+  tableSchemaCache.set(tableName, schema)
+  return schema
+}
+
+function hasColumn(schema, columnName) {
+  return schema instanceof Map && schema.has(columnName)
+}
+
+function isTextLikeColumn(schema, columnName) {
+  const column = schema instanceof Map ? schema.get(columnName) : null
+  const udtName = column?.udt_name
+  return udtName === "text" || udtName === "varchar" || udtName === "bpchar"
+}
+
+function filterPayloadToSchema(payload, schema) {
+  return compactObject(
+    Object.fromEntries(Object.entries(payload).filter(([key]) => hasColumn(schema, key)))
+  )
+}
+
+function adaptLegacyProfilePayload(payload, schema) {
+  const next = filterPayloadToSchema(payload, schema)
+
+  if (Object.prototype.hasOwnProperty.call(next, "endereco") && typeof next.endereco === "object" && next.endereco !== null) {
+    if (isTextLikeColumn(schema, "endereco")) {
+      next.endereco = JSON.stringify(next.endereco)
+    }
+  }
+
+  return next
+}
+
 function isMissingAuthUserError(error) {
   const message = error instanceof Error ? error.message : String(error || "")
   return /user not found|not found/i.test(message)
+}
+
+function buildMinimalLegacyProfilePayload(payload) {
+  return compactObject({
+    auth_user_id: payload.auth_user_id,
+    full_name: payload.full_name,
+    email: payload.email,
+    role: payload.role,
+    status_cadastro: payload.status_cadastro,
+    tipo_documento: payload.tipo_documento,
+    documento: payload.documento,
+    telefone: payload.telefone,
+    endereco: payload.endereco,
+  })
 }
 
 function toLegacyResellerStatus(status) {
@@ -254,67 +373,107 @@ async function requireAdmin(event, supabase) {
   return { user, profile }
 }
 
-async function upsertLegacyProfile(supabase, payload) {
+async function findLegacyProfile(supabase, { profileId, authUserId, email }) {
   const candidates = []
 
-  if (payload.auth_user_id) {
-    const { data: byAuthId, error: byAuthIdError } = await supabase
-      .from("profiles")
-      .select("id, auth_user_id, email")
-      .eq("auth_user_id", payload.auth_user_id)
-      .limit(5)
-
-    if (byAuthIdError) throw byAuthIdError
-    candidates.push(...(byAuthId || []))
-
-    const { data: byId, error: byIdError } = await supabase
-      .from("profiles")
-      .select("id, auth_user_id, email")
-      .eq("id", payload.auth_user_id)
-      .limit(5)
-
-    if (byIdError) throw byIdError
-    candidates.push(...(byId || []))
+  if (profileId) {
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", profileId).limit(10)
+    if (error) throw error
+    candidates.push(...(data || []))
   }
 
-  if (payload.email) {
-    const { data: byEmail, error: byEmailError } = await supabase
-      .from("profiles")
-      .select("id, auth_user_id, email")
-      .ilike("email", payload.email)
-      .limit(5)
-
-    if (byEmailError) throw byEmailError
-    candidates.push(...(byEmail || []))
+  if (authUserId) {
+    const { data, error } = await supabase.from("profiles").select("*").eq("auth_user_id", authUserId).limit(10)
+    if (error) throw error
+    candidates.push(...(data || []))
   }
 
-  const existing = candidates.find((row) => row?.id) || null
+  if (email) {
+    const { data, error } = await supabase.from("profiles").select("*").ilike("email", email).limit(10)
+    if (error) throw error
+    candidates.push(...(data || []))
+  }
+
+  const byAuth = authUserId ? candidates.find((row) => row?.auth_user_id === authUserId) : null
+  if (byAuth) return byAuth
+
+  const byId = profileId ? candidates.find((row) => row?.id === profileId) : null
+  if (byId) return byId
+
+  const byEmail = email ? candidates.find((row) => String(row?.email || "").toLowerCase() === String(email).toLowerCase()) : null
+  return byEmail || candidates.find((row) => row?.id) || null
+}
+
+async function upsertLegacyProfile(supabase, payload) {
+  const schema = await loadTableSchema(supabase, "profiles")
+  const existing = await findLegacyProfile(supabase, {
+    profileId: payload.auth_user_id,
+    authUserId: payload.auth_user_id,
+    email: payload.email,
+  })
 
   if (existing?.id) {
     const nextAuthUserId = payload.auth_user_id ?? existing.auth_user_id ?? null
+    const updatePayload = adaptLegacyProfilePayload({
+      ...payload,
+      auth_user_id: nextAuthUserId ?? undefined,
+    }, schema)
+
     const { error } = await supabase
       .from("profiles")
+      .update(updatePayload)
+      .eq("id", existing.id)
+    if (!error) return existing.id
+
+    const { error: fallbackError } = await supabase
+      .from("profiles")
       .update(
-        compactObject({
+        adaptLegacyProfilePayload(buildMinimalLegacyProfilePayload({
           ...payload,
           auth_user_id: nextAuthUserId ?? undefined,
-        })
+        }), schema)
       )
       .eq("id", existing.id)
-    if (error) throw error
+    if (fallbackError) throw fallbackError
     return existing.id
   }
 
-  const { data, error } = await supabase.from("profiles").insert(payload).select("id").single()
-  if (error) throw error
-  return data.id
+  const { data, error } = await supabase
+    .from("profiles")
+    .insert(adaptLegacyProfilePayload(payload, schema))
+    .select("id")
+    .single()
+  if (!error) return data.id
+
+  const { data: fallbackData, error: fallbackError } = await supabase
+    .from("profiles")
+    .insert(adaptLegacyProfilePayload(buildMinimalLegacyProfilePayload(payload), schema))
+    .select("id")
+    .single()
+  if (!fallbackError) return fallbackData.id
+
+  const existingAfterInsert = await findLegacyProfile(supabase, {
+    profileId: payload.auth_user_id,
+    authUserId: payload.auth_user_id,
+    email: payload.email,
+  })
+  if (existingAfterInsert?.id) {
+    const { error: retryUpdateError } = await supabase
+      .from("profiles")
+      .update(adaptLegacyProfilePayload(payload, schema))
+      .eq("id", existingAfterInsert.id)
+
+    if (!retryUpdateError) return existingAfterInsert.id
+  }
+
+  throw fallbackError
 }
 
 async function findResellerProfile(supabase, { resellerId, authUserId, email }) {
   if (resellerId) {
-    const { data, error } = await supabase.from("reseller_profiles").select("*").eq("id", resellerId).maybeSingle()
+    const { data, error } = await supabase.from("reseller_profiles").select("*").eq("id", resellerId).limit(5)
     if (error) throw error
-    if (data) return data
+    if (data?.[0]) return data[0]
   }
 
   if (authUserId) {
@@ -322,10 +481,10 @@ async function findResellerProfile(supabase, { resellerId, authUserId, email }) 
       .from("reseller_profiles")
       .select("*")
       .eq("user_id", authUserId)
-      .maybeSingle()
+      .limit(5)
 
     if (error) throw error
-    if (data) return data
+    if (data?.[0]) return data[0]
   }
 
   if (resellerId) {
@@ -333,10 +492,10 @@ async function findResellerProfile(supabase, { resellerId, authUserId, email }) 
       .from("reseller_profiles")
       .select("*")
       .eq("user_id", resellerId)
-      .maybeSingle()
+      .limit(5)
 
     if (error) throw error
-    if (data) return data
+    if (data?.[0]) return data[0]
   }
 
   if (email) {
@@ -344,17 +503,18 @@ async function findResellerProfile(supabase, { resellerId, authUserId, email }) 
       .from("reseller_profiles")
       .select("*")
       .eq("email", email)
-      .maybeSingle()
+      .limit(5)
 
     if (error) throw error
-    if (data) return data
+    if (data?.[0]) return data[0]
   }
 
   return null
 }
 
 async function updateResellerProfileWithFallback(supabase, resellerId, payload) {
-  const primaryPayload = compactObject(payload)
+  const schema = await loadTableSchema(supabase, "reseller_profiles")
+  const primaryPayload = filterPayloadToSchema(payload, schema)
   const { error } = await supabase.from("reseller_profiles").update(primaryPayload).eq("id", resellerId)
   if (!error) return
 
@@ -589,8 +749,7 @@ async function handleUpdateClient(supabase, body) {
     updated_at: now,
   }
 
-  const { error: resellerError } = await supabase.from("reseller_profiles").update(resellerPayload).eq("id", resellerId)
-  if (resellerError) throw resellerError
+  await updateResellerProfileWithFallback(supabase, resellerId, resellerPayload)
 
   await upsertLegacyProfile(supabase, {
     auth_user_id: reseller.user_id,
@@ -697,7 +856,8 @@ async function handleCreateUser(supabase, body) {
     })
 
     if (role === "client") {
-      const { error: resellerError } = await supabase.from("reseller_profiles").insert({
+      const resellerSchema = await loadTableSchema(supabase, "reseller_profiles")
+      const { error: resellerError } = await supabase.from("reseller_profiles").insert(filterPayloadToSchema({
         user_id: created.user.id,
         cnpj: documento,
         razao_social: razaoSocial,
@@ -717,7 +877,7 @@ async function handleCreateUser(supabase, body) {
         canal_revenda: canalRevenda,
         faixa_investimento: faixaInvestimento,
         status_cadastro: statusMap.reseller,
-      })
+      }, resellerSchema))
 
       if (resellerError) throw resellerError
     }
@@ -733,13 +893,11 @@ async function handleUpdateUser(supabase, body) {
   const targetId = asText(body.userId, 120)
   if (!targetId) throw new Error("user_id_required")
 
-  const { data: loadedProfile, error: existingProfileError } = await supabase
-    .from("profiles")
-    .select("*")
-    .or(`id.eq.${targetId},auth_user_id.eq.${targetId}`)
-    .maybeSingle()
-
-  if (existingProfileError) throw existingProfileError
+  const loadedProfile = await findLegacyProfile(supabase, {
+    profileId: targetId,
+    authUserId: targetId,
+    email: asNullableText(body.email, 255),
+  })
   const resellerProfile = await findResellerProfile(supabase, {
     resellerId: body.reseller_id || targetId,
     authUserId: targetId,
@@ -911,10 +1069,12 @@ async function handleUpdateUser(supabase, body) {
     }
 
     if (existingReseller?.id) {
-      const { error: resellerError } = await supabase.from("reseller_profiles").update(resellerPayload).eq("id", existingReseller.id)
-      if (resellerError) throw resellerError
+      await updateResellerProfileWithFallback(supabase, existingReseller.id, resellerPayload)
     } else {
-      const { error: resellerError } = await supabase.from("reseller_profiles").insert(resellerPayload)
+      const resellerSchema = await loadTableSchema(supabase, "reseller_profiles")
+      const { error: resellerError } = await supabase
+        .from("reseller_profiles")
+        .insert(filterPayloadToSchema(resellerPayload, resellerSchema))
       if (resellerError) throw resellerError
     }
   }
