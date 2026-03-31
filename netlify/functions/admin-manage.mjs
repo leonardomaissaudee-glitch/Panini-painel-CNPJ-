@@ -116,12 +116,7 @@ const fallbackTableSchemas = {
       "documento",
       "telefone",
       "endereco",
-      "motivo_reprovacao",
-      "account_manager_name",
-      "account_manager_whatsapp",
-      "notes",
-      "updated_at",
-    ].map((column_name) => [column_name, { column_name, udt_name: column_name === "endereco" ? "jsonb" : "text" }])
+    ].map((column_name) => [column_name, { column_name, udt_name: column_name === "endereco" ? "text" : "text" }])
   ),
   reseller_profiles: new Map(
     [
@@ -205,6 +200,24 @@ function adaptLegacyProfilePayload(payload, schema) {
   return next
 }
 
+function normalizeError(error) {
+  if (error && typeof error === "object") {
+    return {
+      message: typeof error.message === "string" ? error.message : "unexpected_error",
+      details: typeof error.details === "string" ? error.details : null,
+      hint: typeof error.hint === "string" ? error.hint : null,
+      code: typeof error.code === "string" ? error.code : null,
+    }
+  }
+
+  return {
+    message: error instanceof Error ? error.message : String(error || "unexpected_error"),
+    details: null,
+    hint: null,
+    code: null,
+  }
+}
+
 function isMissingAuthUserError(error) {
   const message = error instanceof Error ? error.message : String(error || "")
   return /user not found|not found/i.test(message)
@@ -220,7 +233,6 @@ function buildMinimalLegacyProfilePayload(payload) {
     tipo_documento: payload.tipo_documento,
     documento: payload.documento,
     telefone: payload.telefone,
-    endereco: payload.endereco,
   })
 }
 
@@ -1147,16 +1159,26 @@ export async function handler(event) {
 
     return json(200, { ok: true, data })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "unexpected_error"
+    const normalizedError = normalizeError(error)
+    const message = normalizedError.message
     console.error("admin-manage error", {
       action: body?.action,
       error: message,
+      details: normalizedError.details,
+      hint: normalizedError.hint,
+      code: normalizedError.code,
       keys: Object.keys(body || {}),
       resellerId: body?.resellerId ?? null,
       userId: body?.userId ?? null,
       hasEmail: Boolean(body?.email),
     })
     const statusCode = message === "unauthorized" ? 401 : message === "forbidden" ? 403 : 400
-    return json(statusCode, { ok: false, error: message })
+    return json(statusCode, {
+      ok: false,
+      error: message,
+      details: normalizedError.details,
+      hint: normalizedError.hint,
+      code: normalizedError.code,
+    })
   }
 }

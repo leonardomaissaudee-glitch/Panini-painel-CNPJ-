@@ -326,6 +326,10 @@ function buildClientRowFromSources(reseller?: Partial<ResellerApprovalRow> & { i
 
 function parseFunctionError(payload: any, fallback: string) {
   const message = typeof payload?.error === "string" ? payload.error : fallback
+  const details = typeof payload?.details === "string" ? payload.details : null
+  const hint = typeof payload?.hint === "string" ? payload.hint : null
+
+  const withDetails = (base: string) => [base, details, hint].filter(Boolean).join(" ")
 
   switch (message) {
     case "unauthorized":
@@ -352,7 +356,7 @@ function parseFunctionError(payload: any, fallback: string) {
       if (message.toLowerCase().includes("duplicate key")) {
         return "Já existe um registro com esse e-mail ou documento."
       }
-      return message || fallback
+      return withDetails(message || fallback)
   }
 }
 
