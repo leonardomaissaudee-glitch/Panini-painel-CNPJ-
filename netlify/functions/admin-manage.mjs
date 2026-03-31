@@ -218,6 +218,24 @@ function normalizeError(error) {
   }
 }
 
+async function resolveExistingAuthUserId(supabase, candidate) {
+  const authUserId = asNullableText(candidate, 120)
+  if (!authUserId) return null
+
+  const getter = supabase?.auth?.admin?.getUserById
+  if (typeof getter !== "function") {
+    return authUserId
+  }
+
+  try {
+    const { data, error } = await getter.call(supabase.auth.admin, authUserId)
+    if (error || !data?.user) return null
+    return authUserId
+  } catch {
+    return null
+  }
+}
+
 function isMissingAuthUserError(error) {
   const message = error instanceof Error ? error.message : String(error || "")
   return /user not found|not found/i.test(message)
@@ -418,6 +436,8 @@ async function findLegacyProfile(supabase, { profileId, authUserId, email }) {
 
 async function upsertLegacyProfile(supabase, payload) {
   const schema = await loadTableSchema(supabase, "profiles")
+  const minimalPayload = adaptLegacyProfilePayload(buildMinimalLegacyProfilePayload(payload), schema)
+  const extendedPayload = adaptLegacyProfilePayload(payload, schema)
   const existing = await findLegacyProfile(supabase, {
     profileId: payload.auth_user_id,
     authUserId: payload.auth_user_id,
@@ -427,7 +447,7 @@ async function upsertLegacyProfile(supabase, payload) {
   if (existing?.id) {
     const nextAuthUserId = payload.auth_user_id ?? existing.auth_user_id ?? null
     const updatePayload = adaptLegacyProfilePayload({
-      ...payload,
+      ...minimalPayload,
       auth_user_id: nextAuthUserId ?? undefined,
     }, schema)
 
@@ -435,34 +455,45 @@ async function upsertLegacyProfile(supabase, payload) {
       .from("profiles")
       .update(updatePayload)
       .eq("id", existing.id)
-    if (!error) return existing.id
+    if (error) throw error
 
-    const { error: fallbackError } = await supabase
-      .from("profiles")
-      .update(
-        adaptLegacyProfilePayload(buildMinimalLegacyProfilePayload({
-          ...payload,
-          auth_user_id: nextAuthUserId ?? undefined,
-        }), schema)
-      )
-      .eq("id", existing.id)
-    if (fallbackError) throw fallbackError
+    const bestEffortExtendedPayload = adaptLegacyProfilePayload({
+      ...extendedPayload,
+      auth_user_id: nextAuthUserId ?? undefined,
+    }, schema)
+
+    if (JSON.stringify(bestEffortExtendedPayload) !== JSON.stringify(updatePayload)) {
+      const { error: extendedError } = await supabase
+        .from("profiles")
+        .update(bestEffortExtendedPayload)
+        .eq("id", existing.id)
+
+      if (extendedError) {
+        console.warn("admin-manage legacy profile extended update skipped", normalizeError(extendedError))
+      }
+    }
+
     return existing.id
   }
 
   const { data, error } = await supabase
     .from("profiles")
-    .insert(adaptLegacyProfilePayload(payload, schema))
+    .insert(minimalPayload)
     .select("id")
     .single()
-  if (!error) return data.id
+  if (!error) {
+    if (JSON.stringify(extendedPayload) !== JSON.stringify(minimalPayload)) {
+      const { error: extendedError } = await supabase
+        .from("profiles")
+        .update(extendedPayload)
+        .eq("id", data.id)
 
-  const { data: fallbackData, error: fallbackError } = await supabase
-    .from("profiles")
-    .insert(adaptLegacyProfilePayload(buildMinimalLegacyProfilePayload(payload), schema))
-    .select("id")
-    .single()
-  if (!fallbackError) return fallbackData.id
+      if (extendedError) {
+        console.warn("admin-manage legacy profile extended insert skipped", normalizeError(extendedError))
+      }
+    }
+    return data.id
+  }
 
   const existingAfterInsert = await findLegacyProfile(supabase, {
     profileId: payload.auth_user_id,
@@ -472,13 +503,25 @@ async function upsertLegacyProfile(supabase, payload) {
   if (existingAfterInsert?.id) {
     const { error: retryUpdateError } = await supabase
       .from("profiles")
-      .update(adaptLegacyProfilePayload(payload, schema))
+      .update(minimalPayload)
       .eq("id", existingAfterInsert.id)
 
-    if (!retryUpdateError) return existingAfterInsert.id
+    if (!retryUpdateError) {
+      if (JSON.stringify(extendedPayload) !== JSON.stringify(minimalPayload)) {
+        const { error: extendedError } = await supabase
+          .from("profiles")
+          .update(extendedPayload)
+          .eq("id", existingAfterInsert.id)
+
+        if (extendedError) {
+          console.warn("admin-manage legacy profile extended retry skipped", normalizeError(extendedError))
+        }
+      }
+      return existingAfterInsert.id
+    }
   }
 
-  throw fallbackError
+  throw error
 }
 
 async function findResellerProfile(supabase, { resellerId, authUserId, email }) {
@@ -650,31 +693,43 @@ async function handleApproveReseller(supabase, body) {
   if (!reseller) throw new Error("reseller_not_found")
 
   const now = new Date().toISOString()
-  await updateResellerProfileWithFallback(supabase, reseller.id, {
+  try {
+    await updateResellerProfileWithFallback(supabase, reseller.id, {
       status_cadastro: "approved",
       motivo_reprovacao: null,
       account_manager_name: managerName,
       account_manager_whatsapp: managerWhatsapp,
       updated_at: now,
     })
+  } catch (error) {
+    const normalized = normalizeError(error)
+    throw new Error(`reseller_update_failed: ${normalized.message}`)
+  }
 
-  await upsertLegacyProfile(supabase, {
-    auth_user_id: reseller.user_id,
-    full_name: getClientDisplayName({ razaoSocial: reseller.razao_social, fullName: reseller.nome_responsavel }),
-    email: reseller.email,
-    role: "client",
-    user_type: "cliente",
-    company_name: reseller.razao_social,
-    status_cadastro: "aprovado",
-    tipo_documento: "cnpj",
-    documento: reseller.cnpj,
-    telefone: reseller.whatsapp || reseller.telefone,
-    endereco: buildAddressPayload(reseller),
-    motivo_reprovacao: null,
-    account_manager_name: managerName,
-    account_manager_whatsapp: managerWhatsapp,
-    updated_at: now,
-  })
+  const safeAuthUserId = await resolveExistingAuthUserId(supabase, reseller.user_id)
+
+  try {
+    await upsertLegacyProfile(supabase, {
+      auth_user_id: safeAuthUserId,
+      full_name: getClientDisplayName({ razaoSocial: reseller.razao_social, fullName: reseller.nome_responsavel }),
+      email: reseller.email,
+      role: "client",
+      user_type: "cliente",
+      company_name: reseller.razao_social,
+      status_cadastro: "aprovado",
+      tipo_documento: "cnpj",
+      documento: reseller.cnpj,
+      telefone: reseller.whatsapp || reseller.telefone,
+      endereco: buildAddressPayload(reseller),
+      motivo_reprovacao: null,
+      account_manager_name: managerName,
+      account_manager_whatsapp: managerWhatsapp,
+      updated_at: now,
+    })
+  } catch (error) {
+    const normalized = normalizeError(error)
+    throw new Error(`legacy_profile_sync_failed: ${normalized.message}`)
+  }
 
   return { id: reseller.id }
 }
@@ -701,27 +756,39 @@ async function handleRejectReseller(supabase, body) {
   if (!reseller) throw new Error("reseller_not_found")
 
   const now = new Date().toISOString()
-  await updateResellerProfileWithFallback(supabase, reseller.id, {
+  try {
+    await updateResellerProfileWithFallback(supabase, reseller.id, {
       status_cadastro: "rejected",
       motivo_reprovacao: reason,
       updated_at: now,
     })
+  } catch (error) {
+    const normalized = normalizeError(error)
+    throw new Error(`reseller_update_failed: ${normalized.message}`)
+  }
 
-  await upsertLegacyProfile(supabase, {
-    auth_user_id: reseller.user_id,
-    full_name: getClientDisplayName({ razaoSocial: reseller.razao_social, fullName: reseller.nome_responsavel }),
-    email: reseller.email,
-    role: "client",
-    user_type: "cliente",
-    company_name: reseller.razao_social,
-    status_cadastro: "reprovado",
-    tipo_documento: "cnpj",
-    documento: reseller.cnpj,
-    telefone: reseller.whatsapp || reseller.telefone,
-    endereco: buildAddressPayload(reseller),
-    motivo_reprovacao: reason,
-    updated_at: now,
-  })
+  const safeAuthUserId = await resolveExistingAuthUserId(supabase, reseller.user_id)
+
+  try {
+    await upsertLegacyProfile(supabase, {
+      auth_user_id: safeAuthUserId,
+      full_name: getClientDisplayName({ razaoSocial: reseller.razao_social, fullName: reseller.nome_responsavel }),
+      email: reseller.email,
+      role: "client",
+      user_type: "cliente",
+      company_name: reseller.razao_social,
+      status_cadastro: "reprovado",
+      tipo_documento: "cnpj",
+      documento: reseller.cnpj,
+      telefone: reseller.whatsapp || reseller.telefone,
+      endereco: buildAddressPayload(reseller),
+      motivo_reprovacao: reason,
+      updated_at: now,
+    })
+  } catch (error) {
+    const normalized = normalizeError(error)
+    throw new Error(`legacy_profile_sync_failed: ${normalized.message}`)
+  }
 
   return { id: reseller.id }
 }
@@ -740,6 +807,7 @@ async function handleUpdateClient(supabase, body) {
 
   const statusMap = normalizeApprovalStatus(body.status_cadastro)
   const now = new Date().toISOString()
+  const safeAuthUserId = await resolveExistingAuthUserId(supabase, reseller.user_id)
   const resellerPayload = {
     razao_social: asNullableText(body.razao_social, 255) || reseller.razao_social,
     nome_fantasia: asNullableText(body.nome_fantasia, 255),
@@ -764,7 +832,7 @@ async function handleUpdateClient(supabase, body) {
   await updateResellerProfileWithFallback(supabase, resellerId, resellerPayload)
 
   await upsertLegacyProfile(supabase, {
-    auth_user_id: reseller.user_id,
+    auth_user_id: safeAuthUserId,
     full_name: getClientDisplayName({
       razaoSocial: resellerPayload.razao_social,
       fullName: resellerPayload.nome_responsavel,
@@ -940,7 +1008,10 @@ async function handleUpdateUser(supabase, body) {
 
   if (!existingProfile) throw new Error("user_not_found")
 
-  const authUserId = existingProfile.auth_user_id || resellerProfile?.user_id || null
+  const authUserId = await resolveExistingAuthUserId(
+    supabase,
+    existingProfile.auth_user_id || resellerProfile?.user_id || null
+  )
   const targetType = asNullableText(body.user_type, 32) || existingProfile.user_type || existingProfile.role || "vendedor"
   const { role, userType } = mapUserType(targetType)
   const statusMap = normalizeApprovalStatus(body.status_cadastro || existingProfile.status_cadastro)

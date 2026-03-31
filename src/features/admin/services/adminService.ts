@@ -346,10 +346,20 @@ function parseFunctionError(payload: any, fallback: string) {
       return "Cliente não encontrado."
     case "user_not_found":
       return "Usuário não encontrado."
+    case "legacy_profile_sync_failed":
+      return "Falha ao sincronizar o perfil legado do cliente."
+    case "reseller_update_failed":
+      return "Falha ao atualizar o cadastro principal do cliente."
     case "duplicate key value violates unique constraint":
     case "user_already_exists":
       return "Já existe um usuário com esse e-mail ou documento."
     default:
+      if (message.startsWith("legacy_profile_sync_failed:")) {
+        return withDetails(message.replace("legacy_profile_sync_failed:", "Falha ao sincronizar perfil legado:").trim())
+      }
+      if (message.startsWith("reseller_update_failed:")) {
+        return withDetails(message.replace("reseller_update_failed:", "Falha ao atualizar cadastro principal:").trim())
+      }
       if (message.toLowerCase().includes("already registered")) {
         return "Já existe um usuário com esse e-mail."
       }
