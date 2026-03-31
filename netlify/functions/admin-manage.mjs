@@ -229,16 +229,49 @@ async function requireAdmin(event, supabase) {
 }
 
 async function upsertLegacyProfile(supabase, payload) {
-  const { data: existing, error: loadError } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("auth_user_id", payload.auth_user_id)
-    .maybeSingle()
+  const candidates = []
 
-  if (loadError) throw loadError
+  if (payload.auth_user_id) {
+    const { data: byAuthId, error: byAuthIdError } = await supabase
+      .from("profiles")
+      .select("id, auth_user_id, email")
+      .eq("auth_user_id", payload.auth_user_id)
+      .limit(5)
+
+    if (byAuthIdError) throw byAuthIdError
+    candidates.push(...(byAuthId || []))
+
+    const { data: byId, error: byIdError } = await supabase
+      .from("profiles")
+      .select("id, auth_user_id, email")
+      .eq("id", payload.auth_user_id)
+      .limit(5)
+
+    if (byIdError) throw byIdError
+    candidates.push(...(byId || []))
+  }
+
+  if (payload.email) {
+    const { data: byEmail, error: byEmailError } = await supabase
+      .from("profiles")
+      .select("id, auth_user_id, email")
+      .ilike("email", payload.email)
+      .limit(5)
+
+    if (byEmailError) throw byEmailError
+    candidates.push(...(byEmail || []))
+  }
+
+  const existing = candidates.find((row) => row?.id) || null
 
   if (existing?.id) {
-    const { error } = await supabase.from("profiles").update(payload).eq("id", existing.id)
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        ...payload,
+        auth_user_id: payload.auth_user_id || existing.auth_user_id || existing.id,
+      })
+      .eq("id", existing.id)
     if (error) throw error
     return existing.id
   }
