@@ -228,6 +228,53 @@ function normalizeUrl(value) {
   }
 }
 
+function getMissingColumnFromSchemaError(error, tableName) {
+  const message = normalizeError(error).message
+  const match = message.match(
+    new RegExp(`Could not find the '([^']+)' column of '${tableName}' in the schema cache`, "i")
+  )
+  return match?.[1] || null
+}
+
+async function updateTableWithRetry(supabase, tableName, payload, matchColumn, matchValue) {
+  let nextPayload = { ...payload }
+
+  while (true) {
+    const { error } = await supabase.from(tableName).update(nextPayload).eq(matchColumn, matchValue)
+    if (!error) return nextPayload
+
+    const missingColumn = getMissingColumnFromSchemaError(error, tableName)
+    if (missingColumn && Object.prototype.hasOwnProperty.call(nextPayload, missingColumn)) {
+      delete nextPayload[missingColumn]
+      continue
+    }
+
+    throw error
+  }
+}
+
+async function insertTableWithRetry(supabase, tableName, payload, selectClause = null) {
+  let nextPayload = { ...payload }
+
+  while (true) {
+    let query = supabase.from(tableName).insert(nextPayload)
+    if (selectClause) {
+      query = query.select(selectClause).single()
+    }
+
+    const { data, error } = await query
+    if (!error) return { data, payload: nextPayload }
+
+    const missingColumn = getMissingColumnFromSchemaError(error, tableName)
+    if (missingColumn && Object.prototype.hasOwnProperty.call(nextPayload, missingColumn)) {
+      delete nextPayload[missingColumn]
+      continue
+    }
+
+    throw error
+  }
+}
+
 function decodeJwtPayload(token) {
   const normalized = asNullableText(token, 5000)
   if (!normalized) return null
@@ -478,11 +525,7 @@ async function upsertLegacyProfile(supabase, payload) {
       auth_user_id: nextAuthUserId ?? undefined,
     }, schema)
 
-    const { error } = await supabase
-      .from("profiles")
-      .update(updatePayload)
-      .eq("id", existing.id)
-    if (error) throw error
+    await updateTableWithRetry(supabase, "profiles", updatePayload, "id", existing.id)
 
     const bestEffortExtendedPayload = adaptLegacyProfilePayload({
       ...extendedPayload,
@@ -490,12 +533,9 @@ async function upsertLegacyProfile(supabase, payload) {
     }, schema)
 
     if (JSON.stringify(bestEffortExtendedPayload) !== JSON.stringify(updatePayload)) {
-      const { error: extendedError } = await supabase
-        .from("profiles")
-        .update(bestEffortExtendedPayload)
-        .eq("id", existing.id)
-
-      if (extendedError) {
+      try {
+        await updateTableWithRetry(supabase, "profiles", bestEffortExtendedPayload, "id", existing.id)
+      } catch (extendedError) {
         console.warn("admin-manage legacy profile extended update skipped", normalizeError(extendedError))
       }
     }
@@ -503,52 +543,41 @@ async function upsertLegacyProfile(supabase, payload) {
     return existing.id
   }
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .insert(minimalPayload)
-    .select("id")
-    .single()
-  if (!error) {
+  try {
+    const { data } = await insertTableWithRetry(supabase, "profiles", minimalPayload, "id")
     if (JSON.stringify(extendedPayload) !== JSON.stringify(minimalPayload)) {
-      const { error: extendedError } = await supabase
-        .from("profiles")
-        .update(extendedPayload)
-        .eq("id", data.id)
-
-      if (extendedError) {
+      try {
+        await updateTableWithRetry(supabase, "profiles", extendedPayload, "id", data.id)
+      } catch (extendedError) {
         console.warn("admin-manage legacy profile extended insert skipped", normalizeError(extendedError))
       }
     }
     return data.id
-  }
+  } catch (error) {
 
-  const existingAfterInsert = await findLegacyProfile(supabase, {
-    profileId: payload.auth_user_id,
-    authUserId: payload.auth_user_id,
-    email: payload.email,
-  })
-  if (existingAfterInsert?.id) {
-    const { error: retryUpdateError } = await supabase
-      .from("profiles")
-      .update(minimalPayload)
-      .eq("id", existingAfterInsert.id)
-
-    if (!retryUpdateError) {
+    const existingAfterInsert = await findLegacyProfile(supabase, {
+      profileId: payload.auth_user_id,
+      authUserId: payload.auth_user_id,
+      email: payload.email,
+    })
+    if (existingAfterInsert?.id) {
+      try {
+        await updateTableWithRetry(supabase, "profiles", minimalPayload, "id", existingAfterInsert.id)
       if (JSON.stringify(extendedPayload) !== JSON.stringify(minimalPayload)) {
-        const { error: extendedError } = await supabase
-          .from("profiles")
-          .update(extendedPayload)
-          .eq("id", existingAfterInsert.id)
-
-        if (extendedError) {
+          try {
+            await updateTableWithRetry(supabase, "profiles", extendedPayload, "id", existingAfterInsert.id)
+          } catch (extendedError) {
           console.warn("admin-manage legacy profile extended retry skipped", normalizeError(extendedError))
         }
       }
       return existingAfterInsert.id
+      } catch (retryUpdateError) {
+        throw retryUpdateError
+      }
     }
-  }
 
-  throw error
+    throw error
+  }
 }
 
 async function findResellerProfile(supabase, { resellerId, authUserId, email }) {
