@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
+import { useAuth } from "@/features/auth/context/AuthContext"
 import {
   createManualUser,
   fetchAdminUsers,
@@ -66,6 +67,7 @@ export function UsersPanel() {
   const [search, setSearch] = useState("")
   const [form, setForm] = useState<CreateManualUserInput>(INITIAL_FORM)
   const [drafts, setDrafts] = useState<Record<string, Partial<UpdateUserInput>>>({})
+  const { user: sessionUser, profile: sessionProfile } = useAuth()
   const isClientCreation = form.user_type === "cliente"
 
   const load = async () => {
@@ -114,7 +116,7 @@ export function UsersPanel() {
   const getDraft = (user: AdminUserRow): UpdateUserInput => ({
     userId: user.auth_user_id || user.id,
     reseller_id: user.reseller_id || null,
-    full_name: drafts[user.id]?.full_name ?? user.full_name ?? "",
+    full_name: drafts[user.id]?.full_name ?? user.full_name ?? user.company_name ?? "",
     email: drafts[user.id]?.email ?? user.email ?? "",
     telefone: drafts[user.id]?.telefone ?? user.telefone ?? "",
     documento: drafts[user.id]?.documento ?? user.documento ?? "",
@@ -141,6 +143,23 @@ export function UsersPanel() {
     account_manager_name: drafts[user.id]?.account_manager_name ?? user.account_manager_name ?? "",
     account_manager_whatsapp: drafts[user.id]?.account_manager_whatsapp ?? user.account_manager_whatsapp ?? "",
   })
+
+  const getUserDisplayName = (user: AdminUserRow) => {
+    const isCurrentUser =
+      Boolean(sessionUser?.id) &&
+      (user.auth_user_id === sessionUser?.id || user.email?.toLowerCase() === sessionUser?.email?.toLowerCase())
+
+    if (isCurrentUser) {
+      const currentName =
+        sessionProfile?.full_name ||
+        (typeof sessionUser?.user_metadata?.full_name === "string" ? sessionUser.user_metadata.full_name.trim() : "") ||
+        null
+
+      if (currentName) return currentName
+    }
+
+    return user.full_name || user.razao_social || user.company_name || "Usuário sem nome"
+  }
 
   const updateDraft = (userId: string, patch: Partial<UpdateUserInput>) => {
     setDrafts((current) => ({
@@ -341,7 +360,7 @@ export function UsersPanel() {
               <div key={user.id} className="rounded-3xl border border-slate-200 bg-white shadow-sm">
                 <div className="grid gap-3 p-4 md:grid-cols-[1.2fr_1fr_0.9fr_0.9fr_auto] md:items-center">
                   <div>
-                    <div className="font-semibold text-slate-950">{user.full_name || user.razao_social || "Usuário sem nome"}</div>
+                    <div className="font-semibold text-slate-950">{getUserDisplayName(user)}</div>
                     <div className="mt-1 text-sm text-slate-500">{user.email || "-"}</div>
                   </div>
                   <div>

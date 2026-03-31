@@ -189,7 +189,18 @@ function filterPayloadToSchema(payload, schema) {
 }
 
 function adaptLegacyProfilePayload(payload, schema) {
-  const next = filterPayloadToSchema(payload, schema)
+  const normalizedPayload = compactObject({ ...payload })
+
+  if (!hasColumn(schema, "full_name")) {
+    const displayName = asNullableText(normalizedPayload.full_name, 255)
+    const companyName = asNullableText(normalizedPayload.company_name, 255)
+
+    if (displayName && !companyName && hasColumn(schema, "company_name")) {
+      normalizedPayload.company_name = displayName
+    }
+  }
+
+  const next = filterPayloadToSchema(normalizedPayload, schema)
 
   if (Object.prototype.hasOwnProperty.call(next, "endereco") && typeof next.endereco === "object" && next.endereco !== null) {
     if (isTextLikeColumn(schema, "endereco")) {

@@ -274,6 +274,19 @@ function extractAddressField(address: any, key: string) {
   return typeof value === "string" && value.trim() ? value.trim() : null
 }
 
+function formatEmailDisplayName(email?: string | null) {
+  if (!email) return null
+  const localPart = email.split("@")[0]?.trim()
+  if (!localPart) return null
+
+  return localPart
+    .replace(/[._-]+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
 type LegacyProfileRow = Profile & {
   user_type?: string | null
   notes?: string | null
@@ -561,7 +574,14 @@ export async function fetchAdminUsers(): Promise<AdminUserRow[]> {
   const rows = profiles.map((profile) => {
     const isClient = profile.role === "client" || profile.user_type === "cliente"
     if (!isClient) {
-      return profile as AdminUserRow
+      return {
+        ...(profile as AdminUserRow),
+        full_name:
+          profile.full_name ||
+          profile.company_name ||
+          formatEmailDisplayName(profile.email) ||
+          "Usuário sem nome",
+      } as AdminUserRow
     }
 
     const reseller =
