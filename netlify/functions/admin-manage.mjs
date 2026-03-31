@@ -228,6 +228,23 @@ function normalizeUrl(value) {
   }
 }
 
+function decodeJwtPayload(token) {
+  const normalized = asNullableText(token, 5000)
+  if (!normalized) return null
+
+  const parts = normalized.split(".")
+  if (parts.length < 2) return null
+
+  try {
+    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/")
+    const padded = payload + "=".repeat((4 - (payload.length % 4 || 4)) % 4)
+    const json = Buffer.from(padded, "base64").toString("utf8")
+    return JSON.parse(json)
+  } catch {
+    return null
+  }
+}
+
 async function resolveExistingAuthUserId(supabase, candidate) {
   const authUserId = asNullableText(candidate, 120)
   if (!authUserId) return null
@@ -1189,6 +1206,15 @@ export async function handler(event) {
 
   if (!supabaseUrl || !serviceRoleKey) {
     return json(500, { ok: false, error: "admin_env_missing" })
+  }
+
+  const serviceRolePayload = decodeJwtPayload(serviceRoleKey)
+  if (serviceRolePayload?.role && serviceRolePayload.role !== "service_role") {
+    return json(500, {
+      ok: false,
+      error: "invalid_service_role_key",
+      details: `SUPABASE_SERVICE_ROLE_KEY está com role '${serviceRolePayload.role}', mas precisa ser 'service_role'.`,
+    })
   }
 
   let body

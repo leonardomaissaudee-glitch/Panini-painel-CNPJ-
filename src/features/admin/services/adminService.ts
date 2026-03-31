@@ -352,6 +352,8 @@ function parseFunctionError(payload: any, fallback: string) {
       return "Falha ao atualizar o cadastro principal do cliente."
     case "supabase_project_mismatch":
       return withDetails("A Netlify Function está apontando para um projeto Supabase diferente do frontend.")
+    case "invalid_service_role_key":
+      return withDetails("A Netlify Function está usando uma chave errada no SUPABASE_SERVICE_ROLE_KEY.")
     case "duplicate key value violates unique constraint":
     case "user_already_exists":
       return "Já existe um usuário com esse e-mail ou documento."
