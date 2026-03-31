@@ -100,6 +100,11 @@ function compactObject(payload) {
   )
 }
 
+function isMissingAuthUserError(error) {
+  const message = error instanceof Error ? error.message : String(error || "")
+  return /user not found|not found/i.test(message)
+}
+
 function toLegacyResellerStatus(status) {
   switch (status) {
     case "approved":
@@ -286,12 +291,15 @@ async function upsertLegacyProfile(supabase, payload) {
   const existing = candidates.find((row) => row?.id) || null
 
   if (existing?.id) {
+    const nextAuthUserId = payload.auth_user_id ?? existing.auth_user_id ?? null
     const { error } = await supabase
       .from("profiles")
-      .update({
-        ...payload,
-        auth_user_id: payload.auth_user_id || existing.auth_user_id || existing.id,
-      })
+      .update(
+        compactObject({
+          ...payload,
+          auth_user_id: nextAuthUserId ?? undefined,
+        })
+      )
       .eq("id", existing.id)
     if (error) throw error
     return existing.id
@@ -762,7 +770,7 @@ async function handleUpdateUser(supabase, body) {
 
   if (!existingProfile) throw new Error("user_not_found")
 
-  const authUserId = existingProfile.auth_user_id || resellerProfile?.user_id || targetId
+  const authUserId = existingProfile.auth_user_id || resellerProfile?.user_id || null
   const targetType = asNullableText(body.user_type, 32) || existingProfile.user_type || existingProfile.role || "vendedor"
   const { role, userType } = mapUserType(targetType)
   const statusMap = normalizeApprovalStatus(body.status_cadastro || existingProfile.status_cadastro)
@@ -828,23 +836,25 @@ async function handleUpdateUser(supabase, body) {
     throw new Error("required_client_fields_missing")
   }
 
-  const { error: authUpdateError } = await supabase.auth.admin.updateUserById(authUserId, {
-    email,
-    user_metadata: {
-      full_name: finalFullName,
-      telefone: phone || existingReseller?.telefone || existingProfile.telefone || null,
-      documento: documento || existingReseller?.cnpj || existingProfile.documento || null,
-      tipo_documento: role === "client" ? "cnpj" : tipoDocumento || existingProfile.tipo_documento || null,
-      user_type: userType,
-      company_name: role === "client" ? finalRazaoSocial : companyName || existingProfile.company_name || null,
-    },
-  })
+  if (authUserId) {
+    const { error: authUpdateError } = await supabase.auth.admin.updateUserById(authUserId, {
+      email,
+      user_metadata: {
+        full_name: finalFullName,
+        telefone: phone || existingReseller?.telefone || existingProfile.telefone || null,
+        documento: documento || existingReseller?.cnpj || existingProfile.documento || null,
+        tipo_documento: role === "client" ? "cnpj" : tipoDocumento || existingProfile.tipo_documento || null,
+        user_type: userType,
+        company_name: role === "client" ? finalRazaoSocial : companyName || existingProfile.company_name || null,
+      },
+    })
 
-  if (authUpdateError) throw authUpdateError
+    if (authUpdateError && !isMissingAuthUserError(authUpdateError)) throw authUpdateError
+  }
 
   const now = new Date().toISOString()
   await upsertLegacyProfile(supabase, {
-    auth_user_id: authUserId,
+    auth_user_id: authUserId ?? existingProfile.auth_user_id ?? existingReseller?.user_id ?? undefined,
     full_name: finalFullName,
     email,
     role,
