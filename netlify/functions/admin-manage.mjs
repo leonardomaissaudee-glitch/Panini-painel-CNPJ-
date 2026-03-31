@@ -218,6 +218,16 @@ function normalizeError(error) {
   }
 }
 
+function normalizeUrl(value) {
+  const parsed = asNullableText(value, 1000)
+  if (!parsed) return null
+  try {
+    return new URL(parsed).origin.toLowerCase()
+  } catch {
+    return parsed.toLowerCase()
+  }
+}
+
 async function resolveExistingAuthUserId(supabase, candidate) {
   const authUserId = asNullableText(candidate, 120)
   if (!authUserId) return null
@@ -1193,6 +1203,17 @@ export async function handler(event) {
   })
 
   try {
+    const frontendSupabaseUrl = normalizeUrl(body?.supabaseUrl)
+    const backendSupabaseUrl = normalizeUrl(supabaseUrl)
+
+    if (frontendSupabaseUrl && backendSupabaseUrl && frontendSupabaseUrl !== backendSupabaseUrl) {
+      return json(400, {
+        ok: false,
+        error: "supabase_project_mismatch",
+        details: `Frontend: ${frontendSupabaseUrl} | Function: ${backendSupabaseUrl}`,
+      })
+    }
+
     const { user } = await requireAdmin(event, supabase)
     const action = asText(body.action, 120)
 

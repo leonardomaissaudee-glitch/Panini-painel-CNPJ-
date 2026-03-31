@@ -350,6 +350,8 @@ function parseFunctionError(payload: any, fallback: string) {
       return "Falha ao sincronizar o perfil legado do cliente."
     case "reseller_update_failed":
       return "Falha ao atualizar o cadastro principal do cliente."
+    case "supabase_project_mismatch":
+      return withDetails("A Netlify Function está apontando para um projeto Supabase diferente do frontend.")
     case "duplicate key value violates unique constraint":
     case "user_already_exists":
       return "Já existe um usuário com esse e-mail ou documento."
@@ -385,7 +387,10 @@ async function callAdminAction<T>(payload: Record<string, unknown>, fallbackErro
       "Content-Type": "application/json",
       Authorization: `Bearer ${session.access_token}`,
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      ...payload,
+      supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+    }),
   })
 
   let json: any = null
