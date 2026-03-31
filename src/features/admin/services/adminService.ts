@@ -625,29 +625,38 @@ export async function fetchAdminUsers(): Promise<AdminUserRow[]> {
 
 export async function approveProfile(row: Pick<ResellerApprovalRow, "id" | "user_id" | "email">, managerName: AccountManagerName) {
   const manager = getManagerByName(managerName)
+  const payload: Record<string, unknown> = {
+    action: "approve-reseller",
+    resellerId: row.id,
+    userId: row.user_id,
+    managerName: manager?.name ?? managerName,
+    managerWhatsapp: manager?.whatsapp ?? null,
+  }
+
+  if (row.email?.trim()) {
+    payload.email = row.email.trim()
+  }
 
   return callAdminAction<{ id: string }>(
-    {
-      action: "approve-reseller",
-      resellerId: row.id,
-      userId: row.user_id,
-      email: row.email,
-      managerName: manager?.name ?? managerName,
-      managerWhatsapp: manager?.whatsapp ?? null,
-    },
+    payload,
     "Não foi possível aprovar o cadastro."
   )
 }
 
 export async function rejectProfile(row: Pick<ResellerApprovalRow, "id" | "user_id" | "email">, motivo: string) {
+  const payload: Record<string, unknown> = {
+    action: "reject-reseller",
+    resellerId: row.id,
+    userId: row.user_id,
+    reason: motivo,
+  }
+
+  if (row.email?.trim()) {
+    payload.email = row.email.trim()
+  }
+
   return callAdminAction<{ id: string }>(
-    {
-      action: "reject-reseller",
-      resellerId: row.id,
-      userId: row.user_id,
-      email: row.email,
-      reason: motivo,
-    },
+    payload,
     "Não foi possível reprovar o cadastro."
   )
 }

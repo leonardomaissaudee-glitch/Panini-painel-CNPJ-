@@ -94,6 +94,27 @@ function buildAddressPayload(values) {
   }
 }
 
+function compactObject(payload) {
+  return Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined)
+  )
+}
+
+function toLegacyResellerStatus(status) {
+  switch (status) {
+    case "approved":
+      return "aprovado"
+    case "rejected":
+      return "reprovado"
+    case "blocked":
+      return "bloqueado"
+    case "pending":
+      return "pendente"
+    default:
+      return status
+  }
+}
+
 function getClientDisplayName({ razaoSocial, fullName }) {
   return razaoSocial || fullName || "Razão social não informada"
 }
@@ -324,6 +345,24 @@ async function findResellerProfile(supabase, { resellerId, authUserId, email }) 
   return null
 }
 
+async function updateResellerProfileWithFallback(supabase, resellerId, payload) {
+  const primaryPayload = compactObject(payload)
+  const { error } = await supabase.from("reseller_profiles").update(primaryPayload).eq("id", resellerId)
+  if (!error) return
+
+  const fallbackPayload = compactObject({
+    ...primaryPayload,
+    status_cadastro: toLegacyResellerStatus(primaryPayload.status_cadastro),
+  })
+
+  delete fallbackPayload.account_manager_name
+  delete fallbackPayload.account_manager_whatsapp
+  delete fallbackPayload.updated_at
+
+  const { error: fallbackError } = await supabase.from("reseller_profiles").update(fallbackPayload).eq("id", resellerId)
+  if (fallbackError) throw fallbackError
+}
+
 async function handleUpdateOrder(supabase, body, adminUserId) {
   const orderId = asText(body.orderId, 120)
   if (!orderId) throw new Error("order_id_required")
@@ -415,6 +454,13 @@ async function handleApproveReseller(supabase, body) {
   const managerWhatsapp = asNullableText(body.managerWhatsapp, 64)
   if (!resellerId) throw new Error("reseller_id_required")
 
+  console.info("admin-manage approve-reseller:start", {
+    resellerId,
+    authUserId,
+    hasEmail: Boolean(email),
+    managerName,
+  })
+
   const reseller = await findResellerProfile(supabase, {
     resellerId,
     authUserId: authUserId || resellerId,
@@ -424,18 +470,13 @@ async function handleApproveReseller(supabase, body) {
   if (!reseller) throw new Error("reseller_not_found")
 
   const now = new Date().toISOString()
-  const { error: resellerError } = await supabase
-    .from("reseller_profiles")
-    .update({
+  await updateResellerProfileWithFallback(supabase, reseller.id, {
       status_cadastro: "approved",
       motivo_reprovacao: null,
       account_manager_name: managerName,
       account_manager_whatsapp: managerWhatsapp,
       updated_at: now,
     })
-    .eq("id", reseller.id)
-
-  if (resellerError) throw resellerError
 
   await upsertLegacyProfile(supabase, {
     auth_user_id: reseller.user_id,
@@ -465,6 +506,12 @@ async function handleRejectReseller(supabase, body) {
   const reason = asText(body.reason, 1000) || "Cadastro reprovado pela equipe comercial."
   if (!resellerId) throw new Error("reseller_id_required")
 
+  console.info("admin-manage reject-reseller:start", {
+    resellerId,
+    authUserId,
+    hasEmail: Boolean(email),
+  })
+
   const reseller = await findResellerProfile(supabase, {
     resellerId,
     authUserId: authUserId || resellerId,
@@ -474,16 +521,11 @@ async function handleRejectReseller(supabase, body) {
   if (!reseller) throw new Error("reseller_not_found")
 
   const now = new Date().toISOString()
-  const { error: resellerError } = await supabase
-    .from("reseller_profiles")
-    .update({
+  await updateResellerProfileWithFallback(supabase, reseller.id, {
       status_cadastro: "rejected",
       motivo_reprovacao: reason,
       updated_at: now,
     })
-    .eq("id", reseller.id)
-
-  if (resellerError) throw resellerError
 
   await upsertLegacyProfile(supabase, {
     auth_user_id: reseller.user_id,
@@ -936,6 +978,14 @@ export async function handler(event) {
     return json(200, { ok: true, data })
   } catch (error) {
     const message = error instanceof Error ? error.message : "unexpected_error"
+    console.error("admin-manage error", {
+      action: body?.action,
+      error: message,
+      keys: Object.keys(body || {}),
+      resellerId: body?.resellerId ?? null,
+      userId: body?.userId ?? null,
+      hasEmail: Boolean(body?.email),
+    })
     const statusCode = message === "unauthorized" ? 401 : message === "forbidden" ? 403 : 400
     return json(statusCode, { ok: false, error: message })
   }
