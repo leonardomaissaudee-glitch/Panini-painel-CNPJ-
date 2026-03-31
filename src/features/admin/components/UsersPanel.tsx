@@ -9,8 +9,10 @@ import { toast } from "sonner"
 import { useAuth } from "@/features/auth/context/AuthContext"
 import {
   createManualUser,
+  fetchAccountManagers,
   fetchAdminUsers,
   saveUser,
+  type AccountManagerDirectoryRow,
   type AdminUserRow,
   type CreateManualUserInput,
   type UpdateUserInput,
@@ -64,6 +66,7 @@ export function UsersPanel() {
   const [savingUserId, setSavingUserId] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [users, setUsers] = useState<AdminUserRow[]>([])
+  const [managers, setManagers] = useState<AccountManagerDirectoryRow[]>([])
   const [search, setSearch] = useState("")
   const [form, setForm] = useState<CreateManualUserInput>(INITIAL_FORM)
   const [drafts, setDrafts] = useState<Record<string, Partial<UpdateUserInput>>>({})
@@ -73,8 +76,9 @@ export function UsersPanel() {
   const load = async () => {
     setLoading(true)
     try {
-      const data = await fetchAdminUsers()
+      const [data, managerRows] = await Promise.all([fetchAdminUsers(), fetchAccountManagers()])
       setUsers(data)
+      setManagers(managerRows)
     } catch (error) {
       const message = error instanceof Error ? error.message : "Não foi possível carregar os usuários."
       toast.error("Erro ao carregar usuários", { description: message })
@@ -113,6 +117,8 @@ export function UsersPanel() {
     )
   }, [users, search])
 
+  const managerMap = useMemo(() => new Map(managers.map((manager) => [manager.auth_user_id, manager])), [managers])
+
   const getDraft = (user: AdminUserRow): UpdateUserInput => ({
     userId: user.auth_user_id || user.id,
     reseller_id: user.reseller_id || null,
@@ -140,7 +146,9 @@ export function UsersPanel() {
     estado: drafts[user.id]?.estado ?? user.estado ?? "",
     observacoes: drafts[user.id]?.observacoes ?? user.observacoes ?? "",
     motivo_reprovacao: drafts[user.id]?.motivo_reprovacao ?? user.motivo_reprovacao ?? "",
+    account_manager_user_id: drafts[user.id]?.account_manager_user_id ?? user.account_manager_user_id ?? "",
     account_manager_name: drafts[user.id]?.account_manager_name ?? user.account_manager_name ?? "",
+    account_manager_email: drafts[user.id]?.account_manager_email ?? user.account_manager_email ?? "",
     account_manager_whatsapp: drafts[user.id]?.account_manager_whatsapp ?? user.account_manager_whatsapp ?? "",
   })
 
@@ -171,7 +179,33 @@ export function UsersPanel() {
     }))
   }
 
+  const applyManagerSelectionToCreateForm = (managerUserId: string) => {
+    const manager = managerMap.get(managerUserId)
+    setForm((current) => ({
+      ...current,
+      account_manager_user_id: manager?.auth_user_id || null,
+      account_manager_name: manager?.full_name || null,
+      account_manager_email: manager?.email || null,
+      account_manager_whatsapp: manager?.whatsapp || manager?.telefone || null,
+    }))
+  }
+
+  const applyManagerSelectionToDraft = (userId: string, managerUserId: string) => {
+    const manager = managerMap.get(managerUserId)
+    updateDraft(userId, {
+      account_manager_user_id: manager?.auth_user_id || null,
+      account_manager_name: manager?.full_name || null,
+      account_manager_email: manager?.email || null,
+      account_manager_whatsapp: manager?.whatsapp || manager?.telefone || null,
+    })
+  }
+
   const handleCreate = async () => {
+    if (form.user_type === "cliente" && !form.account_manager_user_id) {
+      toast.error("Selecione o gerente responsável do cliente.")
+      return
+    }
+
     try {
       setSaving(true)
       await createManualUser(form)
@@ -196,6 +230,11 @@ export function UsersPanel() {
 
     if (!draft.full_name && draft.user_type !== "cliente") {
       toast.error("Informe o nome do usuário.")
+      return
+    }
+
+    if (draft.user_type === "cliente" && !draft.account_manager_user_id) {
+      toast.error("Selecione o gerente responsável do cliente.")
       return
     }
 
@@ -324,6 +363,20 @@ export function UsersPanel() {
                 </Field>
                 <Field label="Estado">
                   <Input value={form.estado || ""} onChange={(event) => setForm((current) => ({ ...current, estado: event.target.value }))} />
+                </Field>
+                <Field label="Gerente de conta">
+                  <select
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={form.account_manager_user_id || ""}
+                    onChange={(event) => applyManagerSelectionToCreateForm(event.target.value)}
+                  >
+                    <option value="">Selecione um gerente</option>
+                    {managers.map((manager) => (
+                      <option key={manager.auth_user_id} value={manager.auth_user_id}>
+                        {manager.full_name}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
               </div>
             </div>
@@ -495,6 +548,22 @@ export function UsersPanel() {
                             <Textarea rows={4} value={draft.observacoes || ""} onChange={(event) => updateDraft(user.id, { observacoes: event.target.value })} />
                           </Field>
                         ) : null}
+                        {isClient ? (
+                          <Field label="Gerente de conta">
+                            <select
+                              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                              value={draft.account_manager_user_id || ""}
+                              onChange={(event) => applyManagerSelectionToDraft(user.id, event.target.value)}
+                            >
+                              <option value="">Selecione um gerente</option>
+                              {managers.map((manager) => (
+                                <option key={manager.auth_user_id} value={manager.auth_user_id}>
+                                  {manager.full_name}
+                                </option>
+                              ))}
+                            </select>
+                          </Field>
+                        ) : null}
                         <Field label="Observações internas">
                           <Textarea rows={4} value={draft.notes || ""} onChange={(event) => updateDraft(user.id, { notes: event.target.value })} />
                         </Field>
@@ -502,11 +571,11 @@ export function UsersPanel() {
                           <Textarea rows={4} value={draft.motivo_reprovacao || ""} onChange={(event) => updateDraft(user.id, { motivo_reprovacao: event.target.value })} />
                         </Field>
                         <div className="grid gap-4 md:grid-cols-2">
-                          <Field label="Gerente responsável">
-                            <Input value={draft.account_manager_name || ""} onChange={(event) => updateDraft(user.id, { account_manager_name: event.target.value })} />
+                          <Field label="Nome do gerente">
+                            <Input value={draft.account_manager_name || ""} readOnly />
                           </Field>
                           <Field label="WhatsApp do gerente">
-                            <Input value={draft.account_manager_whatsapp || ""} onChange={(event) => updateDraft(user.id, { account_manager_whatsapp: event.target.value })} />
+                            <Input value={draft.account_manager_whatsapp || ""} readOnly />
                           </Field>
                         </div>
                         <div className="flex justify-end">

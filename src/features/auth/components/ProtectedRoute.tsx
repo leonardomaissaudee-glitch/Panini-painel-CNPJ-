@@ -7,10 +7,19 @@ import { isAnonymousAuthUser } from "@/features/auth/utils/authUser"
 
 interface ProtectedRouteProps {
   allowedRoles?: UserRole[]
+  allowedUserTypes?: string[]
+  deniedUserTypes?: string[]
   children: ReactNode
 }
 
-export function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) {
+function getDashboardFallback(role?: UserRole | null, userType?: string | null) {
+  if (role === "admin") return "/admin/pedidos"
+  if (role === "seller" && userType === "gerente") return "/gerente/resumo"
+  if (role === "seller") return "/seller"
+  return "/app/catalogo"
+}
+
+export function ProtectedRoute({ allowedRoles, allowedUserTypes, deniedUserTypes, children }: ProtectedRouteProps) {
   const location = useLocation()
   const { user, profile, loading } = useAuth()
 
@@ -60,9 +69,15 @@ export function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) 
   }
 
   if (allowedRoles && !allowedRoles.includes(profile.role ?? "client")) {
-    const fallback =
-      profile.role === "admin" ? "/admin" : profile.role === "seller" ? "/seller" : "/app/catalogo"
-    return <Navigate to={fallback} replace />
+    return <Navigate to={getDashboardFallback(profile.role, profile.user_type)} replace />
+  }
+
+  if (allowedUserTypes && !allowedUserTypes.includes(profile.user_type ?? "")) {
+    return <Navigate to={getDashboardFallback(profile.role, profile.user_type)} replace />
+  }
+
+  if (deniedUserTypes && deniedUserTypes.includes(profile.user_type ?? "")) {
+    return <Navigate to={getDashboardFallback(profile.role, profile.user_type)} replace />
   }
 
   return <>{children}</>

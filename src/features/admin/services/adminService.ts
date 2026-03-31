@@ -1,6 +1,5 @@
 ﻿import { supabase } from "@/shared/services/supabaseClient"
 import type { OrderStatus } from "@/shared/constants/orderStatus"
-import { getManagerByName, type AccountManagerName } from "@/shared/constants/accountManagers"
 import type { Profile } from "@/shared/types/auth"
 
 export type { OrderStatus }
@@ -96,7 +95,9 @@ export interface ResellerApprovalRow {
   observacoes?: string | null
   status_cadastro: "pending" | "approved" | "rejected" | "blocked"
   motivo_reprovacao?: string | null
+  account_manager_user_id?: string | null
   account_manager_name?: string | null
+  account_manager_email?: string | null
   account_manager_whatsapp?: string | null
   created_at?: string
 }
@@ -126,6 +127,27 @@ export interface ClientAdminRow extends ResellerApprovalRow {
   legacy_role?: string | null
   user_type?: string | null
   notes?: string | null
+}
+
+export interface AccountManagerDirectoryRow {
+  id: string
+  auth_user_id: string
+  full_name: string
+  email: string
+  telefone?: string | null
+  whatsapp?: string | null
+  status_cadastro: "pending" | "approved" | "rejected" | "blocked"
+  user_type: "gerente"
+  notes?: string | null
+  assigned_clients_count: number
+}
+
+export interface ManagerPortfolioSummary {
+  total_clients: number
+  approved_clients: number
+  pending_clients: number
+  orders_in_progress: number
+  orders_completed: number
 }
 
 export interface ProductRow {
@@ -161,6 +183,10 @@ export interface CreateManualUserInput {
   bairro?: string | null
   cidade?: string | null
   estado?: string | null
+  account_manager_user_id?: string | null
+  account_manager_name?: string | null
+  account_manager_email?: string | null
+  account_manager_whatsapp?: string | null
 }
 
 export interface UpdateUserInput {
@@ -190,7 +216,9 @@ export interface UpdateUserInput {
   estado?: string | null
   observacoes?: string | null
   motivo_reprovacao?: string | null
+  account_manager_user_id?: string | null
   account_manager_name?: string | null
+  account_manager_email?: string | null
   account_manager_whatsapp?: string | null
 }
 
@@ -215,6 +243,10 @@ export interface UpdateClientInput {
   user_type?: string | null
   notes?: string | null
   nome_responsavel?: string | null
+  account_manager_user_id?: string | null
+  account_manager_name?: string | null
+  account_manager_email?: string | null
+  account_manager_whatsapp?: string | null
 }
 
 export interface SaveOrderInput {
@@ -327,7 +359,9 @@ function buildClientRowFromSources(reseller?: Partial<ResellerApprovalRow> & { i
     observacoes: reseller?.observacoes || null,
     status_cadastro: normalizeStatus(reseller?.status_cadastro || profile?.status_cadastro),
     motivo_reprovacao: reseller?.motivo_reprovacao || profile?.motivo_reprovacao || null,
+    account_manager_user_id: reseller?.account_manager_user_id || profile?.account_manager_user_id || null,
     account_manager_name: reseller?.account_manager_name || profile?.account_manager_name || null,
+    account_manager_email: reseller?.account_manager_email || profile?.account_manager_email || null,
     account_manager_whatsapp: reseller?.account_manager_whatsapp || profile?.account_manager_whatsapp || null,
     created_at: reseller?.created_at || profile?.created_at,
     profile_id: profile?.id ?? null,
@@ -495,7 +529,7 @@ async function fetchLegacyProfiles() {
     .order("created_at", { ascending: false })
 
   if (error) throw error
-  return (data ?? []) as LegacyProfileRow[]
+  return ((data ?? []) as LegacyProfileRow[]).filter((row) => !row.deleted_at)
 }
 
 async function fetchResellerProfiles() {
@@ -615,7 +649,9 @@ export async function fetchAdminUsers(): Promise<AdminUserRow[]> {
       observacoes: reseller?.observacoes ?? null,
       nome_responsavel: reseller?.nome_responsavel ?? profile.full_name ?? null,
       status_cadastro: normalizeStatus(reseller?.status_cadastro ?? profile.status_cadastro),
+      account_manager_user_id: reseller?.account_manager_user_id ?? profile.account_manager_user_id ?? null,
       account_manager_name: reseller?.account_manager_name ?? profile.account_manager_name ?? null,
+      account_manager_email: reseller?.account_manager_email ?? profile.account_manager_email ?? null,
       account_manager_whatsapp: reseller?.account_manager_whatsapp ?? profile.account_manager_whatsapp ?? null,
     } as AdminUserRow
   })
@@ -654,7 +690,9 @@ export async function fetchAdminUsers(): Promise<AdminUserRow[]> {
       estado: reseller.estado ?? null,
       observacoes: reseller.observacoes ?? null,
       nome_responsavel: reseller.nome_responsavel ?? null,
+      account_manager_user_id: reseller.account_manager_user_id ?? null,
       account_manager_name: reseller.account_manager_name ?? null,
+      account_manager_email: reseller.account_manager_email ?? null,
       account_manager_whatsapp: reseller.account_manager_whatsapp ?? null,
       created_at: reseller.created_at,
       notes: null,
@@ -664,14 +702,96 @@ export async function fetchAdminUsers(): Promise<AdminUserRow[]> {
   return rows.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
 }
 
-export async function approveProfile(row: Pick<ResellerApprovalRow, "id" | "user_id" | "email">, managerName: AccountManagerName) {
-  const manager = getManagerByName(managerName)
+export async function fetchAccountManagers(): Promise<AccountManagerDirectoryRow[]> {
+  const [users, clients] = await Promise.all([fetchAdminUsers(), fetchAllClients()])
+
+  const counts = clients.reduce<Record<string, number>>((acc, client) => {
+    const key = client.account_manager_user_id
+    if (key) {
+      acc[key] = (acc[key] || 0) + 1
+    }
+    return acc
+  }, {})
+
+  return users
+    .filter((row) => row.user_type === "gerente" && (row.role === "seller" || row.role === "admin") && !row.deleted_at)
+    .map((row) => ({
+      id: row.id,
+      auth_user_id: row.auth_user_id || row.id,
+      full_name:
+        row.full_name ||
+        row.company_name ||
+        formatEmailDisplayName(row.email) ||
+        "Gerente sem nome",
+      email: row.email || "",
+      telefone: row.telefone || null,
+      whatsapp: row.telefone || null,
+      status_cadastro: row.status_cadastro,
+      user_type: "gerente",
+      notes: row.notes || null,
+      assigned_clients_count: counts[row.auth_user_id || row.id] || 0,
+    }))
+    .sort((a, b) => a.full_name.localeCompare(b.full_name, "pt-BR"))
+}
+
+export async function fetchManagedClients(managerUserId: string): Promise<ClientAdminRow[]> {
+  const rows = await fetchAllClients()
+  const managers = await fetchAccountManagers()
+  const manager = managers.find((row) => row.auth_user_id === managerUserId || row.id === managerUserId)
+  const normalizedEmail = manager?.email?.toLowerCase() || ""
+
+  return rows.filter(
+    (row) =>
+      row.account_manager_user_id === managerUserId ||
+      (normalizedEmail && row.account_manager_email?.toLowerCase() === normalizedEmail)
+  )
+}
+
+export async function fetchManagedOrders(managerUserId: string): Promise<OrderRow[]> {
+  const [orders, clients] = await Promise.all([fetchOrders(), fetchManagedClients(managerUserId)])
+  const resellerIds = new Set(clients.map((row) => row.id))
+  const userIds = new Set(clients.map((row) => row.user_id))
+  const emails = new Set(clients.map((row) => row.email.toLowerCase()))
+
+  return orders.filter((order) => {
+    const clienteId = order.cliente_id || ""
+    const email = order.customer_email?.toLowerCase?.() || ""
+    return resellerIds.has(clienteId) || userIds.has(clienteId) || emails.has(email)
+  })
+}
+
+export async function fetchClientsWithoutManager(): Promise<ClientAdminRow[]> {
+  const rows = await fetchAllClients()
+  return rows.filter((row) => !row.account_manager_user_id && !row.account_manager_email)
+}
+
+export async function fetchManagerPortfolioSummary(managerUserId: string): Promise<ManagerPortfolioSummary> {
+  const [clients, orders] = await Promise.all([fetchManagedClients(managerUserId), fetchManagedOrders(managerUserId)])
+
+  return {
+    total_clients: clients.length,
+    approved_clients: clients.filter((row) => row.status_cadastro === "approved").length,
+    pending_clients: clients.filter((row) => row.status_cadastro === "pending").length,
+    orders_in_progress: orders.filter((row) => {
+      const status = normalizeOrderStatus(row.status)
+      return status !== "pedido_entregue" && status !== "cancelado"
+    }).length,
+    orders_completed: orders.filter((row) => normalizeOrderStatus(row.status) === "pedido_entregue").length,
+  }
+}
+
+export async function approveProfile(
+  row: Pick<ResellerApprovalRow, "id" | "user_id" | "email">,
+  manager: Pick<AccountManagerDirectoryRow, "auth_user_id" | "full_name" | "email" | "whatsapp">
+) {
   const payload: Record<string, unknown> = {
     action: "approve-reseller",
     resellerId: row.id,
     userId: row.user_id,
-    managerName: manager?.name ?? managerName,
-    managerWhatsapp: manager?.whatsapp ?? null,
+    managerUserId: manager.auth_user_id,
+    managerName: manager.full_name,
+    managerEmail: manager.email || null,
+    managerWhatsapp: manager.whatsapp ?? null,
   }
 
   if (row.email?.trim()) {

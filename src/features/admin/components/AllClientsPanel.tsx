@@ -6,10 +6,24 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { StatusBadge } from "@/components/StatusBadge"
-import { fetchAllClients, saveUser, type ClientAdminRow, type UpdateUserInput } from "@/features/admin/services/adminService"
+import {
+  fetchAccountManagers,
+  fetchAllClients,
+  fetchManagedClients,
+  saveUser,
+  type AccountManagerDirectoryRow,
+  type ClientAdminRow,
+  type UpdateUserInput,
+} from "@/features/admin/services/adminService"
 import { toast } from "sonner"
 
 type ClientDraft = Partial<UpdateUserInput>
+type AllClientsPanelProps = {
+  mode?: "admin" | "manager"
+  managerUserId?: string
+  title?: string
+  description?: string
+}
 
 const STATUS_OPTIONS = [
   { value: "pending", label: "Pendente" },
@@ -18,20 +32,32 @@ const STATUS_OPTIONS = [
   { value: "blocked", label: "Bloqueado" },
 ] as const
 
-export function AllClientsPanel() {
+export function AllClientsPanel({
+  mode = "admin",
+  managerUserId,
+  title = "Todos os clientes",
+  description = "Busque, filtre e edite todos os dados cadastrais dos clientes empresariais.",
+}: AllClientsPanelProps) {
   const [clients, setClients] = useState<ClientAdminRow[]>([])
+  const [managers, setManagers] = useState<AccountManagerDirectoryRow[]>([])
   const [loading, setLoading] = useState(false)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("todos")
+  const [managerFilter, setManagerFilter] = useState("todos")
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [drafts, setDrafts] = useState<Record<string, ClientDraft>>({})
+  const managerMap = useMemo(() => new Map(managers.map((manager) => [manager.auth_user_id, manager])), [managers])
 
   const load = async () => {
     setLoading(true)
     try {
-      const data = await fetchAllClients()
+      const [data, managerRows] = await Promise.all([
+        mode === "manager" && managerUserId ? fetchManagedClients(managerUserId) : fetchAllClients(),
+        fetchAccountManagers(),
+      ])
       setClients(data)
+      setManagers(managerRows)
     } catch (error) {
       const message = error instanceof Error ? error.message : "Não foi possível carregar os clientes."
       toast.error("Erro ao carregar clientes", { description: message })
@@ -48,14 +74,20 @@ export function AllClientsPanel() {
     const term = search.trim().toLowerCase()
     return clients.filter((client) => {
       const matchesStatus = statusFilter === "todos" || client.status_cadastro === statusFilter
+      const matchesManager =
+        mode === "manager" ||
+        managerFilter === "todos" ||
+        (managerFilter === "sem-gerente"
+          ? !client.account_manager_user_id && !client.account_manager_email
+          : client.account_manager_user_id === managerFilter)
       const matchesSearch =
         !term ||
         [client.razao_social, client.nome_responsavel, client.email, client.cnpj, client.telefone, client.cidade, client.estado]
           .map((value) => (value || "").toString().toLowerCase())
           .some((value) => value.includes(term))
-      return matchesStatus && matchesSearch
+      return matchesStatus && matchesManager && matchesSearch
     })
-  }, [clients, search, statusFilter])
+  }, [clients, search, statusFilter, managerFilter, mode])
 
   const getDraft = (client: ClientAdminRow): UpdateUserInput => ({
     userId: client.user_id || client.profile_id || client.id,
@@ -83,7 +115,9 @@ export function AllClientsPanel() {
     nome_responsavel: drafts[client.id]?.nome_responsavel ?? client.nome_responsavel,
     documento: drafts[client.id]?.documento ?? client.cnpj,
     tipo_documento: "cnpj",
+    account_manager_user_id: drafts[client.id]?.account_manager_user_id ?? client.account_manager_user_id ?? "",
     account_manager_name: drafts[client.id]?.account_manager_name ?? client.account_manager_name ?? "",
+    account_manager_email: drafts[client.id]?.account_manager_email ?? client.account_manager_email ?? "",
     account_manager_whatsapp: drafts[client.id]?.account_manager_whatsapp ?? client.account_manager_whatsapp ?? "",
   })
 
@@ -97,10 +131,25 @@ export function AllClientsPanel() {
     }))
   }
 
+  const applyManagerSelection = (clientId: string, managerUserId: string) => {
+    const manager = managerMap.get(managerUserId)
+    updateDraft(clientId, {
+      account_manager_user_id: manager?.auth_user_id || null,
+      account_manager_name: manager?.full_name || null,
+      account_manager_email: manager?.email || null,
+      account_manager_whatsapp: manager?.whatsapp || manager?.telefone || null,
+    })
+  }
+
   const handleSave = async (client: ClientAdminRow) => {
+    const draft = getDraft(client)
+    if (!draft.account_manager_user_id) {
+      toast.error("Selecione um gerente responsável.")
+      return
+    }
     try {
       setSavingId(client.id)
-      await saveUser(getDraft(client))
+      await saveUser(draft)
       toast.success("Cliente atualizado")
       await load()
     } catch (error) {
@@ -115,15 +164,30 @@ export function AllClientsPanel() {
     <Card className="border-slate-200 shadow-sm">
       <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <CardTitle>Todos os clientes</CardTitle>
-          <p className="text-sm text-muted-foreground">Busque, filtre e edite todos os dados cadastrais dos clientes empresariais.</p>
+          <CardTitle>{title}</CardTitle>
+          <p className="text-sm text-muted-foreground">{description}</p>
         </div>
-        <div className="grid gap-3 md:grid-cols-[1fr_180px] lg:w-[560px]">
+        <div className="grid gap-3 md:grid-cols-[1fr_180px] lg:w-[720px]">
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Buscar por nome, CNPJ, e-mail, cidade ou telefone"
           />
+          {mode === "admin" ? (
+            <select
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={managerFilter}
+              onChange={(event) => setManagerFilter(event.target.value)}
+            >
+              <option value="todos">Todos os gerentes</option>
+              <option value="sem-gerente">Sem gerente</option>
+              {managers.map((manager) => (
+                <option key={manager.auth_user_id} value={manager.auth_user_id}>
+                  {manager.full_name}
+                </option>
+              ))}
+            </select>
+          ) : null}
           <select
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
             value={statusFilter}
@@ -213,12 +277,27 @@ export function AllClientsPanel() {
                       <Field label="Status">
                         <select
                           className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                            value={draft.status_cadastro}
-                            onChange={(event) => updateDraft(client.id, { status_cadastro: event.target.value as UpdateUserInput["status_cadastro"] })}
+                          value={draft.status_cadastro}
+                          onChange={(event) => updateDraft(client.id, { status_cadastro: event.target.value as UpdateUserInput["status_cadastro"] })}
                         >
                           {STATUS_OPTIONS.map((option) => (
                             <option key={option.value} value={option.value}>
                               {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Field label="Gerente de conta">
+                        <select
+                          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                          value={draft.account_manager_user_id || ""}
+                          onChange={(event) => applyManagerSelection(client.id, event.target.value)}
+                          disabled={mode === "manager"}
+                        >
+                          <option value="">Selecione um gerente</option>
+                          {managers.map((manager) => (
+                            <option key={manager.auth_user_id} value={manager.auth_user_id}>
+                              {manager.full_name}
                             </option>
                           ))}
                         </select>
@@ -235,6 +314,14 @@ export function AllClientsPanel() {
                       <Field label="Observações internas">
                         <Textarea rows={4} value={draft.notes || ""} onChange={(event) => updateDraft(client.id, { notes: event.target.value })} />
                       </Field>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <Field label="Nome do gerente">
+                          <Input value={draft.account_manager_name || ""} readOnly />
+                        </Field>
+                        <Field label="WhatsApp do gerente">
+                          <Input value={draft.account_manager_whatsapp || ""} readOnly />
+                        </Field>
+                      </div>
                       <div className="flex justify-end">
                         <Button onClick={() => handleSave(client)} disabled={savingId === client.id}>
                           <Save className="mr-2 h-4 w-4" />

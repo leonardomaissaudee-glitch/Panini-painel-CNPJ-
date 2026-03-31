@@ -66,7 +66,9 @@ export function AppShell({ title, nav = [], actions, children, contentClassName 
     profile?.role === "admin"
       ? "/admin/pedidos"
       : profile?.role === "seller"
-        ? "/seller"
+        ? profile?.user_type === "gerente"
+          ? "/gerente/resumo"
+          : "/seller"
         : profile?.role === "client"
           ? "/app/catalogo"
           : "/painel"
@@ -123,7 +125,7 @@ export function AppShell({ title, nav = [], actions, children, contentClassName 
             <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="text-sm font-semibold">Sessão</div>
               <div className="mt-1 text-sm text-muted-foreground">{profile?.full_name || user?.email}</div>
-              <div className="mt-1 text-xs text-muted-foreground capitalize">Role: {profile?.role || "-"}</div>
+              <div className="mt-1 text-xs text-muted-foreground capitalize">Acesso: {profile?.user_type || profile?.role || "-"}</div>
               <div className="text-xs text-muted-foreground">Status: {profile?.status_cadastro || "-"}</div>
             </div>
           </div>
@@ -138,7 +140,7 @@ export function AppShell({ title, nav = [], actions, children, contentClassName 
               <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-1">
                 <div className="text-sm font-semibold">Sessão</div>
                 <div className="text-sm text-muted-foreground">{profile?.full_name || user?.email}</div>
-                <div className="text-xs text-muted-foreground capitalize">Role: {profile?.role || "-"}</div>
+                <div className="text-xs text-muted-foreground capitalize">Acesso: {profile?.user_type || profile?.role || "-"}</div>
                 <div className="text-xs text-muted-foreground">Status: {profile?.status_cadastro || "-"}</div>
               </div>
             </div>

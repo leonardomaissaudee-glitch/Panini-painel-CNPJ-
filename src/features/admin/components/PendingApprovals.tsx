@@ -4,28 +4,38 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
-import { ACCOUNT_MANAGERS, type AccountManagerName } from "@/shared/constants/accountManagers"
-import { approveProfile, fetchPendingProfiles, rejectProfile, type ResellerApprovalRow } from "@/features/admin/services/adminService"
+import {
+  approveProfile,
+  fetchAccountManagers,
+  fetchPendingProfiles,
+  rejectProfile,
+  type AccountManagerDirectoryRow,
+  type ResellerApprovalRow,
+} from "@/features/admin/services/adminService"
 import { StatusBadge } from "@/components/StatusBadge"
 
 export function PendingApprovals() {
   const [loading, setLoading] = useState(false)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [rows, setRows] = useState<ResellerApprovalRow[]>([])
+  const [managers, setManagers] = useState<AccountManagerDirectoryRow[]>([])
   const [search, setSearch] = useState("")
   const [rejectReason, setRejectReason] = useState<Record<string, string>>({})
-  const [managerByUser, setManagerByUser] = useState<Record<string, AccountManagerName>>({})
+  const [managerByUser, setManagerByUser] = useState<Record<string, string>>({})
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
 
   const load = async () => {
     setLoading(true)
     try {
-      const data = await fetchPendingProfiles()
+      const [data, managerRows] = await Promise.all([fetchPendingProfiles(), fetchAccountManagers()])
       setRows(data)
+      setManagers(managerRows)
       setManagerByUser((current) => {
         const next = { ...current }
         data.forEach((row, index) => {
-          if (!next[row.id]) next[row.id] = ACCOUNT_MANAGERS[index % ACCOUNT_MANAGERS.length].name
+          if (!next[row.id]) {
+            next[row.id] = row.account_manager_user_id || managerRows[index % Math.max(managerRows.length, 1)]?.auth_user_id || ""
+          }
         })
         return next
       })
@@ -57,14 +67,15 @@ export function PendingApprovals() {
       toast.error("Erro ao aprovar", { description: "Cliente não encontrado na lista local." })
       return
     }
-    const managerName = managerByUser[id] ?? ACCOUNT_MANAGERS[0].name
-    if (!managerName) {
+    const managerId = managerByUser[id]
+    const manager = managers.find((item) => item.auth_user_id === managerId)
+    if (!manager) {
       toast.error("Erro ao aprovar", { description: "Selecione um gerente responsável antes de aprovar." })
       return
     }
     try {
       setSavingId(id)
-      await approveProfile(row, managerName)
+      await approveProfile(row, manager)
       toast.success("Cadastro aprovado", { description: "Cliente liberado com gerente atribuído." })
       await load()
     } catch (error) {
@@ -161,17 +172,18 @@ export function PendingApprovals() {
                         <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Gerente responsável</div>
                         <select
                           className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                          value={managerByUser[row.id] ?? ACCOUNT_MANAGERS[0].name}
+                          value={managerByUser[row.id] ?? ""}
                           onChange={(event) =>
                             setManagerByUser((current) => ({
                               ...current,
-                              [row.id]: event.target.value as AccountManagerName,
+                              [row.id]: event.target.value,
                             }))
                           }
                         >
-                          {ACCOUNT_MANAGERS.map((manager) => (
-                            <option key={manager.name} value={manager.name}>
-                              {manager.name}
+                          <option value="">Selecione um gerente</option>
+                          {managers.map((manager) => (
+                            <option key={manager.auth_user_id} value={manager.auth_user_id}>
+                              {manager.full_name}
                             </option>
                           ))}
                         </select>

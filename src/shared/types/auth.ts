@@ -17,9 +17,12 @@ export interface Profile {
   endereco?: any | null
   seller_id?: string | null
   motivo_reprovacao?: string | null
+  account_manager_user_id?: string | null
   account_manager_name?: string | null
+  account_manager_email?: string | null
   account_manager_whatsapp?: string | null
   notes?: string | null
+  deleted_at?: string | null
   created_at?: string
   updated_at?: string
 }
