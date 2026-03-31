@@ -20,6 +20,23 @@ import {
 import type { ChatConversation, ChatListFilter } from "@/features/chat/types"
 import { useAuth } from "@/features/auth/context/AuthContext"
 
+function isMeaningfulName(value?: string | null) {
+  return Boolean(value && value.trim() && !value.includes("@"))
+}
+
+function formatEmailDisplayName(email?: string | null) {
+  if (!email) return null
+  const localPart = email.split("@")[0]?.trim()
+  if (!localPart) return null
+
+  return localPart
+    .replace(/[._-]+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
 export function ChatsPanel() {
   const { user, profile } = useAuth()
   const [search, setSearch] = useState("")
@@ -51,6 +68,18 @@ export function ChatsPanel() {
     currentConversationId: activeConversation?.id,
   })
 
+  const currentStaffDisplayName = useMemo(() => {
+    if (isMeaningfulName(profile?.full_name)) return profile!.full_name!.trim()
+    if (isMeaningfulName(profile?.company_name)) return profile!.company_name!.trim()
+    const metadataFullName =
+      typeof user?.user_metadata?.full_name === "string" ? user.user_metadata.full_name.trim() : ""
+    if (metadataFullName) return metadataFullName
+    const metadataCompanyName =
+      typeof user?.user_metadata?.company_name === "string" ? user.user_metadata.company_name.trim() : ""
+    if (metadataCompanyName) return metadataCompanyName
+    return formatEmailDisplayName(user?.email) || "Equipe comercial"
+  }, [profile?.company_name, profile?.full_name, user?.email, user?.user_metadata])
+
   useEffect(() => {
     if (!activeConversationId && conversations.length) {
       setActiveConversationId(conversations[0].id)
@@ -63,9 +92,9 @@ export function ChatsPanel() {
     }
 
     if (!activeConversation.assigned_admin_id) {
-      assignConversation(activeConversation.id, user.id, profile?.full_name || user.email || "Atendimento").catch(() => undefined)
+      assignConversation(activeConversation.id, user.id, currentStaffDisplayName).catch(() => undefined)
     }
-  }, [activeConversation?.id, activeConversation?.assigned_admin_id, profile?.full_name, user?.email, user?.id])
+  }, [activeConversation?.id, activeConversation?.assigned_admin_id, currentStaffDisplayName, user?.id])
 
   useEffect(() => {
     if (!activeConversation?.id) return
@@ -100,13 +129,13 @@ export function ChatsPanel() {
 
     setSending(true)
     try {
-      await sendConversationMessage({
-        conversationId: activeConversation.id,
-        senderType: "admin",
-        senderName: activeConversation.assigned_admin_name || profile?.full_name || "Gerente comercial",
-        content: text,
-        attachment,
-      })
+        await sendConversationMessage({
+          conversationId: activeConversation.id,
+          senderType: "admin",
+          senderName: currentStaffDisplayName,
+          content: text,
+          attachment,
+        })
 
       await updateConversationStatus(activeConversation.id, "active")
       await Promise.all([reload(), reloadThread()])
@@ -183,7 +212,11 @@ export function ChatsPanel() {
                     <ChatMessageList
                       messages={messages}
                       viewerRole="admin"
-                      adminDisplayName={activeConversation.assigned_admin_name || profile?.full_name || "Gerente comercial"}
+                      adminDisplayName={
+                        isMeaningfulName(activeConversation.assigned_admin_name)
+                          ? activeConversation.assigned_admin_name
+                          : currentStaffDisplayName
+                      }
                     />
                     <ChatComposer
                       loading={sending || threadLoading}
@@ -201,7 +234,14 @@ export function ChatsPanel() {
                         <Detail label="Telefone" value={activeConversation.customer_phone || "-"} />
                         <Detail label="Motivo" value={activeConversation.subject} />
                         <Detail label="Pedido / referência" value={activeConversation.order_reference || "-"} />
-                        <Detail label="Responsável" value={activeConversation.assigned_admin_name || participantsInfo[user?.id || ""] || "Equipe comercial"} />
+                        <Detail
+                          label="Responsável"
+                          value={
+                            (isMeaningfulName(activeConversation.assigned_admin_name) && activeConversation.assigned_admin_name) ||
+                            participantsInfo[user?.id || ""] ||
+                            currentStaffDisplayName
+                          }
+                        />
                       </div>
                     </div>
 
@@ -251,7 +291,10 @@ export function ChatsPanel() {
                 customerOnline={Boolean(presenceRows[activeConversation.customer_user_id]?.is_online)}
                 staffOnline={onlineStaff.length > 0}
                 customerLastSeen={presenceRows[activeConversation.customer_user_id]?.last_seen ?? null}
-                managerLabel={activeConversation.assigned_admin_name || profile?.full_name || "Gerente"}
+                managerLabel={
+                  (isMeaningfulName(activeConversation.assigned_admin_name) && activeConversation.assigned_admin_name) ||
+                  currentStaffDisplayName
+                }
               />
 
               <ChatStatusBar online={onlineStaff.length > 0} connectionState={threadConnectionState === "connected" ? threadConnectionState : connectionState}>

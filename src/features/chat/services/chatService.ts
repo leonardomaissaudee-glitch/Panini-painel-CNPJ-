@@ -24,6 +24,43 @@ function isStaffRole(role?: string | null) {
   return role === "admin" || role === "seller"
 }
 
+function isMeaningfulDisplayName(value?: string | null) {
+  return Boolean(value && value.trim() && !value.includes("@"))
+}
+
+function formatEmailDisplayName(email?: string | null) {
+  if (!email) return null
+  const localPart = email.split("@")[0]?.trim()
+  if (!localPart) return null
+
+  return localPart
+    .replace(/[._-]+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
+function resolveStaffDisplayName(user: MaybeAuthUser, preferredName?: string | null) {
+  if (isMeaningfulDisplayName(preferredName)) {
+    return preferredName!.trim()
+  }
+
+  const metadataFullName =
+    typeof user?.user_metadata?.full_name === "string" ? user.user_metadata.full_name.trim() : ""
+  if (metadataFullName) {
+    return metadataFullName
+  }
+
+  const metadataCompanyName =
+    typeof user?.user_metadata?.company_name === "string" ? user.user_metadata.company_name.trim() : ""
+  if (metadataCompanyName) {
+    return metadataCompanyName
+  }
+
+  return formatEmailDisplayName(user?.email) || "Equipe comercial"
+}
+
 export function isAnonymousUser(user?: MaybeAuthUser) {
   return Boolean((user as { is_anonymous?: boolean } | null | undefined)?.is_anonymous)
 }
@@ -189,12 +226,14 @@ export async function ensureAdminParticipant(conversationId: string, displayName
     throw new Error("Sessão administrativa não encontrada.")
   }
 
+  const resolvedDisplayName = resolveStaffDisplayName(user, displayName)
+
   const { error } = await supabase.from("chat_participants").upsert(
     {
       conversation_id: conversationId,
       user_id: user.id,
       participant_type: "admin",
-      display_name: displayName || user.email || "Atendimento",
+      display_name: resolvedDisplayName,
       email: user.email,
     },
     { onConflict: "conversation_id,user_id" }
@@ -269,11 +308,16 @@ export async function sendConversationMessage({
     await ensureAdminParticipant(conversationId, senderName)
   }
 
+  const resolvedSenderName =
+    senderType === "admin"
+      ? resolveStaffDisplayName(user, senderName)
+      : senderName || user.user_metadata?.full_name || user.email || null
+
   const { error } = await supabase.from("chat_messages").insert({
     conversation_id: conversationId,
     sender_user_id: user.id,
     sender_type: senderType,
-    sender_name: senderName || user.email || null,
+    sender_name: resolvedSenderName,
     message_type: attachmentPayload?.messageType ?? "text",
     content: trimmedContent,
     attachment_path: attachmentPayload?.path ?? null,
@@ -338,7 +382,7 @@ export async function upsertPresence({
     {
       user_id: user.id,
       role,
-      display_name: displayName || user.email || null,
+      display_name: role === "admin" || role === "seller" ? resolveStaffDisplayName(user, displayName) : displayName || user.email || null,
       is_online: true,
       current_conversation_id: currentConversationId ?? null,
       last_seen: new Date().toISOString(),

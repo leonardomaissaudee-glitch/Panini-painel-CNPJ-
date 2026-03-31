@@ -22,6 +22,10 @@ import {
 import type { ChatConversationFormInput } from "@/features/chat/types"
 import type { ResellerProfile } from "@/lib/auth"
 
+function isMeaningfulName(value?: string | null) {
+  return Boolean(value && value.trim() && !value.includes("@"))
+}
+
 export function ClientLiveChat({
   resellerProfile,
   publicMode = false,
@@ -78,7 +82,10 @@ export function ClientLiveChat({
   }, [listConnectionState, threadConnectionState])
 
   const customerLastSeen = user?.id ? presenceRows[user.id]?.last_seen ?? null : null
-  const assignedManagerName = activeConversation?.assigned_admin_name || resellerProfile?.account_manager_name || null
+  const assignedManagerName =
+    (isMeaningfulName(activeConversation?.assigned_admin_name) ? activeConversation?.assigned_admin_name : null) ||
+    (isMeaningfulName(resellerProfile?.account_manager_name) ? resellerProfile?.account_manager_name : null) ||
+    null
   const activeManagerOnline = activeConversation?.assigned_admin_id
     ? Boolean(presenceRows[activeConversation.assigned_admin_id]?.is_online)
     : false
@@ -86,7 +93,7 @@ export function ClientLiveChat({
     ? onlineStaff.some((entry) => entry.displayName?.trim().toLowerCase() === assignedManagerName.trim().toLowerCase())
     : false
   const managerOnline = assignedManagerName ? activeManagerOnline || assignedManagerOnline : onlineStaff.length > 0
-  const managerDisplayName = resellerProfile?.account_manager_name || assignedManagerName || "Gerente comercial"
+  const managerDisplayName = assignedManagerName || "Gerente comercial"
 
   const handleStartConversation = async (values: ChatConversationFormInput) => {
     setStarting(true)
