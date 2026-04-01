@@ -1,6 +1,6 @@
-import { useEffect, useState, type ComponentType } from "react"
+import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { ArrowRight, Building2, KeyRound, ShieldCheck } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Footer } from "@/components/Footer"
@@ -86,34 +86,23 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[linear-gradient(180deg,#eef4ff_0%,#ffffff_32%,#fffdf7_100%)] text-slate-900">
       <section className="relative overflow-hidden bg-gradient-to-br from-blue-950 via-blue-900 to-slate-900 text-white">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,213,79,0.24),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(239,68,68,0.16),transparent_24%)]" />
-        <div className="container relative mx-auto grid gap-10 px-4 py-16 lg:grid-cols-[0.9fr,1.1fr] lg:items-center">
-          <div className="space-y-6">
+        <div className="container relative mx-auto max-w-5xl px-4 py-10 md:py-12">
+          <div className="mx-auto max-w-2xl space-y-5 text-center">
             <Badge className="border-amber-300 bg-amber-200 text-amber-950">Área do revendedor</Badge>
-            <div className="space-y-4">
-              <h1 className="max-w-3xl text-4xl font-bold leading-tight md:text-5xl">
-                Acesse sua área de revendedor
-              </h1>
-              <p className="max-w-2xl text-lg text-slate-100/90">
-                Entre com seu CNPJ e senha para continuar seu atendimento e acompanhar seu cadastro.
+            <div className="space-y-3">
+              <h1 className="text-3xl font-bold leading-tight md:text-4xl">Acesse sua área de revendedor</h1>
+              <p className="text-base text-slate-100/90 md:text-lg">
+                Entre com seu CNPJ e senha para continuar seu atendimento.
               </p>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <FeatureCard icon={Building2} title="Login por CNPJ" description="Experiência empresarial sem expor o e-mail operacional." />
-              <FeatureCard icon={ShieldCheck} title="Sessão protegida" description="Autenticação estruturada em ambiente seguro." />
-              <FeatureCard icon={KeyRound} title="Acompanhamento dedicado" description="Status cadastral e suporte com gerente de contas." />
             </div>
           </div>
 
-          <Card className="border-white/10 bg-white/10 shadow-2xl backdrop-blur-xl">
-            <CardContent className="space-y-6 p-6 md:p-8">
+          <Card className="mx-auto mt-8 max-w-xl border-white/10 bg-white/10 shadow-2xl backdrop-blur-xl">
+            <CardContent className="space-y-5 p-5 md:p-6">
               <div className="space-y-2">
                 <div className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-300">Login empresarial</div>
-                <h2 className="text-2xl font-bold text-white">Continuar atendimento</h2>
-                <p className="text-sm text-slate-200">
-                  Use o CNPJ credenciado e a senha definida no cadastro. Administradores e vendedores acessam pela rota
-                  dedicada.
-                </p>
+                <h2 className="text-2xl font-bold text-white">Entrar</h2>
+                <p className="text-sm text-slate-200">Use o CNPJ credenciado e a senha definida no cadastro.</p>
               </div>
 
               <form className="space-y-5" onSubmit={handleSubmit}>
@@ -155,11 +144,6 @@ export default function LoginPage() {
                 </LoadingButton>
               </form>
 
-              <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-4 text-sm text-slate-200">
-                Se ainda não iniciou o credenciamento, envie primeiro seu cadastro empresarial. Um gerente de contas dará
-                sequência após a análise cadastral.
-              </div>
-
               <div className="flex flex-col gap-3 text-sm text-slate-100 sm:flex-row sm:items-center sm:justify-between">
                 <Link to="/cadastro" className="inline-flex items-center gap-2 font-semibold text-amber-300 hover:text-amber-200">
                   Ainda não tenho cadastro <ArrowRight className="h-4 w-4" />
@@ -173,46 +157,7 @@ export default function LoginPage() {
         </div>
       </section>
 
-      <section className="container mx-auto px-4 py-12">
-        <div className="grid gap-4 md:grid-cols-3">
-          <SupportCard title="Atendimento exclusivo" description="Cada cadastro segue com gerente de contas após análise documental e comercial." />
-          <SupportCard title="Status claro" description="Após o login, o revendedor acompanha a situação do cadastro em um painel simples." />
-          <SupportCard title="Operação profissional" description="Fluxo empresarial com CNPJ, dados institucionais e continuidade organizada." />
-        </div>
-      </section>
-
       <Footer />
     </div>
-  )
-}
-
-function FeatureCard({
-  icon: Icon,
-  title,
-  description,
-}: {
-  icon: ComponentType<{ className?: string }>
-  title: string
-  description: string
-}) {
-  return (
-    <Card className="border-white/10 bg-white/8 text-white shadow-none backdrop-blur">
-      <CardContent className="space-y-3 p-4">
-        <Icon className="h-5 w-5 text-amber-300" />
-        <div className="text-sm font-semibold">{title}</div>
-        <p className="text-xs text-slate-200">{description}</p>
-      </CardContent>
-    </Card>
-  )
-}
-
-function SupportCard({ title, description }: { title: string; description: string }) {
-  return (
-    <Card className="border-slate-200 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
-      <CardContent className="space-y-2 p-5">
-        <div className="text-base font-semibold text-slate-950">{title}</div>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </CardContent>
-    </Card>
   )
 }
