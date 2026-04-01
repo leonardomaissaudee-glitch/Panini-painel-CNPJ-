@@ -218,10 +218,6 @@ export default function CadastroPage() {
                 <h2 className="text-2xl font-bold text-slate-950 md:text-3xl">
                   Preencha os dados para análise do credenciamento
                 </h2>
-                <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                  Informe os campos obrigatórios com atenção. O foco desta página é concluir o cadastro sem retrabalho.
-                </p>
-
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex flex-wrap gap-2">
@@ -241,7 +237,7 @@ export default function CadastroPage() {
 
                 <FormSection
                   title="1. Dados de acesso"
-                  subtitle="O login do revendedor será feito com CNPJ e senha. Internamente, o sistema protege a autenticação com Supabase Auth."
+                  subtitle="O login do revendedor será feito com CNPJ e senha."
                 >
                   <div className="grid gap-4 md:grid-cols-3">
                     <FormField label="CNPJ *" error={fieldErrors.cnpj}>

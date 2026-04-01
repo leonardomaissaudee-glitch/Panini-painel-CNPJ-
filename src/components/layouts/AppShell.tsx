@@ -1,7 +1,6 @@
 ﻿import { Link, useLocation } from "react-router-dom"
 import { ReactNode, useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/features/auth/context/AuthContext"
 import { LogOut, Menu, X } from "lucide-react"
@@ -97,7 +96,6 @@ export function AppShell({ title, nav = [], actions, children, contentClassName 
               </Link>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <ThemeToggle />
               {actions}
               {user && (
                 <Button variant="outline" size="sm" onClick={() => signOut()}>

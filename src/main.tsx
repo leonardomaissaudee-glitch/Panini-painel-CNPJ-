@@ -27,7 +27,7 @@ createRoot(document.getElementById("root")!).render(
     <StrictMode>
       <ErrorBoundary>
         <BrowserRouter>
-          <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+          <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} forcedTheme="light">
             <Suspense fallback={
               <div className="flex h-screen w-full items-center justify-center">
                 <Spinner className="size-10 text-primary" />

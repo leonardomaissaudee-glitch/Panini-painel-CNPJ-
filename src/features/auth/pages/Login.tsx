@@ -144,12 +144,9 @@ export default function LoginPage() {
                 </LoadingButton>
               </form>
 
-              <div className="flex flex-col gap-3 text-sm text-slate-100 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 text-sm text-slate-100">
                 <Link to="/cadastro" className="inline-flex items-center gap-2 font-semibold text-amber-300 hover:text-amber-200">
                   Ainda não tenho cadastro <ArrowRight className="h-4 w-4" />
-                </Link>
-                <Link to="/loginadmin" className="text-slate-300 transition hover:text-white">
-                  Acesso administrativo
                 </Link>
               </div>
             </CardContent>

@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { ShoppingCart, LogIn, UserPlus, Menu, X, LogOut, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { isAnonymousAuthUser } from "@/features/auth/utils/authUser";
@@ -80,7 +79,6 @@ export function Header() {
               </Button>
             </>
           )}
-          <ThemeToggle />
           {showCart && (
             <Link to="/app/carrinho">
               <Button variant="outline" size="icon" className="relative">
