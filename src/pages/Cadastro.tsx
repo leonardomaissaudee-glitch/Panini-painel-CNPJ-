@@ -1,6 +1,6 @@
-import { useMemo, useState, type ComponentType } from "react"
+import { useState, type ComponentType } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { ArrowRight, BadgeCheck, Building2, ShieldCheck, Sparkles } from "lucide-react"
+import { ArrowRight, BadgeCheck, Building2, ShieldCheck } from "lucide-react"
 import { Footer } from "@/components/Footer"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -142,15 +142,6 @@ export default function CadastroPage() {
   const [submitError, setSubmitError] = useState("")
   const [submitting, setSubmitting] = useState(false)
 
-  const introStats = useMemo(
-    () => [
-      { title: "Fluxo empresarial", desc: "Cadastro estruturado para análise cadastral e abertura comercial." },
-      { title: "Dados protegidos", desc: "Uso exclusivo para credenciamento, contato e andamento do processo." },
-      { title: "Gerente de contas", desc: "Acompanhamento comercial após envio e validação cadastral." },
-    ],
-    []
-  )
-
   function updateField<K extends keyof CadastroFormState>(field: K, value: CadastroFormState[K]) {
     setFormData((current) => ({ ...current, [field]: value }))
     setFieldErrors((current) => {
@@ -199,107 +190,50 @@ export default function CadastroPage() {
     <div className="min-h-screen bg-[linear-gradient(180deg,#eef4ff_0%,#ffffff_28%,#fffdf7_100%)] text-slate-900">
       <section className="relative overflow-hidden bg-gradient-to-br from-blue-950 via-blue-900 to-slate-900 text-white">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,213,79,0.24),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(239,68,68,0.2),transparent_24%)]" />
-        <div className="container relative mx-auto grid gap-10 px-4 py-16 lg:grid-cols-[0.9fr,1.1fr] lg:items-center">
-          <div className="space-y-6">
+        <div className="container relative mx-auto px-4 py-8 md:py-9">
+          <div className="space-y-4">
             <Badge className="border-amber-300 bg-amber-200 text-amber-950">Credenciamento empresarial</Badge>
-            <div className="space-y-4">
-              <h1 className="max-w-3xl text-4xl font-bold leading-tight md:text-5xl">
-                Cadastro de Revendedor Panini
-              </h1>
-              <p className="max-w-2xl text-lg text-slate-100/90">
-                Preencha suas informações empresariais para iniciar seu credenciamento como revendedor dos produtos
-                Panini da Copa do Mundo FIFA 2026™.
-              </p>
-              <p className="max-w-2xl text-sm text-slate-200">
-                Processo seguro, organizado e com acompanhamento comercial após análise cadastral.
+            <div className="space-y-2.5">
+              <h1 className="max-w-3xl text-2xl font-bold leading-tight md:text-3xl">Cadastro de Revendedor Panini</h1>
+              <p className="max-w-3xl text-sm text-slate-100/90 md:text-base">
+                Preencha os dados da empresa para iniciar a análise comercial e a liberação do acesso.
               </p>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              {introStats.map((item) => (
-                <Card key={item.title} className="border-white/10 bg-white/8 text-white shadow-none backdrop-blur">
-                  <CardContent className="space-y-2 p-4">
-                    <div className="text-sm font-semibold">{item.title}</div>
-                    <p className="text-xs text-slate-200">{item.desc}</p>
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="grid gap-2 md:grid-cols-3">
+              <InfoPill icon={BadgeCheck} title="Sem taxa de adesão" />
+              <InfoPill icon={Building2} title="Análise empresarial" />
+              <InfoPill icon={ShieldCheck} title="Atendimento exclusivo" />
             </div>
           </div>
-
-          <Card className="border-white/10 bg-white/10 shadow-2xl backdrop-blur-xl">
-            <CardContent className="p-6 md:p-8">
-              <div className="grid gap-4 sm:grid-cols-3">
-                <InfoPill icon={BadgeCheck} title="Sem taxa de adesão" />
-                <InfoPill icon={Building2} title="Análise empresarial" />
-                <InfoPill icon={ShieldCheck} title="Atendimento exclusivo" />
-              </div>
-              <div className="mt-6 rounded-3xl border border-white/10 bg-slate-950/30 p-6 text-sm text-slate-100">
-                Seus dados serão utilizados exclusivamente para análise cadastral, contato comercial e continuidade do
-                processo de credenciamento.
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </section>
 
-      <section className="container mx-auto grid gap-8 px-4 py-12 lg:grid-cols-[0.36fr,0.64fr]">
-        <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
-          <Card className="overflow-hidden border-blue-100 shadow-xl">
-            <CardContent className="space-y-6 p-6">
-              <div className="space-y-2">
-                <div className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">Próximos passos</div>
-                <h2 className="text-2xl font-bold text-slate-950">Credenciamento com análise comercial</h2>
-                <p className="text-sm text-muted-foreground">
-                  Após o envio, um gerente de contas dará sequência ao atendimento conforme os dados informados.
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <StepItem
-                  number="1"
-                  title="Envio do cadastro"
-                  description="Validação dos dados empresariais e criação do acesso inicial."
-                />
-                <StepItem
-                  number="2"
-                  title="Análise cadastral"
-                  description="Conferência comercial e alinhamento do canal de revenda."
-                />
-                <StepItem
-                  number="3"
-                  title="Atendimento dedicado"
-                  description="Gerente de contas acompanha ativação, pedido e próximos passos."
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-amber-200 bg-amber-50 shadow-lg">
-            <CardContent className="space-y-4 p-6">
-              <div className="flex items-center gap-3">
-                <Sparkles className="h-5 w-5 text-amber-600" />
-                <div className="font-semibold text-slate-950">Antes de enviar</div>
-              </div>
-              <ul className="space-y-2 text-sm text-slate-700">
-                <li>• Informe o CNPJ exatamente como consta no cadastro empresarial.</li>
-                <li>• Use um e-mail operacional para contato, atualização cadastral e nota fiscal.</li>
-                <li>• Revise telefone e WhatsApp para acelerar o atendimento comercial.</li>
-              </ul>
-            </CardContent>
-          </Card>
-        </aside>
-
+      <section className="container mx-auto px-4 py-6 md:py-8">
         <div className="space-y-6">
           <Card className="border-slate-200 shadow-[0_28px_80px_-42px_rgba(15,23,42,0.48)]">
             <CardContent className="p-6 md:p-8">
-              <div className="mb-8 space-y-3">
+              <div className="mb-6 space-y-4">
                 <div className="text-sm font-semibold uppercase tracking-[0.22em] text-blue-700">Formulário empresarial</div>
-                <h2 className="text-3xl font-bold text-slate-950">Preencha todas as etapas do credenciamento</h2>
+                <h2 className="text-2xl font-bold text-slate-950 md:text-3xl">
+                  Preencha os dados para análise do credenciamento
+                </h2>
                 <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                  Campos obrigatórios estão marcados e os dados são validados antes do envio. O acesso do revendedor
-                  utiliza CNPJ e senha na experiência do usuário, com autenticação estruturada em ambiente seguro.
+                  Informe os campos obrigatórios com atenção. O foco desta página é concluir o cadastro sem retrabalho.
                 </p>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-wrap gap-2">
+                      <CompactStep label="1. Envio" />
+                      <CompactStep label="2. Análise" />
+                      <CompactStep label="3. Contato comercial" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Confira CNPJ, e-mail operacional e WhatsApp antes de enviar.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
@@ -616,18 +550,8 @@ export default function CadastroPage() {
   )
 }
 
-function StepItem({ number, title, description }: { number: string; title: string; description: string }) {
-  return (
-    <div className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-4">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-900 text-sm font-semibold text-white">
-        {number}
-      </div>
-      <div className="space-y-1">
-        <div className="font-semibold text-slate-950">{title}</div>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
-    </div>
-  )
+function CompactStep({ label }: { label: string }) {
+  return <div className="rounded-full border border-blue-100 bg-white px-3 py-2 text-sm font-medium text-slate-700">{label}</div>
 }
 
 function InfoPill({
@@ -638,7 +562,7 @@ function InfoPill({
   title: string
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-slate-100">
+    <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-sm text-slate-100">
       <Icon className="h-4 w-4 text-amber-300" />
       <span className="font-medium">{title}</span>
     </div>
