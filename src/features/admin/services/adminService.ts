@@ -194,6 +194,7 @@ export interface UpdateUserInput {
   reseller_id?: string | null
   full_name: string
   email: string
+  password?: string | null
   telefone?: string | null
   documento?: string | null
   tipo_documento?: "cpf" | "cnpj" | null
@@ -228,6 +229,7 @@ export interface UpdateClientInput {
   nome_fantasia?: string | null
   cnpj: string
   email: string
+  password?: string | null
   telefone: string
   whatsapp?: string | null
   cep: string
@@ -393,6 +395,10 @@ function parseFunctionError(payload: any, fallback: string) {
       return "Cliente não encontrado."
     case "user_not_found":
       return "Usuário não encontrado."
+    case "password_update_requires_auth_user":
+      return "Esse registro não possui acesso vinculado no Auth. Não foi possível definir a senha."
+    case "password_too_short":
+      return "A nova senha precisa ter pelo menos 6 caracteres."
     case "self_delete_forbidden":
       return "Não é permitido excluir o próprio usuário administrador."
     case "legacy_profile_sync_failed":

@@ -1014,6 +1014,8 @@ async function handleRejectReseller(supabase, body) {
 async function handleUpdateClient(supabase, body) {
   const resellerId = asText(body.resellerId, 120)
   if (!resellerId) throw new Error("reseller_id_required")
+  const newPassword = asNullableText(body.password, 255)
+  if (newPassword && newPassword.length < 6) throw new Error("password_too_short")
 
   const { data: reseller, error: loadError } = await supabase
     .from("reseller_profiles")
@@ -1026,6 +1028,21 @@ async function handleUpdateClient(supabase, body) {
   const statusMap = normalizeApprovalStatus(body.status_cadastro)
   const now = new Date().toISOString()
   const safeAuthUserId = await resolveExistingAuthUserId(supabase, reseller.user_id)
+
+  if (newPassword && !safeAuthUserId) {
+    throw new Error("password_update_requires_auth_user")
+  }
+
+  if (newPassword && safeAuthUserId) {
+    const { error: authPasswordError } = await supabase.auth.admin.updateUserById(safeAuthUserId, {
+      password: newPassword,
+    })
+
+    if (authPasswordError && !isMissingAuthUserError(authPasswordError)) {
+      throw authPasswordError
+    }
+  }
+
   const resellerPayload = {
     razao_social: asNullableText(body.razao_social, 255) || reseller.razao_social,
     nome_fantasia: asNullableText(body.nome_fantasia, 255),
@@ -1190,6 +1207,8 @@ async function handleCreateUser(supabase, body) {
 async function handleUpdateUser(supabase, body) {
   const targetId = asText(body.userId, 120)
   if (!targetId) throw new Error("user_id_required")
+  const newPassword = asNullableText(body.password, 255)
+  if (newPassword && newPassword.length < 6) throw new Error("password_too_short")
 
   const loadedProfile = await findLegacyProfile(supabase, {
     profileId: targetId,
@@ -1230,6 +1249,9 @@ async function handleUpdateUser(supabase, body) {
     supabase,
     existingProfile.auth_user_id || resellerProfile?.user_id || null
   )
+  if (newPassword && !authUserId) {
+    throw new Error("password_update_requires_auth_user")
+  }
   const targetType = asNullableText(body.user_type, 32) || existingProfile.user_type || existingProfile.role || "vendedor"
   const { role, userType } = mapUserType(targetType)
   const statusMap = normalizeApprovalStatus(body.status_cadastro || existingProfile.status_cadastro)
@@ -1296,8 +1318,9 @@ async function handleUpdateUser(supabase, body) {
   }
 
   if (authUserId) {
-    const { error: authUpdateError } = await supabase.auth.admin.updateUserById(authUserId, {
+    const authUpdatePayload = {
       email,
+      ...(newPassword ? { password: newPassword } : {}),
       user_metadata: {
         full_name: finalFullName,
         telefone: phone || existingReseller?.telefone || existingProfile.telefone || null,
@@ -1306,7 +1329,9 @@ async function handleUpdateUser(supabase, body) {
         user_type: userType,
         company_name: role === "client" ? finalRazaoSocial : companyName || existingProfile.company_name || null,
       },
-    })
+    }
+
+    const { error: authUpdateError } = await supabase.auth.admin.updateUserById(authUserId, authUpdatePayload)
 
     if (authUpdateError && !isMissingAuthUserError(authUpdateError)) throw authUpdateError
   }

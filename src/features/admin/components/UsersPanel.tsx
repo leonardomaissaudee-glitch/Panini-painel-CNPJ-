@@ -126,6 +126,7 @@ export function UsersPanel() {
     reseller_id: user.reseller_id || null,
     full_name: drafts[user.id]?.full_name ?? user.full_name ?? user.company_name ?? "",
     email: drafts[user.id]?.email ?? user.email ?? "",
+    password: drafts[user.id]?.password ?? "",
     telefone: drafts[user.id]?.telefone ?? user.telefone ?? "",
     documento: drafts[user.id]?.documento ?? user.documento ?? "",
     tipo_documento: drafts[user.id]?.tipo_documento ?? user.tipo_documento ?? (user.user_type === "cliente" ? "cnpj" : "cpf"),
@@ -484,6 +485,14 @@ export function UsersPanel() {
                         )}
                         <Field label="E-mail">
                           <Input type="email" value={draft.email} onChange={(event) => updateDraft(user.id, { email: event.target.value })} />
+                        </Field>
+                        <Field label="Nova senha">
+                          <Input
+                            type="password"
+                            placeholder="Deixe em branco para manter"
+                            value={draft.password || ""}
+                            onChange={(event) => updateDraft(user.id, { password: event.target.value })}
+                          />
                         </Field>
                         <Field label="Telefone">
                           <Input value={draft.telefone || ""} onChange={(event) => updateDraft(user.id, { telefone: event.target.value })} />

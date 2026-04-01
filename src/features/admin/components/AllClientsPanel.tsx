@@ -99,6 +99,7 @@ export function AllClientsPanel({
     nome_fantasia: drafts[client.id]?.nome_fantasia ?? client.nome_fantasia ?? "",
     cnpj: drafts[client.id]?.cnpj ?? client.cnpj,
     email: drafts[client.id]?.email ?? client.email,
+    password: drafts[client.id]?.password ?? "",
     telefone: drafts[client.id]?.telefone ?? client.telefone,
     whatsapp: drafts[client.id]?.whatsapp ?? client.whatsapp ?? "",
     cep: drafts[client.id]?.cep ?? client.cep ?? "",
@@ -267,6 +268,14 @@ export function AllClientsPanel({
                       </Field>
                       <Field label="E-mail">
                         <Input value={draft.email} onChange={(event) => updateDraft(client.id, { email: event.target.value })} />
+                      </Field>
+                      <Field label="Nova senha">
+                        <Input
+                          type="password"
+                          placeholder="Deixe em branco para manter"
+                          value={draft.password || ""}
+                          onChange={(event) => updateDraft(client.id, { password: event.target.value })}
+                        />
                       </Field>
                       <Field label="Telefone">
                         <Input value={draft.telefone} onChange={(event) => updateDraft(client.id, { telefone: event.target.value })} />
