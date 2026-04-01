@@ -652,6 +652,158 @@ async function updateResellerProfileWithFallback(supabase, resellerId, payload) 
   if (fallbackError) throw fallbackError
 }
 
+async function clearManagerAssignments(supabase, { authUserId, email }) {
+  const normalizedEmail = asNullableText(email, 255)?.toLowerCase() || null
+  const now = new Date().toISOString()
+
+  const profileSchema = await loadTableSchema(supabase, "profiles")
+  const resellerSchema = await loadTableSchema(supabase, "reseller_profiles")
+
+  const profilePayload = filterPayloadToSchema(
+    {
+      account_manager_user_id: null,
+      account_manager_name: null,
+      account_manager_email: null,
+      account_manager_whatsapp: null,
+      updated_at: now,
+    },
+    profileSchema
+  )
+
+  const resellerPayload = filterPayloadToSchema(
+    {
+      account_manager_user_id: null,
+      account_manager_name: null,
+      account_manager_email: null,
+      account_manager_whatsapp: null,
+      updated_at: now,
+    },
+    resellerSchema
+  )
+
+  if (authUserId && hasColumn(profileSchema, "account_manager_user_id") && Object.keys(profilePayload).length > 0) {
+    const { error } = await supabase.from("profiles").update(profilePayload).eq("account_manager_user_id", authUserId)
+    if (error) throw error
+  }
+
+  if (normalizedEmail && hasColumn(profileSchema, "account_manager_email") && Object.keys(profilePayload).length > 0) {
+    const { error } = await supabase.from("profiles").update(profilePayload).ilike("account_manager_email", normalizedEmail)
+    if (error) throw error
+  }
+
+  if (authUserId && hasColumn(resellerSchema, "account_manager_user_id") && Object.keys(resellerPayload).length > 0) {
+    const { error } = await supabase.from("reseller_profiles").update(resellerPayload).eq("account_manager_user_id", authUserId)
+    if (error) throw error
+  }
+
+  if (normalizedEmail && hasColumn(resellerSchema, "account_manager_email") && Object.keys(resellerPayload).length > 0) {
+    const { error } = await supabase.from("reseller_profiles").update(resellerPayload).ilike("account_manager_email", normalizedEmail)
+    if (error) throw error
+  }
+}
+
+async function deleteLegacyProfiles(supabase, { profileId, authUserId, email }) {
+  if (profileId) {
+    const { error } = await supabase.from("profiles").delete().eq("id", profileId)
+    if (error) throw error
+  }
+
+  if (authUserId) {
+    const { error } = await supabase.from("profiles").delete().eq("auth_user_id", authUserId)
+    if (error) throw error
+  }
+
+  if (email) {
+    const { error } = await supabase.from("profiles").delete().ilike("email", email)
+    if (error) throw error
+  }
+}
+
+async function deleteResellerProfiles(supabase, { resellerId, authUserId, email }) {
+  if (resellerId) {
+    const { error } = await supabase.from("reseller_profiles").delete().eq("id", resellerId)
+    if (error) throw error
+  }
+
+  if (authUserId) {
+    const { error } = await supabase.from("reseller_profiles").delete().eq("user_id", authUserId)
+    if (error) throw error
+  }
+
+  if (email) {
+    const { error } = await supabase.from("reseller_profiles").delete().ilike("email", email)
+    if (error) throw error
+  }
+}
+
+async function handleDeleteUser(supabase, body, adminUserId) {
+  const targetId = asText(body.userId, 120)
+  const resellerId = asNullableText(body.reseller_id || body.resellerId, 120)
+  const email = asNullableText(body.email, 255)?.toLowerCase() || null
+
+  const loadedProfile = await findLegacyProfile(supabase, {
+    profileId: targetId,
+    authUserId: targetId,
+    email,
+  })
+  const resellerProfile = await findResellerProfile(supabase, {
+    resellerId: resellerId || targetId,
+    authUserId: targetId,
+    email,
+  })
+
+  if (!loadedProfile && !resellerProfile) {
+    throw new Error("user_not_found")
+  }
+
+  const authUserId = await resolveExistingAuthUserId(
+    supabase,
+    loadedProfile?.auth_user_id || resellerProfile?.user_id || null
+  )
+
+  if (authUserId && authUserId === adminUserId) {
+    throw new Error("self_delete_forbidden")
+  }
+
+  const targetUserType =
+    asNullableText(body.user_type, 32) ||
+    loadedProfile?.user_type ||
+    loadedProfile?.role ||
+    (resellerProfile ? "cliente" : null)
+
+  const profileEmail = email || loadedProfile?.email?.toLowerCase() || resellerProfile?.email?.toLowerCase() || null
+
+  if (targetUserType === "gerente") {
+    await clearManagerAssignments(supabase, {
+      authUserId,
+      email: profileEmail,
+    })
+  }
+
+  if (authUserId) {
+    const { error: authDeleteError } = await supabase.auth.admin.deleteUser(authUserId)
+    if (authDeleteError && !isMissingAuthUserError(authDeleteError)) {
+      throw authDeleteError
+    }
+  }
+
+  await deleteResellerProfiles(supabase, {
+    resellerId: resellerProfile?.id || resellerId,
+    authUserId,
+    email: profileEmail,
+  })
+
+  await deleteLegacyProfiles(supabase, {
+    profileId: loadedProfile?.id || targetId,
+    authUserId,
+    email: profileEmail,
+  })
+
+  return {
+    id: authUserId || loadedProfile?.id || resellerProfile?.id || targetId || resellerId,
+  }
+}
+
 async function handleUpdateOrder(supabase, body, adminUserId) {
   const orderId = asText(body.orderId, 120)
   if (!orderId) throw new Error("order_id_required")
@@ -1306,6 +1458,9 @@ export async function handler(event) {
         break
       case "update-user":
         data = await handleUpdateUser(supabase, body)
+        break
+      case "delete-user":
+        data = await handleDeleteUser(supabase, body, user.id)
         break
       case "create-user":
         data = await handleCreateUser(supabase, body)

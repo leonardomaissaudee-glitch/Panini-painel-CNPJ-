@@ -393,6 +393,8 @@ function parseFunctionError(payload: any, fallback: string) {
       return "Cliente não encontrado."
     case "user_not_found":
       return "Usuário não encontrado."
+    case "self_delete_forbidden":
+      return "Não é permitido excluir o próprio usuário administrador."
     case "legacy_profile_sync_failed":
       return "Falha ao sincronizar o perfil legado do cliente."
     case "reseller_update_failed":
@@ -839,6 +841,21 @@ export async function saveUser(input: UpdateUserInput) {
       ...input,
     },
     "Não foi possível salvar o usuário."
+  )
+}
+
+export async function deleteUserRecord(input: {
+  userId?: string | null
+  reseller_id?: string | null
+  email?: string | null
+  user_type?: string | null
+}) {
+  return callAdminAction<{ id: string }>(
+    {
+      action: "delete-user",
+      ...input,
+    },
+    "Não foi possível excluir o registro."
   )
 }
 

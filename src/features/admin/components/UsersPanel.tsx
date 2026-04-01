@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useState, type ReactNode } from "react"
-import { ChevronDown, ChevronUp, Plus, Save } from "lucide-react"
+import { ChevronDown, ChevronUp, Plus, Save, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,6 +9,7 @@ import { toast } from "sonner"
 import { useAuth } from "@/features/auth/context/AuthContext"
 import {
   createManualUser,
+  deleteUserRecord,
   fetchAccountManagers,
   fetchAdminUsers,
   saveUser,
@@ -64,6 +65,7 @@ export function UsersPanel() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savingUserId, setSavingUserId] = useState<string | null>(null)
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [users, setUsers] = useState<AdminUserRow[]>([])
   const [managers, setManagers] = useState<AccountManagerDirectoryRow[]>([])
@@ -252,6 +254,29 @@ export function UsersPanel() {
       toast.error("Erro ao salvar usuário", { description: message })
     } finally {
       setSavingUserId(null)
+    }
+  }
+
+  const handleDelete = async (user: AdminUserRow) => {
+    const displayName = getUserDisplayName(user)
+    const confirmed = window.confirm(`Excluir ${displayName}? O registro deixará de constar no sistema.`)
+    if (!confirmed) return
+
+    try {
+      setDeletingUserId(user.id)
+      await deleteUserRecord({
+        userId: user.auth_user_id || user.id,
+        reseller_id: user.reseller_id || null,
+        email: user.email || null,
+        user_type: user.user_type || user.role,
+      })
+      toast.success("Registro excluído")
+      await load()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Não foi possível excluir o registro."
+      toast.error("Erro ao excluir", { description: message })
+    } finally {
+      setDeletingUserId(null)
     }
   }
 
@@ -579,10 +604,16 @@ export function UsersPanel() {
                           </Field>
                         </div>
                         <div className="flex justify-end">
-                          <Button onClick={() => handleSave(user)} disabled={savingUserId === user.id}>
-                            <Save className="mr-2 h-4 w-4" />
-                            {savingUserId === user.id ? "Salvando..." : "Salvar usuário"}
-                          </Button>
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <Button variant="destructive" onClick={() => handleDelete(user)} disabled={deletingUserId === user.id || savingUserId === user.id}>
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              {deletingUserId === user.id ? "Excluindo..." : "Excluir"}
+                            </Button>
+                            <Button onClick={() => handleSave(user)} disabled={savingUserId === user.id || deletingUserId === user.id}>
+                              <Save className="mr-2 h-4 w-4" />
+                              {savingUserId === user.id ? "Salvando..." : "Salvar usuário"}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>

@@ -1,11 +1,12 @@
 ﻿import { useEffect, useMemo, useState } from "react"
-import { ChevronDown, ChevronUp } from "lucide-react"
+import { ChevronDown, ChevronUp, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import {
   approveProfile,
+  deleteUserRecord,
   fetchAccountManagers,
   fetchPendingProfiles,
   rejectProfile,
@@ -110,6 +111,34 @@ export function PendingApprovals() {
     }
   }
 
+  const handleDelete = async (id: string) => {
+    const row = rows.find((item) => item.id === id)
+    if (!row) {
+      toast.error("Erro ao excluir", { description: "Cadastro não encontrado na lista local." })
+      return
+    }
+
+    const confirmed = window.confirm(`Excluir o cadastro de ${row.razao_social}? O registro deixará de constar no sistema.`)
+    if (!confirmed) return
+
+    try {
+      setSavingId(id)
+      await deleteUserRecord({
+        userId: row.user_id,
+        reseller_id: row.id,
+        email: row.email || null,
+        user_type: "cliente",
+      })
+      toast.success("Cadastro excluído")
+      await load()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Não foi possível excluir o cadastro."
+      toast.error("Erro ao excluir", { description: message })
+    } finally {
+      setSavingId(null)
+    }
+  }
+
   return (
     <Card className="border-slate-200 shadow-sm">
       <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -205,6 +234,10 @@ export function PendingApprovals() {
                         </Button>
                         <Button variant="destructive" onClick={() => handleReject(row.id)} disabled={isSaving}>
                           Reprovar
+                        </Button>
+                        <Button variant="outline" onClick={() => handleDelete(row.id)} disabled={isSaving}>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Excluir cadastro
                         </Button>
                       </div>
                     </div>

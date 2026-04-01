@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useState, type ReactNode } from "react"
-import { ChevronDown, ChevronUp, Save } from "lucide-react"
+import { ChevronDown, ChevronUp, Save, Trash2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/StatusBadge"
 import {
   fetchAccountManagers,
   fetchAllClients,
+  deleteUserRecord,
   fetchManagedClients,
   saveUser,
   type AccountManagerDirectoryRow,
@@ -42,6 +43,7 @@ export function AllClientsPanel({
   const [managers, setManagers] = useState<AccountManagerDirectoryRow[]>([])
   const [loading, setLoading] = useState(false)
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("todos")
   const [managerFilter, setManagerFilter] = useState("todos")
@@ -157,6 +159,28 @@ export function AllClientsPanel({
       toast.error("Erro ao salvar cliente", { description: message })
     } finally {
       setSavingId(null)
+    }
+  }
+
+  const handleDelete = async (client: ClientAdminRow) => {
+    const confirmed = window.confirm(`Excluir o cliente ${client.razao_social}? O registro deixará de constar no sistema.`)
+    if (!confirmed) return
+
+    try {
+      setDeletingId(client.id)
+      await deleteUserRecord({
+        userId: client.user_id || client.profile_id || client.id,
+        reseller_id: client.id,
+        email: client.email || null,
+        user_type: client.user_type || "cliente",
+      })
+      toast.success("Cliente excluído")
+      await load()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Não foi possível excluir o cliente."
+      toast.error("Erro ao excluir cliente", { description: message })
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -322,12 +346,18 @@ export function AllClientsPanel({
                           <Input value={draft.account_manager_whatsapp || ""} readOnly />
                         </Field>
                       </div>
-                      <div className="flex justify-end">
-                        <Button onClick={() => handleSave(client)} disabled={savingId === client.id}>
-                          <Save className="mr-2 h-4 w-4" />
-                          {savingId === client.id ? "Salvando..." : "Salvar cliente"}
-                        </Button>
-                      </div>
+                       <div className="flex flex-wrap justify-end gap-2">
+                         {mode === "admin" ? (
+                           <Button variant="destructive" onClick={() => handleDelete(client)} disabled={deletingId === client.id || savingId === client.id}>
+                             <Trash2 className="mr-2 h-4 w-4" />
+                             {deletingId === client.id ? "Excluindo..." : "Excluir"}
+                           </Button>
+                         ) : null}
+                         <Button onClick={() => handleSave(client)} disabled={savingId === client.id || deletingId === client.id}>
+                           <Save className="mr-2 h-4 w-4" />
+                           {savingId === client.id ? "Salvando..." : "Salvar cliente"}
+                         </Button>
+                       </div>
                     </div>
                   </div>
                 </div>
