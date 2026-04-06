@@ -844,8 +844,12 @@ async function handleUpdateOrder(supabase, body, adminUserId) {
   const subtotal = Number(items.reduce((sum, item) => sum + asNumber(item.subtotal), 0).toFixed(2))
   const paymentMethod = asNullableText(body.payment_method, 32) || currentOrder.payment_method || null
   const automaticPricing = calculateAutomaticOrderPricing(subtotal, paymentMethod)
+  const requestedAutomaticDiscount =
+    body.automatic_discount_amount === undefined || body.automatic_discount_amount === null || body.automatic_discount_amount === ""
+      ? automaticPricing.automaticDiscount
+      : asNumber(body.automatic_discount_amount)
   const automaticDiscountAmount = Number(
-    Math.min(subtotal, Math.max(0, asNumber(body.automatic_discount_amount || automaticPricing.automaticDiscount))).toFixed(2)
+    Math.min(subtotal, Math.max(0, requestedAutomaticDiscount)).toFixed(2)
   )
 
   const discountType = asNullableText(body.admin_discount_type, 20)
