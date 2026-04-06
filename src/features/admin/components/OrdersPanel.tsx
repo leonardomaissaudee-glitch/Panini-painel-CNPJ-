@@ -21,6 +21,7 @@ import {
   type OrderStatus,
 } from "@/features/admin/services/adminService"
 import { ORDER_STATUS_OPTIONS } from "@/shared/constants/orderStatus"
+import { calculateAutomaticOrderPricing } from "@/shared/utils/orderPricing"
 
 type StatusTab =
   | "todos"
@@ -218,25 +219,32 @@ function buildDraft(order: OrderRow): OrderDraft {
 
 function calculateDraftTotals(draft: OrderDraft) {
   const originalSubtotal = Number(draft.items.reduce((sum, item) => sum + Math.max(1, item.quantity) * Math.max(0, item.price), 0).toFixed(2))
-  let discountAmount = 0
+  const automaticPricing = calculateAutomaticOrderPricing(originalSubtotal, draft.payment_method)
+  let manualDiscountAmount = 0
   const discountValue = parseNumber(draft.admin_discount_value)
-  if (draft.admin_discount_type === "percent") discountAmount = Number((originalSubtotal * (discountValue / 100)).toFixed(2))
-  else if (draft.admin_discount_type === "value") discountAmount = Number(Math.min(originalSubtotal, discountValue).toFixed(2))
+  const subtotalAfterAutomatic = Math.max(0, originalSubtotal - automaticPricing.automaticDiscount)
+  if (draft.admin_discount_type === "percent") manualDiscountAmount = Number((subtotalAfterAutomatic * (discountValue / 100)).toFixed(2))
+  else if (draft.admin_discount_type === "value") manualDiscountAmount = Number(Math.min(subtotalAfterAutomatic, discountValue).toFixed(2))
 
   let bonusAmount = 0
   const bonusValue = parseNumber(draft.admin_bonus_value)
   let bonusProductName = ""
-  if (draft.admin_bonus_type === "value") bonusAmount = Number(Math.min(Math.max(0, originalSubtotal - discountAmount), bonusValue).toFixed(2))
+  if (draft.admin_bonus_type === "value") {
+    bonusAmount = Number(Math.min(Math.max(0, subtotalAfterAutomatic - manualDiscountAmount), bonusValue).toFixed(2))
+  }
   else if (draft.admin_bonus_type === "item") {
     const bonusProduct = productMap.get(draft.admin_bonus_product_id)
     bonusProductName = bonusProduct?.name || ""
     bonusAmount = Number((Math.max(0, bonusProduct?.price || 0) * Math.max(1, draft.admin_bonus_quantity)).toFixed(2))
   }
 
-  const total = Number(Math.max(0, originalSubtotal - discountAmount - bonusAmount).toFixed(2))
+  const total = Number(Math.max(0, originalSubtotal - automaticPricing.automaticDiscount - manualDiscountAmount - bonusAmount).toFixed(2))
   return {
     originalSubtotal,
-    discountAmount,
+    planDiscountAmount: automaticPricing.planDiscount,
+    pixDiscountAmount: automaticPricing.pixDiscount,
+    automaticDiscountAmount: automaticPricing.automaticDiscount,
+    manualDiscountAmount,
     bonusAmount,
     total,
     items: draft.items.map((item) => ({
@@ -249,6 +257,7 @@ function calculateDraftTotals(draft: OrderDraft) {
       subtotal: Number((Math.max(1, item.quantity) * Math.max(0, item.price)).toFixed(2)),
     })),
     bonusProductName,
+    discountTier: automaticPricing.tier,
   }
 }
 
@@ -396,7 +405,7 @@ export function OrdersPanel() {
         payment_pix_qr_code: draft.payment_pix_qr_code || null,
         admin_discount_type: draft.admin_discount_type === "none" ? null : draft.admin_discount_type,
         admin_discount_value: draft.admin_discount_type === "none" ? null : parseNumber(draft.admin_discount_value),
-        admin_discount_amount: totals.discountAmount,
+        admin_discount_amount: totals.manualDiscountAmount,
         admin_bonus_type: draft.admin_bonus_type === "none" ? null : draft.admin_bonus_type,
         admin_bonus_value: draft.admin_bonus_type === "value" ? parseNumber(draft.admin_bonus_value) : null,
         admin_bonus_amount: totals.bonusAmount,
@@ -510,7 +519,7 @@ export function OrdersPanel() {
                     <div className="truncate text-sm font-medium text-slate-900">{order.customer_name}</div>
                     <div className="truncate text-xs text-slate-500">{order.customer_email}</div>
                   </div>
-                  <SummaryChip label="Valor" value={formatMoney(order.total)} />
+                  <SummaryChip label="Valor" value={formatMoney(totals.total)} />
                   <SummaryChip label="Pagamento" value={formatPaymentMethod(order.payment_method)} />
                   <div>
                     <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Status</div>
@@ -563,15 +572,38 @@ export function OrdersPanel() {
                         </SectionCard>
                         <SectionCard title="Desconto e bonificacao">
                           <div className="grid gap-4 lg:grid-cols-2">
+                            <div className="space-y-3 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                              <Label className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Desconto automatico do carrinho</Label>
+                              <div className="space-y-2 text-sm text-slate-700">
+                                <div className="flex items-center justify-between">
+                                  <span>Plano</span>
+                                  <span className="font-semibold">
+                                    {totals.discountTier ? `${totals.discountTier.name} (${totals.discountTier.percentage}%)` : "Sem desconto"}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span>Desconto do plano</span>
+                                  <span className="font-semibold">{formatMoney(totals.planDiscountAmount)}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span>Desconto PIX</span>
+                                  <span className="font-semibold">{formatMoney(totals.pixDiscountAmount)}</span>
+                                </div>
+                                <div className="flex items-center justify-between border-t border-blue-200 pt-2">
+                                  <span>Total automatico</span>
+                                  <span className="font-semibold text-slate-950">{formatMoney(totals.automaticDiscountAmount)}</span>
+                                </div>
+                              </div>
+                            </div>
                             <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                              <Label className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Desconto</Label>
+                              <Label className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Desconto manual</Label>
                               <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={draft.admin_discount_type} onChange={(event) => setField(order.id, "admin_discount_type", event.target.value as DiscountType)}>
                                 <option value="none">Sem desconto</option>
                                 <option value="percent">Percentual (%)</option>
                                 <option value="value">Valor fixo</option>
                               </select>
                               {draft.admin_discount_type !== "none" ? <Input type="number" min={0} step="0.01" value={draft.admin_discount_value} onChange={(event) => setField(order.id, "admin_discount_value", event.target.value)} placeholder={draft.admin_discount_type === "percent" ? "Ex: 10" : "Ex: 150"} /> : null}
-                              <div className="text-sm text-slate-600">Desconto calculado: <span className="font-semibold text-slate-950">{formatMoney(totals.discountAmount)}</span></div>
+                              <div className="text-sm text-slate-600">Desconto calculado: <span className="font-semibold text-slate-950">{formatMoney(totals.manualDiscountAmount)}</span></div>
                             </div>
                             <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                               <Label className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Bonificacao</Label>
@@ -639,9 +671,10 @@ export function OrdersPanel() {
                           )}
                         </SectionCard>
                         <SectionCard title="Resumo financeiro">
-                          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                             <MetricCard label="Valor original" value={formatMoney(totals.originalSubtotal)} />
-                            <MetricCard label="Desconto" value={formatMoney(totals.discountAmount)} />
+                            <MetricCard label="Desc. automatico" value={formatMoney(totals.automaticDiscountAmount)} />
+                            <MetricCard label="Desc. manual" value={formatMoney(totals.manualDiscountAmount)} />
                             <MetricCard label="Bonificacao" value={formatMoney(totals.bonusAmount)} />
                             <MetricCard label="Total final" value={formatMoney(totals.total)} highlight />
                           </div>

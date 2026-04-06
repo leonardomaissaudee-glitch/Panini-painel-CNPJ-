@@ -8,6 +8,7 @@ import { fetchMyOrders, submitClientPaymentReceipt, uploadClientPaymentReceipt }
 import type { OrderRow } from "@/features/admin/services/adminService"
 import { getOrderStatusLabel } from "@/shared/constants/orderStatus"
 import { StatusBadge } from "@/components/StatusBadge"
+import { calculateAutomaticOrderPricing } from "@/shared/utils/orderPricing"
 
 const orderTimeline = [
   "aguardando_aprovacao",
@@ -143,6 +144,12 @@ export function ClientOrders({
           const draft = receiptDrafts[order.id]
           const hasInvoiceLink = isUrl(order.invoice_number)
           const hasTrackingLink = isUrl(order.tracking_code)
+          const automaticPricing = calculateAutomaticOrderPricing(Number(order.subtotal || 0), order.payment_method)
+          const manualDiscountAmount = Number(order.admin_discount_amount || 0)
+          const bonusAmount = Number(order.admin_bonus_amount || 0)
+          const finalTotal = Number(
+            Math.max(0, Number(order.subtotal || 0) - automaticPricing.automaticDiscount - manualDiscountAmount - bonusAmount).toFixed(2)
+          )
 
           return (
             <div key={order.id} className="rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -159,7 +166,7 @@ export function ClientOrders({
                   <div className="truncate text-sm font-medium text-slate-900">{order.customer_name}</div>
                 </div>
 
-                <Metric label="Valor" value={`R$ ${Number(order.total || 0).toFixed(2)}`} />
+                <Metric label="Valor" value={formatMoney(finalTotal)} />
                 <Metric label="Pagamento" value={getPaymentMethodLabel(order.payment_method)} />
 
                 <div className="space-y-2">
@@ -286,6 +293,32 @@ export function ClientOrders({
                           )
                         })}
 
+                        {(automaticPricing.automaticDiscount > 0 || manualDiscountAmount > 0) && (
+                          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3">
+                            <div className="text-sm font-semibold text-blue-950">Descontos aplicados</div>
+                            <div className="mt-3 space-y-2 text-xs text-blue-900">
+                              {automaticPricing.planDiscount > 0 ? (
+                                <div className="flex items-center justify-between gap-3">
+                                  <span>Desconto do plano{automaticPricing.tier ? ` (${automaticPricing.tier.name} ${automaticPricing.tier.percentage}%)` : ""}</span>
+                                  <span className="font-semibold">- {formatMoney(automaticPricing.planDiscount)}</span>
+                                </div>
+                              ) : null}
+                              {automaticPricing.pixDiscount > 0 ? (
+                                <div className="flex items-center justify-between gap-3">
+                                  <span>Desconto adicional PIX</span>
+                                  <span className="font-semibold">- {formatMoney(automaticPricing.pixDiscount)}</span>
+                                </div>
+                              ) : null}
+                              {manualDiscountAmount > 0 ? (
+                                <div className="flex items-center justify-between gap-3">
+                                  <span>Desconto manual do pedido</span>
+                                  <span className="font-semibold">- {formatMoney(manualDiscountAmount)}</span>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        )}
+
                         {order.admin_bonus_type === "value" && Number(order.admin_bonus_amount || 0) > 0 ? (
                           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
                             <div className="text-sm font-semibold text-emerald-900">Bonificação financeira</div>
@@ -321,6 +354,20 @@ export function ClientOrders({
                             </div>
                           </div>
                         ) : null}
+
+                        <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                          <div className="text-sm font-semibold text-slate-900">Resumo financeiro</div>
+                          <div className="mt-3 space-y-2 text-xs text-slate-600">
+                            <div className="flex items-center justify-between gap-3">
+                              <span>Subtotal original</span>
+                              <span className="font-semibold text-slate-900">{formatMoney(Number(order.subtotal || 0))}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <span>Total final</span>
+                              <span className="font-semibold text-slate-900">{formatMoney(finalTotal)}</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -520,6 +567,10 @@ function getEstimatedDeliveryLabel() {
     day: "numeric",
     month: "long",
   }).format(estimatedDate)
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value || 0))
 }
 
 function normalizeOrderStatus(status?: string | null): OrderTimelineStatus {

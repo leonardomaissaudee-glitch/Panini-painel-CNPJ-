@@ -3,34 +3,15 @@ import type { OrderRow } from "@/features/admin/services/adminService"
 import type { OrderStatus } from "@/shared/constants/orderStatus"
 import type { Cart } from "@/types"
 import type { ResellerProfile } from "@/lib/auth"
+import { calculateAutomaticOrderPricing, getDiscountTier, type OrderPricingTier } from "@/shared/utils/orderPricing"
 
 export type ClientPaymentMethod = "pix" | "credit_card" | "boleto"
+export type DiscountTier = OrderPricingTier
 
-type DiscountTier = {
-  name: "Classic" | "Standard" | "Premium"
-  percentage: number
-}
-
-export function getDiscountTier(subtotal: number): DiscountTier | null {
-  if (subtotal >= 5000) return { name: "Premium", percentage: 20 }
-  if (subtotal >= 2500) return { name: "Standard", percentage: 12 }
-  if (subtotal >= 800) return { name: "Classic", percentage: 5 }
-  return null
-}
+export { getDiscountTier }
 
 export function calculateCartPricing(subtotal: number, paymentMethod: ClientPaymentMethod) {
-  const tier = getDiscountTier(subtotal)
-  const planDiscount = tier ? Number((subtotal * (tier.percentage / 100)).toFixed(2)) : 0
-  const totalAfterPlan = Number((subtotal - planDiscount).toFixed(2))
-  const pixDiscount = paymentMethod === "pix" ? Number((totalAfterPlan * 0.05).toFixed(2)) : 0
-  const total = Number((totalAfterPlan - pixDiscount).toFixed(2))
-
-  return {
-    tier,
-    planDiscount,
-    pixDiscount,
-    total,
-  }
+  return calculateAutomaticOrderPricing(subtotal, paymentMethod)
 }
 
 export async function fetchMyOrders(customerEmail: string): Promise<OrderRow[]> {
@@ -128,6 +109,7 @@ export async function createClientOrder({
       shipping_postal_code: profile.cep,
       items,
       subtotal,
+      original_total: subtotal,
       shipping_cost: 0,
       total: pricing.total,
       payment_method: paymentMethod,

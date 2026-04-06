@@ -82,6 +82,28 @@ function toDatabaseOrderStatus(status) {
   return legacyMap[normalized] || normalized
 }
 
+function getDiscountTier(subtotal) {
+  if (subtotal >= 5000) return { name: "Premium", percentage: 20 }
+  if (subtotal >= 2500) return { name: "Standard", percentage: 12 }
+  if (subtotal >= 800) return { name: "Classic", percentage: 5 }
+  return null
+}
+
+function calculateAutomaticOrderPricing(subtotal, paymentMethod) {
+  const tier = getDiscountTier(subtotal)
+  const planDiscount = tier ? Number((subtotal * (tier.percentage / 100)).toFixed(2)) : 0
+  const totalAfterPlan = Number((subtotal - planDiscount).toFixed(2))
+  const pixDiscount = paymentMethod === "pix" ? Number((totalAfterPlan * 0.05).toFixed(2)) : 0
+  const automaticDiscount = Number((planDiscount + pixDiscount).toFixed(2))
+
+  return {
+    tier,
+    planDiscount,
+    pixDiscount,
+    automaticDiscount,
+  }
+}
+
 function buildAddressPayload(values) {
   return {
     cep: values.cep || null,
@@ -810,7 +832,7 @@ async function handleUpdateOrder(supabase, body, adminUserId) {
 
   const { data: currentOrder, error: currentError } = await supabase
     .from("orders")
-    .select("id, payment_status")
+    .select("id, payment_status, payment_method")
     .eq("id", orderId)
     .is("deleted_at", null)
     .single()
@@ -820,6 +842,8 @@ async function handleUpdateOrder(supabase, body, adminUserId) {
   const items = sanitizeOrderItems(body.items)
   const giftItems = sanitizeGiftItems(body.gift_items)
   const subtotal = Number(items.reduce((sum, item) => sum + asNumber(item.subtotal), 0).toFixed(2))
+  const paymentMethod = asNullableText(body.payment_method, 32) || currentOrder.payment_method || null
+  const automaticPricing = calculateAutomaticOrderPricing(subtotal, paymentMethod)
 
   const discountType = asNullableText(body.admin_discount_type, 20)
   const discountValue = Math.max(0, asNumber(body.admin_discount_value))
@@ -828,7 +852,7 @@ async function handleUpdateOrder(supabase, body, adminUserId) {
   const bonusType = asNullableText(body.admin_bonus_type, 20)
   const bonusValue = Math.max(0, asNumber(body.admin_bonus_value))
   const bonusAmount = Number(Math.max(0, asNumber(body.admin_bonus_amount)).toFixed(2))
-  const total = Number(Math.max(0, subtotal - discountAmount - bonusAmount).toFixed(2))
+  const total = Number(Math.max(0, subtotal - automaticPricing.automaticDiscount - discountAmount - bonusAmount).toFixed(2))
 
   const status = asText(body.status, 64) || "aguardando_aprovacao"
   const payload = {
@@ -838,7 +862,7 @@ async function handleUpdateOrder(supabase, body, adminUserId) {
     total,
     status: toDatabaseOrderStatus(status),
     payment_status: body.payment_status || derivePaymentStatus(status, currentOrder.payment_status),
-    payment_method: asNullableText(body.payment_method, 32) || null,
+    payment_method: paymentMethod,
     invoice_number: asNullableText(body.invoice_number, 120),
     tracking_code: asNullableText(body.tracking_code, 160),
     payment_instructions: asNullableText(body.payment_instructions, 4000),
