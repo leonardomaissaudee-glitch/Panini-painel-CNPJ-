@@ -90,6 +90,15 @@ function getDiscountTier(subtotal) {
 }
 
 function calculateAutomaticOrderPricing(subtotal, paymentMethod) {
+  if (paymentMethod === "credit_card") {
+    return {
+      tier: null,
+      planDiscount: 0,
+      pixDiscount: 0,
+      automaticDiscount: 0,
+    }
+  }
+
   const tier = getDiscountTier(subtotal)
   const planDiscount = tier ? Number((subtotal * (tier.percentage / 100)).toFixed(2)) : 0
   const totalAfterPlan = Number((subtotal - planDiscount).toFixed(2))

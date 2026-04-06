@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { useCart } from "@/contexts/CartContext"
 import type { ResellerProfile } from "@/lib/auth"
-import { calculateCartPricing, createClientOrder, type ClientPaymentMethod, getDiscountTier } from "@/features/client/services/clientService"
+import { calculateCartPricing, createClientOrder, type ClientPaymentMethod } from "@/features/client/services/clientService"
 
 const MIN_ORDER_TOTAL = 800
 
@@ -23,8 +23,6 @@ export function ClientCart({
 
   const subtotal = useMemo(() => Number(cart.total.toFixed(2)), [cart.total])
   const pricing = useMemo(() => calculateCartPricing(subtotal, paymentMethod), [subtotal, paymentMethod])
-  const tier = getDiscountTier(subtotal)
-
   const formatPrice = (value: number) =>
     value.toLocaleString("pt-BR", {
       style: "currency",
@@ -146,7 +144,7 @@ export function ClientCart({
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Plano aplicado</span>
-              <span className="font-semibold">{tier ? `${tier.name} (${tier.percentage}%)` : "Ainda sem plano"}</span>
+               <span className="font-semibold">{pricing.tier ? `${pricing.tier.name} (${pricing.tier.percentage}%)` : "Sem desconto"}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Desconto do plano</span>
