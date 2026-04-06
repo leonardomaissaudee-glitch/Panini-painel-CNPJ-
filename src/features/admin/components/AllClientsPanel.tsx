@@ -11,14 +11,14 @@ import {
   fetchAllClients,
   deleteUserRecord,
   fetchManagedClients,
-  saveUser,
+  saveClient,
   type AccountManagerDirectoryRow,
   type ClientAdminRow,
-  type UpdateUserInput,
+  type UpdateClientInput,
 } from "@/features/admin/services/adminService"
 import { toast } from "sonner"
 
-type ClientDraft = Partial<UpdateUserInput>
+type ClientDraft = Partial<UpdateClientInput>
 type AllClientsPanelProps = {
   mode?: "admin" | "manager"
   managerUserId?: string
@@ -91,10 +91,8 @@ export function AllClientsPanel({
     })
   }, [clients, search, statusFilter, managerFilter, mode])
 
-  const getDraft = (client: ClientAdminRow): UpdateUserInput => ({
-    userId: client.user_id || client.profile_id || client.id,
-    reseller_id: client.profile_id && client.profile_id !== client.id ? client.id : null,
-    full_name: client.nome_responsavel || client.razao_social,
+  const getDraft = (client: ClientAdminRow): UpdateClientInput => ({
+    resellerId: client.id,
     razao_social: drafts[client.id]?.razao_social ?? client.razao_social,
     nome_fantasia: drafts[client.id]?.nome_fantasia ?? client.nome_fantasia ?? "",
     cnpj: drafts[client.id]?.cnpj ?? client.cnpj,
@@ -113,18 +111,15 @@ export function AllClientsPanel({
     status_cadastro: drafts[client.id]?.status_cadastro ?? client.status_cadastro,
     motivo_reprovacao: drafts[client.id]?.motivo_reprovacao ?? client.motivo_reprovacao ?? "",
     user_type: drafts[client.id]?.user_type ?? client.user_type ?? "cliente",
-    company_name: drafts[client.id]?.company_name ?? client.razao_social ?? "",
     notes: drafts[client.id]?.notes ?? client.notes ?? "",
     nome_responsavel: drafts[client.id]?.nome_responsavel ?? client.nome_responsavel,
-    documento: drafts[client.id]?.documento ?? client.cnpj,
-    tipo_documento: "cnpj",
     account_manager_user_id: drafts[client.id]?.account_manager_user_id ?? client.account_manager_user_id ?? "",
     account_manager_name: drafts[client.id]?.account_manager_name ?? client.account_manager_name ?? "",
     account_manager_email: drafts[client.id]?.account_manager_email ?? client.account_manager_email ?? "",
     account_manager_whatsapp: drafts[client.id]?.account_manager_whatsapp ?? client.account_manager_whatsapp ?? "",
   })
 
-  const updateDraft = (clientId: string, patch: Partial<UpdateUserInput>) => {
+  const updateDraft = (clientId: string, patch: Partial<UpdateClientInput>) => {
     setDrafts((current) => ({
       ...current,
       [clientId]: {
@@ -152,7 +147,7 @@ export function AllClientsPanel({
     }
     try {
       setSavingId(client.id)
-      await saveUser(draft)
+      await saveClient(draft)
       toast.success("Cliente atualizado")
       await load()
     } catch (error) {

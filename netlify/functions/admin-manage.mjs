@@ -1052,28 +1052,48 @@ async function handleUpdateClient(supabase, body) {
   const statusMap = normalizeApprovalStatus(body.status_cadastro)
   const now = new Date().toISOString()
   const safeAuthUserId = await resolveExistingAuthUserId(supabase, reseller.user_id)
+  const normalizedEmail = asNullableText(body.email, 255)?.toLowerCase() || reseller.email
+  const normalizedCnpj = asNullableText(body.cnpj, 32) || reseller.cnpj
+  const normalizedRazaoSocial = asNullableText(body.razao_social, 255) || reseller.razao_social
+  const normalizedResponsavel = asNullableText(body.nome_responsavel, 255) || reseller.nome_responsavel
+  const normalizedPhone = asNullableText(body.telefone, 64) || reseller.telefone
 
   if (newPassword && !safeAuthUserId) {
     throw new Error("password_update_requires_auth_user")
   }
 
-  if (newPassword && safeAuthUserId) {
-    const { error: authPasswordError } = await supabase.auth.admin.updateUserById(safeAuthUserId, {
-      password: newPassword,
-    })
+  if (safeAuthUserId) {
+    const authUpdatePayload = {
+      email: normalizedEmail,
+      ...(newPassword ? { password: newPassword } : {}),
+      user_metadata: {
+        full_name: getClientDisplayName({
+          razaoSocial: normalizedRazaoSocial,
+          fullName: normalizedResponsavel,
+        }),
+        telefone: normalizedPhone,
+        documento: normalizedCnpj,
+        cnpj: normalizedCnpj,
+        tipo_documento: "cnpj",
+        user_type: asNullableText(body.user_type, 32) || "cliente",
+        company_name: normalizedRazaoSocial,
+      },
+    }
 
-    if (authPasswordError && !isMissingAuthUserError(authPasswordError)) {
-      throw authPasswordError
+    const { error: authUpdateError } = await supabase.auth.admin.updateUserById(safeAuthUserId, authUpdatePayload)
+
+    if (authUpdateError && !isMissingAuthUserError(authUpdateError)) {
+      throw authUpdateError
     }
   }
 
   const resellerPayload = {
-    razao_social: asNullableText(body.razao_social, 255) || reseller.razao_social,
+    razao_social: normalizedRazaoSocial,
     nome_fantasia: asNullableText(body.nome_fantasia, 255),
-    cnpj: asNullableText(body.cnpj, 32) || reseller.cnpj,
-    nome_responsavel: asNullableText(body.nome_responsavel, 255) || reseller.nome_responsavel,
-    email: asNullableText(body.email, 255) || reseller.email,
-    telefone: asNullableText(body.telefone, 64) || reseller.telefone,
+    cnpj: normalizedCnpj,
+    nome_responsavel: normalizedResponsavel,
+    email: normalizedEmail,
+    telefone: normalizedPhone,
     whatsapp: asNullableText(body.whatsapp, 64),
     endereco: asNullableText(body.endereco, 255) || reseller.endereco,
     numero: asNullableText(body.numero, 32) || reseller.numero,
