@@ -451,9 +451,6 @@ export function OrdersPanel() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <CardTitle>Pedidos</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Controle pedidos por status, revise comprovantes, ajuste itens e aplique desconto ou bonificacao sem depender de edicao manual.
-            </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Input

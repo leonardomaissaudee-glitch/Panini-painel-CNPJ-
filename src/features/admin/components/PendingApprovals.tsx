@@ -144,7 +144,6 @@ export function PendingApprovals() {
       <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <CardTitle>Cadastros pendentes</CardTitle>
-          <p className="text-sm text-muted-foreground">Visualize os dados, defina o gerente e aprove ou reprove sem ação manual no Supabase.</p>
         </div>
         <Input
           value={search}
