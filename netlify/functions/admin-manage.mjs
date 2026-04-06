@@ -844,6 +844,9 @@ async function handleUpdateOrder(supabase, body, adminUserId) {
   const subtotal = Number(items.reduce((sum, item) => sum + asNumber(item.subtotal), 0).toFixed(2))
   const paymentMethod = asNullableText(body.payment_method, 32) || currentOrder.payment_method || null
   const automaticPricing = calculateAutomaticOrderPricing(subtotal, paymentMethod)
+  const automaticDiscountAmount = Number(
+    Math.min(subtotal, Math.max(0, asNumber(body.automatic_discount_amount || automaticPricing.automaticDiscount))).toFixed(2)
+  )
 
   const discountType = asNullableText(body.admin_discount_type, 20)
   const discountValue = Math.max(0, asNumber(body.admin_discount_value))
@@ -852,13 +855,14 @@ async function handleUpdateOrder(supabase, body, adminUserId) {
   const bonusType = asNullableText(body.admin_bonus_type, 20)
   const bonusValue = Math.max(0, asNumber(body.admin_bonus_value))
   const bonusAmount = Number(Math.max(0, asNumber(body.admin_bonus_amount)).toFixed(2))
-  const total = Number(Math.max(0, subtotal - automaticPricing.automaticDiscount - discountAmount - bonusAmount).toFixed(2))
+  const total = Number(Math.max(0, subtotal - automaticDiscountAmount - discountAmount - bonusAmount).toFixed(2))
 
   const status = asText(body.status, 64) || "aguardando_aprovacao"
   const payload = {
     items,
     subtotal,
     original_total: subtotal,
+    automatic_discount_amount: automaticDiscountAmount,
     total,
     status: toDatabaseOrderStatus(status),
     payment_status: body.payment_status || derivePaymentStatus(status, currentOrder.payment_status),

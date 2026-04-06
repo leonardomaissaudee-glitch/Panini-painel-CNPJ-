@@ -145,10 +145,11 @@ export function ClientOrders({
           const hasInvoiceLink = isUrl(order.invoice_number)
           const hasTrackingLink = isUrl(order.tracking_code)
           const automaticPricing = calculateAutomaticOrderPricing(Number(order.subtotal || 0), order.payment_method)
+          const automaticDiscountAmount = Number(order.automatic_discount_amount ?? automaticPricing.automaticDiscount)
           const manualDiscountAmount = Number(order.admin_discount_amount || 0)
           const bonusAmount = Number(order.admin_bonus_amount || 0)
           const finalTotal = Number(
-            Math.max(0, Number(order.subtotal || 0) - automaticPricing.automaticDiscount - manualDiscountAmount - bonusAmount).toFixed(2)
+            Math.max(0, Number(order.subtotal || 0) - automaticDiscountAmount - manualDiscountAmount - bonusAmount).toFixed(2)
           )
 
           return (
@@ -293,20 +294,26 @@ export function ClientOrders({
                           )
                         })}
 
-                        {(automaticPricing.automaticDiscount > 0 || manualDiscountAmount > 0) && (
+                        {(automaticDiscountAmount > 0 || manualDiscountAmount > 0) && (
                           <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3">
                             <div className="text-sm font-semibold text-blue-950">Descontos aplicados</div>
                             <div className="mt-3 space-y-2 text-xs text-blue-900">
-                              {automaticPricing.planDiscount > 0 ? (
+                              {automaticPricing.planDiscount > 0 && automaticDiscountAmount === automaticPricing.automaticDiscount ? (
                                 <div className="flex items-center justify-between gap-3">
                                   <span>Desconto do plano{automaticPricing.tier ? ` (${automaticPricing.tier.name} ${automaticPricing.tier.percentage}%)` : ""}</span>
                                   <span className="font-semibold">- {formatMoney(automaticPricing.planDiscount)}</span>
                                 </div>
                               ) : null}
-                              {automaticPricing.pixDiscount > 0 ? (
+                              {automaticPricing.pixDiscount > 0 && automaticDiscountAmount === automaticPricing.automaticDiscount ? (
                                 <div className="flex items-center justify-between gap-3">
                                   <span>Desconto adicional PIX</span>
                                   <span className="font-semibold">- {formatMoney(automaticPricing.pixDiscount)}</span>
+                                </div>
+                              ) : null}
+                              {automaticDiscountAmount > 0 && automaticDiscountAmount !== automaticPricing.automaticDiscount ? (
+                                <div className="flex items-center justify-between gap-3">
+                                  <span>Desconto automático ajustado</span>
+                                  <span className="font-semibold">- {formatMoney(automaticDiscountAmount)}</span>
                                 </div>
                               ) : null}
                               {manualDiscountAmount > 0 ? (

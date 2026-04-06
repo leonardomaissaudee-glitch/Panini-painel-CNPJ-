@@ -70,6 +70,8 @@ type OrderDraft = {
   payment_pix_account: string
   payment_pix_amount: string
   payment_pix_qr_code: string
+  automatic_discount_amount: string
+  automatic_discount_overridden: boolean
   admin_discount_type: DiscountType
   admin_discount_value: string
   admin_bonus_type: BonusType
@@ -184,6 +186,13 @@ function toEditableItem(item: OrderItemRow): EditableOrderItem {
 }
 
 function buildDraft(order: OrderRow): OrderDraft {
+  const derivedSubtotal =
+    Array.isArray(order.items) && order.items.length > 0
+      ? Number(order.items.reduce((sum, item) => sum + Number(item.subtotal || 0), 0).toFixed(2))
+      : Number(order.subtotal || 0)
+  const automaticDefault = calculateAutomaticOrderPricing(derivedSubtotal, order.payment_method).automaticDiscount
+  const storedAutomaticDiscount = Number(order.automatic_discount_amount ?? automaticDefault)
+  const automaticDiscountAmount = Number.isFinite(storedAutomaticDiscount) ? storedAutomaticDiscount : automaticDefault
   return {
     status: normalizeOrderStatus(order.status),
     payment_method: (order.payment_method as PaymentMethod) || "pix",
@@ -201,6 +210,8 @@ function buildDraft(order: OrderRow): OrderDraft {
     payment_pix_account: order.payment_pix_account || "",
     payment_pix_amount: order.payment_pix_amount || "",
     payment_pix_qr_code: order.payment_pix_qr_code || "",
+    automatic_discount_amount: String(automaticDiscountAmount),
+    automatic_discount_overridden: Math.abs(automaticDiscountAmount - automaticDefault) > 0.01,
     admin_discount_type: order.admin_discount_type || "none",
     admin_discount_value: order.admin_discount_value ? String(order.admin_discount_value) : "",
     admin_bonus_type: order.admin_bonus_type || "none",
@@ -217,12 +228,25 @@ function buildDraft(order: OrderRow): OrderDraft {
   }
 }
 
+function syncAutomaticDiscountDraft(draft: OrderDraft) {
+  if (draft.automatic_discount_overridden) return draft
+  const originalSubtotal = Number(draft.items.reduce((sum, item) => sum + Math.max(1, item.quantity) * Math.max(0, item.price), 0).toFixed(2))
+  const automaticDefault = calculateAutomaticOrderPricing(originalSubtotal, draft.payment_method).automaticDiscount
+  return {
+    ...draft,
+    automatic_discount_amount: String(automaticDefault),
+  }
+}
+
 function calculateDraftTotals(draft: OrderDraft) {
   const originalSubtotal = Number(draft.items.reduce((sum, item) => sum + Math.max(1, item.quantity) * Math.max(0, item.price), 0).toFixed(2))
   const automaticPricing = calculateAutomaticOrderPricing(originalSubtotal, draft.payment_method)
+  const automaticDiscountAmount = Number(
+    Math.min(originalSubtotal, Math.max(0, parseNumber(draft.automatic_discount_amount || String(automaticPricing.automaticDiscount)))).toFixed(2)
+  )
   let manualDiscountAmount = 0
   const discountValue = parseNumber(draft.admin_discount_value)
-  const subtotalAfterAutomatic = Math.max(0, originalSubtotal - automaticPricing.automaticDiscount)
+  const subtotalAfterAutomatic = Math.max(0, originalSubtotal - automaticDiscountAmount)
   if (draft.admin_discount_type === "percent") manualDiscountAmount = Number((subtotalAfterAutomatic * (discountValue / 100)).toFixed(2))
   else if (draft.admin_discount_type === "value") manualDiscountAmount = Number(Math.min(subtotalAfterAutomatic, discountValue).toFixed(2))
 
@@ -238,12 +262,13 @@ function calculateDraftTotals(draft: OrderDraft) {
     bonusAmount = Number((Math.max(0, bonusProduct?.price || 0) * Math.max(1, draft.admin_bonus_quantity)).toFixed(2))
   }
 
-  const total = Number(Math.max(0, originalSubtotal - automaticPricing.automaticDiscount - manualDiscountAmount - bonusAmount).toFixed(2))
+  const total = Number(Math.max(0, originalSubtotal - automaticDiscountAmount - manualDiscountAmount - bonusAmount).toFixed(2))
   return {
     originalSubtotal,
     planDiscountAmount: automaticPricing.planDiscount,
     pixDiscountAmount: automaticPricing.pixDiscount,
-    automaticDiscountAmount: automaticPricing.automaticDiscount,
+    automaticDefaultAmount: automaticPricing.automaticDiscount,
+    automaticDiscountAmount,
     manualDiscountAmount,
     bonusAmount,
     total,
@@ -323,12 +348,36 @@ export function OrdersPanel() {
     setDrafts((current) => {
       const order = orders.find((row) => row.id === orderId)
       if (!order) return current
-      return { ...current, [orderId]: updater(current[orderId] ?? buildDraft(order)) }
+      return { ...current, [orderId]: syncAutomaticDiscountDraft(updater(current[orderId] ?? buildDraft(order))) }
     })
   }
 
   const setField = <K extends keyof OrderDraft>(orderId: string, key: K, value: OrderDraft[K]) => {
-    updateDraft(orderId, (current) => ({ ...current, [key]: value }))
+    updateDraft(orderId, (current) => {
+      if (key === "automatic_discount_amount") {
+        return {
+          ...current,
+          automatic_discount_amount: String(value ?? ""),
+          automatic_discount_overridden: true,
+        }
+      }
+
+      if (key === "automatic_discount_overridden") {
+        return {
+          ...current,
+          automatic_discount_overridden: Boolean(value),
+        }
+      }
+
+      return { ...current, [key]: value }
+    })
+  }
+
+  const resetAutomaticDiscount = (orderId: string) => {
+    updateDraft(orderId, (current) => ({
+      ...current,
+      automatic_discount_overridden: false,
+    }))
   }
 
   const updateItem = (orderId: string, itemId: string, updater: (item: EditableOrderItem) => EditableOrderItem) => {
@@ -403,6 +452,7 @@ export function OrdersPanel() {
         payment_pix_account: draft.payment_pix_account || null,
         payment_pix_amount: draft.payment_pix_amount || null,
         payment_pix_qr_code: draft.payment_pix_qr_code || null,
+        automatic_discount_amount: totals.automaticDiscountAmount,
         admin_discount_type: draft.admin_discount_type === "none" ? null : draft.admin_discount_type,
         admin_discount_value: draft.admin_discount_type === "none" ? null : parseNumber(draft.admin_discount_value),
         admin_discount_amount: totals.manualDiscountAmount,
@@ -574,7 +624,7 @@ export function OrdersPanel() {
                           <div className="grid gap-4 lg:grid-cols-2">
                             <div className="space-y-3 rounded-2xl border border-blue-200 bg-blue-50 p-4">
                               <Label className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Desconto automatico do carrinho</Label>
-                              <div className="space-y-2 text-sm text-slate-700">
+                              <div className="space-y-3 text-sm text-slate-700">
                                 <div className="flex items-center justify-between">
                                   <span>Plano</span>
                                   <span className="font-semibold">
@@ -590,8 +640,26 @@ export function OrdersPanel() {
                                   <span className="font-semibold">{formatMoney(totals.pixDiscountAmount)}</span>
                                 </div>
                                 <div className="flex items-center justify-between border-t border-blue-200 pt-2">
-                                  <span>Total automatico</span>
-                                  <span className="font-semibold text-slate-950">{formatMoney(totals.automaticDiscountAmount)}</span>
+                                  <span>Padrão do carrinho</span>
+                                  <span className="font-semibold text-slate-950">{formatMoney(totals.automaticDefaultAmount)}</span>
+                                </div>
+                                <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                                  <DraftField label="Desconto automático editável">
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      step="0.01"
+                                      value={draft.automatic_discount_amount}
+                                      onChange={(event) => setField(order.id, "automatic_discount_amount", event.target.value)}
+                                      placeholder="Ex: 250"
+                                    />
+                                  </DraftField>
+                                  <Button type="button" variant="outline" size="sm" onClick={() => resetAutomaticDiscount(order.id)}>
+                                    Usar padrão
+                                  </Button>
+                                </div>
+                                <div className="text-sm text-slate-600">
+                                  Em uso: <span className="font-semibold text-slate-950">{formatMoney(totals.automaticDiscountAmount)}</span>
                                 </div>
                               </div>
                             </div>

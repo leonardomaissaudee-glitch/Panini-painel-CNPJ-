@@ -110,6 +110,7 @@ export async function createClientOrder({
       items,
       subtotal,
       original_total: subtotal,
+      automatic_discount_amount: pricing.automaticDiscount,
       shipping_cost: 0,
       total: pricing.total,
       payment_method: paymentMethod,
@@ -140,6 +141,10 @@ function getClientOrderErrorMessage(error: { message?: string; details?: string 
 
   if (text.includes("payment_method") || text.includes("boleto")) {
     return "O método de pagamento selecionado ainda não foi liberado na base de dados."
+  }
+
+  if (text.includes("automatic_discount_amount")) {
+    return "A base de pedidos ainda não foi atualizada para salvar o desconto automático."
   }
 
   if (text.includes("violates row-level security") || text.includes("permission denied")) {

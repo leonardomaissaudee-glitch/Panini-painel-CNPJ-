@@ -35,6 +35,7 @@ end $$;
 alter table public.orders
   add column if not exists deleted_at timestamptz,
   add column if not exists original_total numeric(10,2),
+  add column if not exists automatic_discount_amount numeric(10,2),
   add column if not exists admin_discount_type text,
   add column if not exists admin_discount_value numeric(10,2),
   add column if not exists admin_discount_amount numeric(10,2),

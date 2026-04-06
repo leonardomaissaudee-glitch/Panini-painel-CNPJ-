@@ -33,6 +33,7 @@ export interface OrderRow {
   customer_cpf?: string | null
   subtotal: number
   original_total?: number | null
+  automatic_discount_amount?: number | null
   total: number
   items?: OrderItemRow[] | null
   payment_status?: string | null
@@ -270,6 +271,7 @@ export interface SaveOrderInput {
   payment_pix_account?: string | null
   payment_pix_amount?: string | null
   payment_pix_qr_code?: string | null
+  automatic_discount_amount?: number | null
   admin_discount_type?: "percent" | "value" | null
   admin_discount_value?: number | null
   admin_discount_amount?: number | null
