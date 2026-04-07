@@ -791,18 +791,35 @@ async function fetchProfilesByManagerScope(userIds: string[], emails: string[]) 
 
 export async function fetchManagedClients(managerUserId: string, managerEmail?: string | null): Promise<ClientAdminRow[]> {
   const normalizedEmail = managerEmail?.trim().toLowerCase() || ""
-  let query = supabase.from("reseller_profiles").select("*").order("created_at", { ascending: false })
+  const merged = new Map<string, ResellerApprovalRow>()
 
-  if (normalizedEmail) {
-    query = query.or(`account_manager_user_id.eq.${managerUserId},account_manager_email.ilike.${normalizedEmail}`)
-  } else {
-    query = query.eq("account_manager_user_id", managerUserId)
+  const { data: byManagerId, error: byManagerIdError } = await supabase
+    .from("reseller_profiles")
+    .select("*")
+    .eq("account_manager_user_id", managerUserId)
+    .order("created_at", { ascending: false })
+
+  if (byManagerIdError) throw byManagerIdError
+
+  for (const row of (byManagerId ?? []) as ResellerApprovalRow[]) {
+    merged.set(row.id, row)
   }
 
-  const { data: resellerProfiles, error } = await query
-  if (error) throw error
+  if (normalizedEmail) {
+    const { data: byManagerEmail, error: byManagerEmailError } = await supabase
+      .from("reseller_profiles")
+      .select("*")
+      .ilike("account_manager_email", normalizedEmail)
+      .order("created_at", { ascending: false })
 
-  const resellerRows = (resellerProfiles ?? []) as ResellerApprovalRow[]
+    if (byManagerEmailError) throw byManagerEmailError
+
+    for (const row of (byManagerEmail ?? []) as ResellerApprovalRow[]) {
+      merged.set(row.id, row)
+    }
+  }
+
+  const resellerRows = Array.from(merged.values())
   if (!resellerRows.length) return []
 
   const userIds = Array.from(new Set(resellerRows.map((row) => row.user_id).filter(Boolean)))
