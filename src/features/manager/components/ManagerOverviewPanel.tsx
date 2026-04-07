@@ -30,7 +30,7 @@ export function ManagerOverviewPanel({
     async function load() {
       setLoading(true)
       try {
-        const [portfolio, conversations] = await Promise.all([
+        const [portfolioResult, conversationsResult] = await Promise.allSettled([
           fetchManagerPortfolioSummary(managerUserId, managerEmail),
           fetchManagerChatConversations("", "all", {
             managerUserId,
@@ -40,8 +40,20 @@ export function ManagerOverviewPanel({
 
         if (!active) return
 
+        if (portfolioResult.status !== "fulfilled") {
+          const message =
+            portfolioResult.reason instanceof Error
+              ? portfolioResult.reason.message
+              : "Não foi possível carregar o resumo da carteira."
+          toast.error("Erro ao carregar resumo", { description: message })
+          return
+        }
+
+        const conversations =
+          conversationsResult.status === "fulfilled" ? conversationsResult.value : []
+
         setSummary({
-          ...portfolio,
+          ...portfolioResult.value,
           pending_chats: conversations.filter(
             (conversation) => conversation.status === "pending" || conversation.unread_admin_count > 0
           ).length,

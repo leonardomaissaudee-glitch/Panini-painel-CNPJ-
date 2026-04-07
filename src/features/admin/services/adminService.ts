@@ -330,6 +330,15 @@ function formatEmailDisplayName(email?: string | null) {
     .join(" ")
 }
 
+function isMissingColumnError(error: unknown, tableName: string, columnName: string) {
+  if (!error || typeof error !== "object") return false
+  const message = "message" in error && typeof error.message === "string" ? error.message : ""
+  return (
+    message.includes(`Could not find the '${columnName}' column of '${tableName}'`) ||
+    message.includes(columnName)
+  )
+}
+
 type LegacyProfileRow = Profile & {
   user_type?: string | null
   notes?: string | null
@@ -799,11 +808,17 @@ async function fetchLegacyManagedProfiles(managerUserId: string, managerEmail?: 
       .select("*")
       .eq("account_manager_user_id", managerUserId)
 
-    if (error) throw error
+    if (error) {
+      if (!isMissingColumnError(error, "profiles", "account_manager_user_id")) {
+        throw error
+      }
+    }
 
-    for (const row of (data ?? []) as LegacyProfileRow[]) {
-      if (!row.deleted_at) {
-        merged.set(row.id, row)
+    if (data) {
+      for (const row of data as LegacyProfileRow[]) {
+        if (!row.deleted_at) {
+          merged.set(row.id, row)
+        }
       }
     }
   }
@@ -814,11 +829,17 @@ async function fetchLegacyManagedProfiles(managerUserId: string, managerEmail?: 
       .select("*")
       .ilike("account_manager_email", normalizedEmail)
 
-    if (error) throw error
+    if (error) {
+      if (!isMissingColumnError(error, "profiles", "account_manager_email")) {
+        throw error
+      }
+    }
 
-    for (const row of (data ?? []) as LegacyProfileRow[]) {
-      if (!row.deleted_at) {
-        merged.set(row.id, row)
+    if (data) {
+      for (const row of data as LegacyProfileRow[]) {
+        if (!row.deleted_at) {
+          merged.set(row.id, row)
+        }
       }
     }
   }
