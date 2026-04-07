@@ -313,8 +313,8 @@ export function OrdersPanel({
   const [boletoFiles, setBoletoFiles] = useState<Record<string, File | null>>({})
   const giftMap = useMemo(() => new Map(gifts.map((gift) => [gift.id, gift])), [gifts])
 
-  const load = async (mode: "initial" | "refresh" = "initial") => {
-    if (mode === "initial") setLoading(true)
+  const load = async (loadMode: "initial" | "refresh" = "initial") => {
+    if (loadMode === "initial") setLoading(true)
     else setRefreshing(true)
 
     try {
