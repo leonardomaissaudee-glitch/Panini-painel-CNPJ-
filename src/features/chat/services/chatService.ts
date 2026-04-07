@@ -1,5 +1,6 @@
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/shared/services/supabaseClient"
+import { fetchManagedClients } from "@/features/admin/services/adminService"
 import {
   CHAT_ATTACHMENT_BUCKET,
   getMessageTypeFromFile,
@@ -144,8 +145,102 @@ export async function fetchAdminChatConversations(search = "", filter: ChatListF
   return (data ?? []) as ChatConversation[]
 }
 
-export async function fetchManagerChatConversations(search = "", filter: ChatListFilter = "all") {
-  return fetchAdminChatConversations(search, filter)
+export async function fetchManagerChatConversations(
+  search = "",
+  filter: ChatListFilter = "all",
+  scope?: {
+    managerUserId?: string
+    managerEmail?: string | null
+  }
+) {
+  const currentUser = await getCurrentUser()
+  const managerUserId = scope?.managerUserId || currentUser?.id || ""
+  const managerEmail = scope?.managerEmail || currentUser?.email || null
+
+  if (!managerUserId) {
+    return [] as ChatConversation[]
+  }
+
+  const managedClients = await fetchManagedClients(managerUserId, managerEmail)
+  if (!managedClients.length) {
+    return [] as ChatConversation[]
+  }
+
+  const resellerIds = Array.from(new Set(managedClients.map((client) => client.id).filter(Boolean)))
+  const customerUserIds = Array.from(new Set(managedClients.map((client) => client.user_id).filter(Boolean)))
+  const customerEmails = Array.from(
+    new Set(managedClients.map((client) => client.email?.trim().toLowerCase()).filter(Boolean))
+  ) as string[]
+  const resellerIdSet = new Set(resellerIds)
+  const customerUserIdSet = new Set(customerUserIds)
+  const customerEmailSet = new Set(customerEmails)
+
+  const applyListFilters = (query: ReturnType<typeof supabase.from<"chat_conversations">>) => {
+    let nextQuery = query
+
+    if (filter === "pending") {
+      nextQuery = nextQuery.eq("status", "pending")
+    } else if (filter === "active") {
+      nextQuery = nextQuery.eq("status", "active")
+    } else if (filter === "closed") {
+      nextQuery = nextQuery.eq("status", "closed")
+    } else if (filter === "unread") {
+      nextQuery = nextQuery.gt("unread_admin_count", 0)
+    }
+
+    if (search.trim()) {
+      const safeSearch = search.trim()
+      nextQuery = nextQuery.or(
+        [
+          `customer_name.ilike.%${safeSearch}%`,
+          `customer_email.ilike.%${safeSearch}%`,
+          `customer_phone.ilike.%${safeSearch}%`,
+          `subject.ilike.%${safeSearch}%`,
+          `order_reference.ilike.%${safeSearch}%`,
+        ].join(",")
+      )
+    }
+
+    return nextQuery
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+  }
+
+  const merged = new Map<string, ChatConversation>()
+
+  const fetchScopedRows = async (column: "reseller_profile_id" | "customer_user_id" | "customer_email", values: string[]) => {
+    if (!values.length) return
+    const { data, error } = await applyListFilters(
+      supabase.from("chat_conversations").select("*").in(column, values)
+    )
+
+    if (error) {
+      throw new Error("Não foi possível carregar os chats da carteira.")
+    }
+
+    for (const row of (data ?? []) as ChatConversation[]) {
+      merged.set(row.id, row)
+    }
+  }
+
+  await fetchScopedRows("reseller_profile_id", resellerIds)
+  await fetchScopedRows("customer_user_id", customerUserIds)
+  await fetchScopedRows("customer_email", customerEmails)
+
+  return Array.from(merged.values())
+    .filter((conversation) => {
+      const normalizedEmail = conversation.customer_email?.trim().toLowerCase() || ""
+      return (
+        (conversation.reseller_profile_id && resellerIdSet.has(conversation.reseller_profile_id)) ||
+        (conversation.customer_user_id && customerUserIdSet.has(conversation.customer_user_id)) ||
+        (normalizedEmail && customerEmailSet.has(normalizedEmail))
+      )
+    })
+    .sort((left, right) => {
+      const leftTime = new Date(left.last_message_at || left.created_at).getTime()
+      const rightTime = new Date(right.last_message_at || right.created_at).getTime()
+      return rightTime - leftTime
+    })
 }
 
 export async function fetchConversationById(conversationId: string) {

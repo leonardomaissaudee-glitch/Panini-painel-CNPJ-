@@ -285,6 +285,12 @@ export interface SaveOrderInput {
   gift_items?: GiftItemRow[] | null
 }
 
+export interface CreateScopedOrderInput {
+  resellerId: string
+  payment_method: "pix" | "boleto" | "credit_card"
+  items: OrderItemRow[]
+}
+
 export interface GiftCatalogRow {
   id: string
   name: string
@@ -394,6 +400,8 @@ function parseFunctionError(payload: any, fallback: string) {
       return "Para criar cliente, preencha CNPJ, razão social, segmento, investimento, canal, telefone e endereço completo."
     case "order_not_found":
       return "Pedido não encontrado ou já excluído."
+    case "order_items_required":
+      return "Adicione pelo menos um produto ao pedido."
     case "reseller_not_found":
       return "Cliente não encontrado."
     case "user_not_found":
@@ -486,6 +494,16 @@ export async function saveOrder(input: SaveOrderInput) {
       ...input,
     },
     "Não foi possível salvar o pedido."
+  )
+}
+
+export async function createScopedOrder(input: CreateScopedOrderInput) {
+  return callAdminAction<OrderRow>(
+    {
+      action: "create-scoped-order",
+      ...input,
+    },
+    "Não foi possível criar o pedido para o cliente selecionado."
   )
 }
 

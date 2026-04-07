@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layouts/AppShell"
 
 const managerNav = [
   { label: "Resumo", to: "/gerente/resumo" },
+  { label: "Catálogo", to: "/gerente/catalogo" },
   { label: "Clientes", to: "/gerente/clientes" },
   { label: "Pedidos", to: "/gerente/pedidos" },
   { label: "Chats", to: "/gerente/chats" },

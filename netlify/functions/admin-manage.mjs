@@ -186,6 +186,35 @@ const fallbackTableSchemas = {
       "updated_at",
     ].map((column_name) => [column_name, { column_name, udt_name: "text" }])
   ),
+  orders: new Map(
+    [
+      "id",
+      "cliente_id",
+      "customer_name",
+      "customer_email",
+      "customer_phone",
+      "customer_cpf",
+      "shipping_street",
+      "shipping_number",
+      "shipping_complement",
+      "shipping_neighborhood",
+      "shipping_city",
+      "shipping_state",
+      "shipping_postal_code",
+      "items",
+      "subtotal",
+      "original_total",
+      "automatic_discount_amount",
+      "shipping_cost",
+      "total",
+      "payment_method",
+      "payment_status",
+      "shipping_method",
+      "status",
+      "seller_id",
+      "updated_at",
+    ].map((column_name) => [column_name, { column_name, udt_name: column_name === "items" ? "jsonb" : "text" }])
+  ),
 }
 
 async function loadTableSchema(supabase, tableName) {
@@ -1043,6 +1072,62 @@ async function handleDeleteOrder(supabase, body, adminUserId) {
   return { id: orderId }
 }
 
+async function handleCreateScopedOrder(supabase, body, actor, scope) {
+  const reseller = await requireManagedResellerAccess(supabase, body, scope)
+  const items = sanitizeOrderItems(body.items)
+
+  if (!items.length) {
+    throw new Error("order_items_required")
+  }
+
+  const subtotal = Number(items.reduce((sum, item) => sum + asNumber(item.subtotal), 0).toFixed(2))
+  const paymentMethod = asNullableText(body.payment_method, 32) || "pix"
+  const automaticPricing = calculateAutomaticOrderPricing(subtotal, paymentMethod)
+  const requestedAutomaticDiscount =
+    body.automatic_discount_amount === undefined || body.automatic_discount_amount === null || body.automatic_discount_amount === ""
+      ? automaticPricing.automaticDiscount
+      : asNumber(body.automatic_discount_amount)
+  const automaticDiscountAmount = Number(
+    Math.min(subtotal, Math.max(0, requestedAutomaticDiscount)).toFixed(2)
+  )
+  const total = Number(Math.max(0, subtotal - automaticDiscountAmount).toFixed(2))
+  const orderSchema = await loadTableSchema(supabase, "orders")
+
+  const payload = filterPayloadToSchema(
+    {
+      cliente_id: reseller.id || reseller.user_id || null,
+      customer_name: reseller.razao_social || reseller.nome_responsavel || "Cliente",
+      customer_email: reseller.email || null,
+      customer_phone: reseller.whatsapp || reseller.telefone || null,
+      customer_cpf: reseller.cnpj || null,
+      shipping_street: reseller.endereco || null,
+      shipping_number: reseller.numero || null,
+      shipping_complement: reseller.complemento || null,
+      shipping_neighborhood: reseller.bairro || null,
+      shipping_city: reseller.cidade || null,
+      shipping_state: reseller.estado || null,
+      shipping_postal_code: reseller.cep || null,
+      items,
+      subtotal,
+      original_total: subtotal,
+      automatic_discount_amount: automaticDiscountAmount,
+      shipping_cost: 0,
+      total,
+      payment_method: paymentMethod,
+      payment_status: "pending",
+      shipping_method: "free",
+      status: "novo_pedido",
+      seller_id: actor.user.id,
+      updated_at: new Date().toISOString(),
+    },
+    orderSchema
+  )
+
+  const { data, error } = await supabase.from("orders").insert(payload).select("*").single()
+  if (error) throw error
+  return data
+}
+
 async function handleApproveReseller(supabase, body) {
   const resellerId = asText(body.resellerId, 120)
   const authUserId = asNullableText(body.userId, 120)
@@ -1690,6 +1775,9 @@ export async function handler(event) {
       case "delete-order":
         if (scope.access !== "admin") throw new Error("forbidden")
         data = await handleDeleteOrder(supabase, body, actor.user.id)
+        break
+      case "create-scoped-order":
+        data = await handleCreateScopedOrder(supabase, body, actor, scope)
         break
       case "approve-reseller":
         if (scope.access !== "admin") throw new Error("forbidden")

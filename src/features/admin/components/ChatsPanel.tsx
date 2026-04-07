@@ -39,8 +39,12 @@ function formatEmailDisplayName(email?: string | null) {
 
 export function ChatsPanel({
   mode = "admin",
+  managerUserId,
+  managerEmail,
 }: {
   mode?: "admin" | "manager"
+  managerUserId?: string
+  managerEmail?: string | null
 }) {
   const { user, profile } = useAuth()
   const [search, setSearch] = useState("")
@@ -53,6 +57,8 @@ export function ChatsPanel({
     role: mode === "manager" ? "manager" : "admin",
     search,
     filter,
+    managerUserId,
+    managerEmail,
     onIncomingConversation: () => playNotificationSound(),
   })
 

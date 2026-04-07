@@ -30,6 +30,7 @@ import { ApprovedClientsPanel } from "@/features/admin/components/ApprovedClient
 import { AllClientsPanel } from "@/features/admin/components/AllClientsPanel"
 import { GiftsPanel } from "@/features/admin/components/GiftsPanel"
 import { ManagerOverviewPanel } from "@/features/manager/components/ManagerOverviewPanel"
+import { ManagerCatalogPanel } from "@/features/manager/components/ManagerCatalogPanel"
 import AboutPage from "@/pages/About"
 import ProcessPage from "@/pages/Process"
 import OpportunityPage from "@/pages/Opportunity"
@@ -184,6 +185,7 @@ export function App() {
             >
               <Route index element={<Navigate to="/gerente/resumo" replace />} />
               <Route path="resumo" element={<ManagerOverviewPanelWrapper />} />
+              <Route path="catalogo" element={<ManagerCatalogPanelWrapper />} />
               <Route path="clientes" element={<ManagerClientsPanelWrapper />} />
               <Route path="pedidos" element={<ManagerOrdersPanelWrapper />} />
               <Route path="chats" element={<ManagerChatsPanelWrapper />} />
@@ -225,6 +227,16 @@ function ManagerClientsPanelWrapper() {
   )
 }
 
+function ManagerCatalogPanelWrapper() {
+  return (
+    <ManagerRouteContent
+      render={({ managerUserId, managerEmail }) => (
+        <ManagerCatalogPanel managerUserId={managerUserId} managerEmail={managerEmail} />
+      )}
+    />
+  )
+}
+
 function ManagerOrdersPanelWrapper() {
   return (
     <ManagerRouteContent
@@ -236,7 +248,13 @@ function ManagerOrdersPanelWrapper() {
 }
 
 function ManagerChatsPanelWrapper() {
-  return <ManagerRouteContent render={() => <ChatsPanel mode="manager" />} />
+  return (
+    <ManagerRouteContent
+      render={({ managerUserId, managerEmail }) => (
+        <ChatsPanel mode="manager" managerUserId={managerUserId} managerEmail={managerEmail} />
+      )}
+    />
+  )
 }
 
 function ManagerRouteContent({

@@ -10,12 +10,16 @@ export function useChatConversationList({
   search = "",
   filter = "all",
   enabled = true,
+  managerUserId,
+  managerEmail,
   onIncomingConversation,
 }: {
   role: ChatViewerRole
   search?: string
   filter?: ChatListFilter
   enabled?: boolean
+  managerUserId?: string
+  managerEmail?: string | null
   onIncomingConversation?: (conversation: ChatConversation) => void
 }) {
   const [conversations, setConversations] = useState<ChatConversation[]>([])
@@ -42,7 +46,10 @@ export function useChatConversationList({
         role === "admin"
           ? await fetchAdminChatConversations(search, filter)
           : role === "manager"
-            ? await fetchManagerChatConversations(search, filter)
+            ? await fetchManagerChatConversations(search, filter, {
+                managerUserId,
+                managerEmail,
+              })
             : await fetchMyChatConversations()
 
       setConversations(rows)
@@ -64,7 +71,7 @@ export function useChatConversationList({
     } finally {
       setLoading(false)
     }
-  }, [enabled, filter, role, search])
+  }, [enabled, filter, managerEmail, managerUserId, role, search])
 
   useEffect(() => {
     load().catch(() => undefined)

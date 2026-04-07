@@ -32,7 +32,10 @@ export function ManagerOverviewPanel({
       try {
         const [portfolio, conversations] = await Promise.all([
           fetchManagerPortfolioSummary(managerUserId, managerEmail),
-          fetchManagerChatConversations("", "all"),
+          fetchManagerChatConversations("", "all", {
+            managerUserId,
+            managerEmail,
+          }),
         ])
 
         if (!active) return
