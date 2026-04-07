@@ -65,7 +65,7 @@ export function ChatMessageList({
           {group.items.map((message) => {
             const isOwn =
               (viewerRole === "customer" && message.sender_type === "customer") ||
-              (viewerRole === "admin" && message.sender_type === "admin")
+              (viewerRole !== "customer" && message.sender_type === "admin")
             const attachmentUrl = attachmentUrls[message.id]
 
             return (

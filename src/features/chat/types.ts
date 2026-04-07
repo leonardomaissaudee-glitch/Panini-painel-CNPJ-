@@ -4,7 +4,7 @@ export type ChatSenderType = "customer" | "admin" | "system"
 
 export type ChatMessageType = "text" | "image" | "pdf" | "file" | "audio"
 
-export type ChatViewerRole = "customer" | "admin"
+export type ChatViewerRole = "customer" | "admin" | "manager"
 
 export interface ChatConversation {
   id: string

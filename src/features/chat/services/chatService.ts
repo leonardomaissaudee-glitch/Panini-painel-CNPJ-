@@ -144,6 +144,10 @@ export async function fetchAdminChatConversations(search = "", filter: ChatListF
   return (data ?? []) as ChatConversation[]
 }
 
+export async function fetchManagerChatConversations(search = "", filter: ChatListFilter = "all") {
+  return fetchAdminChatConversations(search, filter)
+}
+
 export async function fetchConversationById(conversationId: string) {
   const { data, error } = await supabase.from("chat_conversations").select("*").eq("id", conversationId).maybeSingle()
 

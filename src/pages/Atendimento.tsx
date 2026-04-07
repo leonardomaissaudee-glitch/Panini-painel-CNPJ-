@@ -20,7 +20,7 @@ export default function AtendimentoPage() {
 
   if (user && !isAnonymousAuthUser(user)) {
     if (profile?.role === "admin") return <Navigate to="/admin" replace />
-    if (profile?.role === "seller") return <Navigate to="/seller" replace />
+    if (profile?.role === "seller") return <Navigate to={profile?.user_type === "gerente" ? "/gerente/resumo" : "/seller"} replace />
     if (profile?.role === "client") return <Navigate to="/app/gerente" replace />
   }
 

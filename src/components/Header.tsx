@@ -16,7 +16,16 @@ export function Header() {
   const isAuthenticatedUser = !!user && !isAnonymous;
 
   const showCart = !!profile && profile.role === "client";
-  const dashboardPath = profile?.role === "admin" ? "/admin" : profile?.role === "seller" ? "/seller" : profile?.role === "client" ? "/app/catalogo" : "/";
+  const dashboardPath =
+    profile?.role === "admin"
+      ? "/admin/pedidos"
+      : profile?.role === "seller"
+        ? profile?.user_type === "gerente"
+          ? "/gerente/resumo"
+          : "/seller"
+        : profile?.role === "client"
+          ? "/app/catalogo"
+          : "/";
 
   const menuItems = [
     { label: "Home", href: "/" },

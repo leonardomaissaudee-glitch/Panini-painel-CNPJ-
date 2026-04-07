@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { supabase } from "@/shared/services/supabaseClient"
-import { fetchAdminChatConversations, fetchMyChatConversations } from "@/features/chat/services/chatService"
+import { fetchAdminChatConversations, fetchManagerChatConversations, fetchMyChatConversations } from "@/features/chat/services/chatService"
 import type { ChatConversation, ChatListFilter, ChatViewerRole } from "@/features/chat/types"
 
 type RealtimeState = "connecting" | "connected" | "closed" | "error"
@@ -39,7 +39,11 @@ export function useChatConversationList({
 
     try {
       const rows =
-        role === "admin" ? await fetchAdminChatConversations(search, filter) : await fetchMyChatConversations()
+        role === "admin"
+          ? await fetchAdminChatConversations(search, filter)
+          : role === "manager"
+            ? await fetchManagerChatConversations(search, filter)
+            : await fetchMyChatConversations()
 
       setConversations(rows)
 
@@ -48,7 +52,7 @@ export function useChatConversationList({
         if (!previous) return
 
         if (
-          role === "admin" &&
+          role !== "customer" &&
           row.unread_admin_count > previous.unread_admin_count &&
           incomingCallbackRef.current
         ) {

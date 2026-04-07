@@ -37,7 +37,11 @@ function formatEmailDisplayName(email?: string | null) {
     .join(" ")
 }
 
-export function ChatsPanel() {
+export function ChatsPanel({
+  mode = "admin",
+}: {
+  mode?: "admin" | "manager"
+}) {
   const { user, profile } = useAuth()
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<ChatListFilter>("all")
@@ -46,7 +50,7 @@ export function ChatsPanel() {
   const [participantsInfo, setParticipantsInfo] = useState<Record<string, string>>({})
 
   const { conversations, loading, connectionState, reload } = useChatConversationList({
-    role: "admin",
+    role: mode === "manager" ? "manager" : "admin",
     search,
     filter,
     onIncomingConversation: () => playNotificationSound(),
@@ -91,10 +95,10 @@ export function ChatsPanel() {
       return
     }
 
-    if (!activeConversation.assigned_admin_id) {
+    if (mode === "admin" && !activeConversation.assigned_admin_id) {
       assignConversation(activeConversation.id, user.id, currentStaffDisplayName).catch(() => undefined)
     }
-  }, [activeConversation?.id, activeConversation?.assigned_admin_id, currentStaffDisplayName, user?.id])
+  }, [activeConversation?.id, activeConversation?.assigned_admin_id, currentStaffDisplayName, mode, user?.id])
 
   useEffect(() => {
     if (!activeConversation?.id) return
@@ -211,7 +215,7 @@ export function ChatsPanel() {
                   <div className="space-y-4">
                     <ChatMessageList
                       messages={messages}
-                      viewerRole="admin"
+                      viewerRole={mode === "manager" ? "manager" : "admin"}
                       adminDisplayName={
                         isMeaningfulName(activeConversation.assigned_admin_name)
                           ? activeConversation.assigned_admin_name

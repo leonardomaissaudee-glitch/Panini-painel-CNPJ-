@@ -1,4 +1,5 @@
-﻿import { Routes, Route, useLocation, Navigate } from "react-router-dom"
+﻿import type { ReactNode } from "react"
+import { Routes, Route, useLocation, Navigate } from "react-router-dom"
 import { Header } from "@/components/Header"
 import { CartProvider } from "@/contexts/CartContext"
 import Home from "@/pages/Home"
@@ -9,8 +10,10 @@ import AdminLoginPage from "@/features/auth/pages/AdminLogin"
 import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute"
 import { PublicOnlyRoute } from "@/features/auth/components/PublicOnlyRoute"
 import { AuthProvider } from "@/features/auth/context/AuthContext"
+import { useAuth } from "@/features/auth/context/AuthContext"
 import AdminDashboard from "@/features/admin/pages/AdminDashboard"
 import SellerDashboard from "@/features/seller/pages/SellerDashboard"
+import ManagerDashboard from "@/features/manager/pages/ManagerDashboard"
 import ClientDashboard from "@/features/client/pages/ClientDashboard"
 import ClientCatalogPage from "@/features/client/pages/ClientCatalogPage"
 import ClientOrdersPage from "@/features/client/pages/ClientOrdersPage"
@@ -26,6 +29,7 @@ import { UsersPanel } from "@/features/admin/components/UsersPanel"
 import { ApprovedClientsPanel } from "@/features/admin/components/ApprovedClientsPanel"
 import { AllClientsPanel } from "@/features/admin/components/AllClientsPanel"
 import { GiftsPanel } from "@/features/admin/components/GiftsPanel"
+import { ManagerOverviewPanel } from "@/features/manager/components/ManagerOverviewPanel"
 import AboutPage from "@/pages/About"
 import ProcessPage from "@/pages/Process"
 import OpportunityPage from "@/pages/Opportunity"
@@ -38,7 +42,7 @@ import { useAccessTracking } from "@/features/monitoring/hooks/useAccessTracking
 export function App() {
   const location = useLocation()
   useAccessTracking()
-  const hideHeader = /^\/(app|admin|seller|painel)(\/|$)/.test(location.pathname)
+  const hideHeader = /^\/(app|admin|seller|gerente|painel)(\/|$)/.test(location.pathname)
 
   return (
     <AuthProvider>
@@ -171,9 +175,25 @@ export function App() {
             </Route>
 
             <Route
+              path="/gerente"
+              element={
+                <ProtectedRoute allowedRoles={["seller"]} allowedUserTypes={["gerente"]}>
+                  <ManagerDashboard />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="/gerente/resumo" replace />} />
+              <Route path="resumo" element={<ManagerOverviewPanelWrapper />} />
+              <Route path="clientes" element={<ManagerClientsPanelWrapper />} />
+              <Route path="pedidos" element={<ManagerOrdersPanelWrapper />} />
+              <Route path="chats" element={<ManagerChatsPanelWrapper />} />
+              <Route path="*" element={<Navigate to="/gerente/resumo" replace />} />
+            </Route>
+
+            <Route
               path="/seller"
               element={
-                <ProtectedRoute allowedRoles={["seller"]}>
+                <ProtectedRoute allowedRoles={["seller"]} deniedUserTypes={["gerente"]}>
                   <SellerDashboard />
                 </ProtectedRoute>
               }
@@ -185,4 +205,53 @@ export function App() {
   )
 }
 
+function ManagerOverviewPanelWrapper() {
+  return <ManagerRouteContent render={({ managerUserId, managerEmail }) => <ManagerOverviewPanel managerUserId={managerUserId} managerEmail={managerEmail} />} />
+}
+
+function ManagerClientsPanelWrapper() {
+  return (
+    <ManagerRouteContent
+      render={({ managerUserId, managerEmail }) => (
+        <AllClientsPanel
+          mode="manager"
+          managerUserId={managerUserId}
+          managerEmail={managerEmail}
+          title="Clientes da carteira"
+          description="Somente clientes vinculados ao seu atendimento."
+        />
+      )}
+    />
+  )
+}
+
+function ManagerOrdersPanelWrapper() {
+  return (
+    <ManagerRouteContent
+      render={({ managerUserId, managerEmail }) => (
+        <OrdersPanel mode="manager" managerUserId={managerUserId} managerEmail={managerEmail} />
+      )}
+    />
+  )
+}
+
+function ManagerChatsPanelWrapper() {
+  return <ManagerRouteContent render={() => <ChatsPanel mode="manager" />} />
+}
+
+function ManagerRouteContent({
+  render,
+}: {
+  render: (params: { managerUserId: string; managerEmail?: string | null }) => ReactNode
+}) {
+  const { user, profile } = useAuth()
+
+  if (!user) {
+    return null
+  }
+
+  return <>{render({ managerUserId: user.id, managerEmail: user.email || profile?.email || null })}</>
+}
+
 export default App
+

@@ -149,6 +149,7 @@ export interface ManagerPortfolioSummary {
   pending_clients: number
   orders_in_progress: number
   orders_completed: number
+  pending_chats: number
 }
 
 export interface ProductRow {
@@ -386,7 +387,7 @@ function parseFunctionError(payload: any, fallback: string) {
     case "unauthorized":
       return "Sua sessão expirou. Faça login novamente."
     case "forbidden":
-      return "Acesso restrito ao administrador."
+      return "Você não tem permissão para executar esta ação."
     case "required_fields_missing":
       return "Preencha nome, e-mail e senha para criar o usuário."
     case "required_client_fields_missing":
@@ -744,30 +745,103 @@ export async function fetchAccountManagers(): Promise<AccountManagerDirectoryRow
     .sort((a, b) => a.full_name.localeCompare(b.full_name, "pt-BR"))
 }
 
-export async function fetchManagedClients(managerUserId: string): Promise<ClientAdminRow[]> {
-  const rows = await fetchAllClients()
-  const managers = await fetchAccountManagers()
-  const manager = managers.find((row) => row.auth_user_id === managerUserId || row.id === managerUserId)
-  const normalizedEmail = manager?.email?.toLowerCase() || ""
+async function fetchProfilesByManagerScope(userIds: string[], emails: string[]) {
+  const profileMap = new Map<string, LegacyProfileRow>()
 
-  return rows.filter(
-    (row) =>
-      row.account_manager_user_id === managerUserId ||
-      (normalizedEmail && row.account_manager_email?.toLowerCase() === normalizedEmail)
-  )
+  if (userIds.length) {
+    const { data, error } = await supabase.from("profiles").select("*").in("auth_user_id", userIds)
+    if (error) throw error
+    for (const row of (data ?? []) as LegacyProfileRow[]) {
+      if (!row.deleted_at) {
+        profileMap.set(row.auth_user_id || row.id, row)
+      }
+    }
+  }
+
+  if (emails.length) {
+    const { data, error } = await supabase.from("profiles").select("*").in("email", emails)
+    if (error) throw error
+    for (const row of (data ?? []) as LegacyProfileRow[]) {
+      if (!row.deleted_at) {
+        profileMap.set(row.auth_user_id || row.id || row.email || crypto.randomUUID(), row)
+      }
+    }
+  }
+
+  return Array.from(profileMap.values())
 }
 
-export async function fetchManagedOrders(managerUserId: string): Promise<OrderRow[]> {
-  const [orders, clients] = await Promise.all([fetchOrders(), fetchManagedClients(managerUserId)])
-  const resellerIds = new Set(clients.map((row) => row.id))
-  const userIds = new Set(clients.map((row) => row.user_id))
-  const emails = new Set(clients.map((row) => row.email.toLowerCase()))
+export async function fetchManagedClients(managerUserId: string, managerEmail?: string | null): Promise<ClientAdminRow[]> {
+  const normalizedEmail = managerEmail?.trim().toLowerCase() || ""
+  let query = supabase.from("reseller_profiles").select("*").order("created_at", { ascending: false })
 
-  return orders.filter((order) => {
-    const clienteId = order.cliente_id || ""
-    const email = order.customer_email?.toLowerCase?.() || ""
-    return resellerIds.has(clienteId) || userIds.has(clienteId) || emails.has(email)
-  })
+  if (normalizedEmail) {
+    query = query.or(`account_manager_user_id.eq.${managerUserId},account_manager_email.ilike.${normalizedEmail}`)
+  } else {
+    query = query.eq("account_manager_user_id", managerUserId)
+  }
+
+  const { data: resellerProfiles, error } = await query
+  if (error) throw error
+
+  const resellerRows = (resellerProfiles ?? []) as ResellerApprovalRow[]
+  if (!resellerRows.length) return []
+
+  const userIds = Array.from(new Set(resellerRows.map((row) => row.user_id).filter(Boolean)))
+  const emails = Array.from(new Set(resellerRows.map((row) => row.email?.toLowerCase()).filter(Boolean))) as string[]
+  const profiles = await fetchProfilesByManagerScope(userIds, emails)
+  const profileByUserId = new Map(profiles.map((row) => [row.auth_user_id || "", row]))
+  const profileByEmail = new Map(
+    profiles.filter((row) => row.email).map((row) => [String(row.email).toLowerCase(), row])
+  )
+
+  return resellerRows
+    .map((reseller) => buildClientRowFromSources(reseller, profileByUserId.get(reseller.user_id) || profileByEmail.get(String(reseller.email || "").toLowerCase()) || null))
+    .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+}
+
+export async function fetchManagedOrders(managerUserId: string, managerEmail?: string | null): Promise<OrderRow[]> {
+  const clients = await fetchManagedClients(managerUserId, managerEmail)
+  if (!clients.length) return []
+
+  const resellerIds = Array.from(new Set(clients.map((row) => row.id).filter(Boolean)))
+  const userIds = Array.from(new Set(clients.map((row) => row.user_id).filter(Boolean)))
+  const emails = Array.from(new Set(clients.map((row) => row.email?.toLowerCase()).filter(Boolean))) as string[]
+
+  const merged = new Map<string, OrderRow>()
+
+  if (resellerIds.length || userIds.length) {
+    const clienteIds = Array.from(new Set([...resellerIds, ...userIds]))
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .in("cliente_id", clienteIds)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+    for (const row of (data ?? []) as OrderRow[]) {
+      merged.set(row.id, row)
+    }
+  }
+
+  if (emails.length) {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .in("customer_email", emails)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+    for (const row of (data ?? []) as OrderRow[]) {
+      merged.set(row.id, row)
+    }
+  }
+
+  return Array.from(merged.values()).sort(
+    (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+  )
 }
 
 export async function fetchClientsWithoutManager(): Promise<ClientAdminRow[]> {
@@ -775,8 +849,8 @@ export async function fetchClientsWithoutManager(): Promise<ClientAdminRow[]> {
   return rows.filter((row) => !row.account_manager_user_id && !row.account_manager_email)
 }
 
-export async function fetchManagerPortfolioSummary(managerUserId: string): Promise<ManagerPortfolioSummary> {
-  const [clients, orders] = await Promise.all([fetchManagedClients(managerUserId), fetchManagedOrders(managerUserId)])
+export async function fetchManagerPortfolioSummary(managerUserId: string, managerEmail?: string | null): Promise<ManagerPortfolioSummary> {
+  const [clients, orders] = await Promise.all([fetchManagedClients(managerUserId, managerEmail), fetchManagedOrders(managerUserId, managerEmail)])
 
   return {
     total_clients: clients.length,
@@ -787,6 +861,7 @@ export async function fetchManagerPortfolioSummary(managerUserId: string): Promi
       return status !== "pedido_entregue" && status !== "cancelado"
     }).length,
     orders_completed: orders.filter((row) => normalizeOrderStatus(row.status) === "pedido_entregue").length,
+    pending_chats: 0,
   }
 }
 

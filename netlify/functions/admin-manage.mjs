@@ -61,7 +61,7 @@ function mapUserType(input) {
     case "cliente":
       return { role: "client", userType: "cliente" }
     case "gerente":
-      return { role: "admin", userType: "gerente" }
+      return { role: "seller", userType: "gerente" }
     case "atendente":
       return { role: "seller", userType: "atendente" }
     case "vendedor":
@@ -147,6 +147,12 @@ const fallbackTableSchemas = {
       "documento",
       "telefone",
       "endereco",
+      "account_manager_user_id",
+      "account_manager_name",
+      "account_manager_email",
+      "account_manager_whatsapp",
+      "notes",
+      "deleted_at",
     ].map((column_name) => [column_name, { column_name, udt_name: column_name === "endereco" ? "text" : "text" }])
   ),
   reseller_profiles: new Map(
@@ -173,7 +179,9 @@ const fallbackTableSchemas = {
       "observacoes",
       "status_cadastro",
       "motivo_reprovacao",
+      "account_manager_user_id",
       "account_manager_name",
+      "account_manager_email",
       "account_manager_whatsapp",
       "updated_at",
     ].map((column_name) => [column_name, { column_name, udt_name: "text" }])
@@ -441,7 +449,15 @@ function sanitizeGiftItems(items) {
     .filter((item) => item.quantity > 0)
 }
 
-async function requireAdmin(event, supabase) {
+function isAdminProfile(profile) {
+  return profile?.role === "admin" || profile?.user_type === "admin"
+}
+
+function isManagerProfile(profile) {
+  return profile?.user_type === "gerente"
+}
+
+async function requireBackofficeUser(event, supabase) {
   const authHeader = event.headers.authorization || event.headers.Authorization
   const token = typeof authHeader === "string" ? authHeader.replace(/^Bearer\s+/i, "") : null
 
@@ -458,8 +474,8 @@ async function requireAdmin(event, supabase) {
     throw new Error("unauthorized")
   }
 
-  const pickAdminProfile = (rows = []) =>
-    rows.find((row) => row?.role === "admin" || row?.user_type === "admin") || rows[0] || null
+  const pickBackofficeProfile = (rows = []) =>
+    rows.find((row) => isAdminProfile(row) || isManagerProfile(row)) || rows[0] || null
 
   let profile = null
 
@@ -470,7 +486,7 @@ async function requireAdmin(event, supabase) {
     .limit(10)
 
   if (!byAuthError) {
-    profile = pickAdminProfile(byAuthProfiles || [])
+    profile = pickBackofficeProfile(byAuthProfiles || [])
   }
 
   if (!profile && user.email) {
@@ -481,7 +497,7 @@ async function requireAdmin(event, supabase) {
       .limit(10)
 
     if (!exactEmailError) {
-      profile = pickAdminProfile(exactEmailProfiles || [])
+      profile = pickBackofficeProfile(exactEmailProfiles || [])
     }
   }
 
@@ -493,20 +509,24 @@ async function requireAdmin(event, supabase) {
       .limit(10)
 
     if (!insensitiveEmailError) {
-      profile = pickAdminProfile(insensitiveEmailProfiles || [])
+      profile = pickBackofficeProfile(insensitiveEmailProfiles || [])
     }
   }
 
-  if (!profile || (profile.role !== "admin" && profile.user_type !== "admin")) {
-    if (user.user_metadata?.user_type === "admin" || user.app_metadata?.role === "admin") {
+  if (!profile || (!isAdminProfile(profile) && !isManagerProfile(profile))) {
+    if (
+      user.user_metadata?.user_type === "admin" ||
+      user.app_metadata?.role === "admin" ||
+      user.user_metadata?.user_type === "gerente"
+    ) {
       return {
         user,
         profile: {
           id: profile?.id || user.id,
           auth_user_id: user.id,
           email: user.email,
-          role: "admin",
-          user_type: "admin",
+          role: user.user_metadata?.user_type === "gerente" ? "seller" : "admin",
+          user_type: user.user_metadata?.user_type === "gerente" ? "gerente" : "admin",
           full_name: profile?.full_name || user.user_metadata?.full_name || user.email,
         },
       }
@@ -516,6 +536,95 @@ async function requireAdmin(event, supabase) {
   }
 
   return { user, profile }
+}
+
+async function findManagedResellerProfile(supabase, { resellerId, authUserId, email, managerUserId, managerEmail }) {
+  const reseller = await findResellerProfile(supabase, { resellerId, authUserId, email })
+  if (!reseller) return null
+
+  const normalizedManagerEmail = asNullableText(managerEmail, 255)?.toLowerCase() || null
+  const assignedUserId = asNullableText(reseller.account_manager_user_id, 120)
+  const assignedEmail = asNullableText(reseller.account_manager_email, 255)?.toLowerCase() || null
+
+  if (managerUserId && assignedUserId && managerUserId === assignedUserId) {
+    return reseller
+  }
+
+  if (normalizedManagerEmail && assignedEmail && normalizedManagerEmail === assignedEmail) {
+    return reseller
+  }
+
+  return null
+}
+
+async function resolveAccessScope(supabase, actor) {
+  if (isAdminProfile(actor.profile)) {
+    return { access: "admin", managerEmail: actor.user.email?.toLowerCase() || null }
+  }
+
+  if (isManagerProfile(actor.profile)) {
+    return {
+      access: "manager",
+      managerUserId: actor.user.id,
+      managerEmail: actor.user.email?.toLowerCase() || actor.profile.email?.toLowerCase() || null,
+    }
+  }
+
+  throw new Error("forbidden")
+}
+
+async function requireManagedResellerAccess(supabase, body, scope) {
+  const resellerId = asNullableText(body.resellerId || body.reseller_id, 120)
+  const authUserId = asNullableText(body.userId, 120)
+  const email = asNullableText(body.email, 255)
+
+  const reseller =
+    scope.access === "admin"
+      ? await findResellerProfile(supabase, { resellerId, authUserId, email })
+      : await findManagedResellerProfile(supabase, {
+          resellerId,
+          authUserId,
+          email,
+          managerUserId: scope.managerUserId,
+          managerEmail: scope.managerEmail,
+        })
+
+  if (!reseller) {
+    throw new Error("reseller_not_found")
+  }
+
+  return reseller
+}
+
+async function requireManagedOrderAccess(supabase, orderId, scope) {
+  const { data: order, error } = await supabase
+    .from("orders")
+    .select("id, cliente_id, customer_email, payment_status, payment_method")
+    .eq("id", orderId)
+    .is("deleted_at", null)
+    .single()
+
+  if (error || !order) {
+    throw new Error("order_not_found")
+  }
+
+  if (scope.access === "admin") {
+    return order
+  }
+
+  const reseller = await findManagedResellerProfile(supabase, {
+    resellerId: order.cliente_id,
+    authUserId: order.cliente_id,
+    email: order.customer_email,
+    managerUserId: scope.managerUserId,
+    managerEmail: scope.managerEmail,
+  })
+
+  if (!reseller) {
+    throw new Error("forbidden")
+  }
+
+  return order
 }
 
 async function findLegacyProfile(supabase, { profileId, authUserId, email }) {
@@ -675,7 +784,9 @@ async function updateResellerProfileWithFallback(supabase, resellerId, payload) 
     status_cadastro: toLegacyResellerStatus(primaryPayload.status_cadastro),
   })
 
+  delete fallbackPayload.account_manager_user_id
   delete fallbackPayload.account_manager_name
+  delete fallbackPayload.account_manager_email
   delete fallbackPayload.account_manager_whatsapp
   delete fallbackPayload.updated_at
 
@@ -835,9 +946,13 @@ async function handleDeleteUser(supabase, body, adminUserId) {
   }
 }
 
-async function handleUpdateOrder(supabase, body, adminUserId) {
+async function handleUpdateOrder(supabase, body, actorUserId, scope) {
   const orderId = asText(body.orderId, 120)
   if (!orderId) throw new Error("order_id_required")
+
+  if (scope.access === "manager") {
+    await requireManagedOrderAccess(supabase, orderId, scope)
+  }
 
   const { data: currentOrder, error: currentError } = await supabase
     .from("orders")
@@ -904,7 +1019,7 @@ async function handleUpdateOrder(supabase, body, adminUserId) {
     admin_bonus_product_name: asNullableText(body.admin_bonus_product_name, 255),
     admin_bonus_quantity: bonusType === "item" ? Math.max(1, asInteger(body.admin_bonus_quantity, 1)) : null,
     gift_items: giftItems,
-    updated_by_admin_id: adminUserId,
+    updated_by_admin_id: actorUserId,
     updated_at: new Date().toISOString(),
   }
 
@@ -932,7 +1047,9 @@ async function handleApproveReseller(supabase, body) {
   const resellerId = asText(body.resellerId, 120)
   const authUserId = asNullableText(body.userId, 120)
   const email = asNullableText(body.email, 255)
+  const managerUserId = asNullableText(body.managerUserId, 120)
   const managerName = asNullableText(body.managerName, 255)
+  const managerEmail = asNullableText(body.managerEmail, 255)?.toLowerCase() || null
   const managerWhatsapp = asNullableText(body.managerWhatsapp, 64)
   if (!resellerId) throw new Error("reseller_id_required")
 
@@ -956,7 +1073,9 @@ async function handleApproveReseller(supabase, body) {
     await updateResellerProfileWithFallback(supabase, reseller.id, {
       status_cadastro: "approved",
       motivo_reprovacao: null,
+      account_manager_user_id: managerUserId,
       account_manager_name: managerName,
+      account_manager_email: managerEmail,
       account_manager_whatsapp: managerWhatsapp,
       updated_at: now,
     })
@@ -981,7 +1100,9 @@ async function handleApproveReseller(supabase, body) {
       telefone: reseller.whatsapp || reseller.telefone,
       endereco: buildAddressPayload(reseller),
       motivo_reprovacao: null,
+      account_manager_user_id: managerUserId,
       account_manager_name: managerName,
+      account_manager_email: managerEmail,
       account_manager_whatsapp: managerWhatsapp,
       updated_at: now,
     })
@@ -1019,6 +1140,8 @@ async function handleRejectReseller(supabase, body) {
     await updateResellerProfileWithFallback(supabase, reseller.id, {
       status_cadastro: "rejected",
       motivo_reprovacao: reason,
+      account_manager_user_id: null,
+      account_manager_email: null,
       updated_at: now,
     })
   } catch (error) {
@@ -1042,6 +1165,8 @@ async function handleRejectReseller(supabase, body) {
       telefone: reseller.whatsapp || reseller.telefone,
       endereco: buildAddressPayload(reseller),
       motivo_reprovacao: reason,
+      account_manager_user_id: null,
+      account_manager_email: null,
       updated_at: now,
     })
   } catch (error) {
@@ -1052,19 +1177,14 @@ async function handleRejectReseller(supabase, body) {
   return { id: reseller.id }
 }
 
-async function handleUpdateClient(supabase, body) {
+async function handleUpdateClient(supabase, body, scope) {
   const resellerId = asText(body.resellerId, 120)
   if (!resellerId) throw new Error("reseller_id_required")
   const newPassword = asNullableText(body.password, 255)
   if (newPassword && newPassword.length < 6) throw new Error("password_too_short")
 
-  const { data: reseller, error: loadError } = await supabase
-    .from("reseller_profiles")
-    .select("*")
-    .eq("id", resellerId)
-    .single()
-
-  if (loadError || !reseller) throw new Error("reseller_not_found")
+  const reseller = await requireManagedResellerAccess(supabase, body, scope)
+  const isManagerScope = scope?.access === "manager"
 
   const statusMap = normalizeApprovalStatus(body.status_cadastro)
   const now = new Date().toISOString()
@@ -1074,15 +1194,25 @@ async function handleUpdateClient(supabase, body) {
   const normalizedRazaoSocial = asNullableText(body.razao_social, 255) || reseller.razao_social
   const normalizedResponsavel = asNullableText(body.nome_responsavel, 255) || reseller.nome_responsavel
   const normalizedPhone = asNullableText(body.telefone, 64) || reseller.telefone
+  const managerUserId = isManagerScope ? reseller.account_manager_user_id || null : asNullableText(body.account_manager_user_id, 120) || reseller.account_manager_user_id || null
+  const managerName = isManagerScope ? reseller.account_manager_name || null : asNullableText(body.account_manager_name, 255) || reseller.account_manager_name || null
+  const managerEmail = isManagerScope
+    ? reseller.account_manager_email || null
+    : asNullableText(body.account_manager_email, 255)?.toLowerCase() || reseller.account_manager_email || null
+  const managerWhatsapp = isManagerScope ? reseller.account_manager_whatsapp || null : asNullableText(body.account_manager_whatsapp, 64) || reseller.account_manager_whatsapp || null
 
   if (newPassword && !safeAuthUserId) {
     throw new Error("password_update_requires_auth_user")
   }
 
+  if (isManagerScope && newPassword) {
+    throw new Error("forbidden")
+  }
+
   if (safeAuthUserId) {
     const authUpdatePayload = {
       email: normalizedEmail,
-      ...(newPassword ? { password: newPassword } : {}),
+      ...(!isManagerScope && newPassword ? { password: newPassword } : {}),
       user_metadata: {
         full_name: getClientDisplayName({
           razaoSocial: normalizedRazaoSocial,
@@ -1120,8 +1250,12 @@ async function handleUpdateClient(supabase, body) {
     estado: asNullableText(body.estado, 80) || reseller.estado,
     cep: asNullableText(body.cep, 32) || reseller.cep,
     observacoes: asNullableText(body.observacoes, 2000),
-    status_cadastro: statusMap.reseller,
-    motivo_reprovacao: asNullableText(body.motivo_reprovacao, 1000),
+    status_cadastro: isManagerScope ? reseller.status_cadastro : statusMap.reseller,
+    motivo_reprovacao: isManagerScope ? reseller.motivo_reprovacao || null : asNullableText(body.motivo_reprovacao, 1000),
+    account_manager_user_id: managerUserId,
+    account_manager_name: managerName,
+    account_manager_email: managerEmail,
+    account_manager_whatsapp: managerWhatsapp,
     updated_at: now,
   }
 
@@ -1137,13 +1271,17 @@ async function handleUpdateClient(supabase, body) {
     role: "client",
     user_type: asNullableText(body.user_type, 32) || "cliente",
     company_name: resellerPayload.razao_social,
-    status_cadastro: statusMap.profile,
+    status_cadastro: isManagerScope ? normalizeApprovalStatus(reseller.status_cadastro).profile : statusMap.profile,
     tipo_documento: "cnpj",
     documento: resellerPayload.cnpj,
     telefone: resellerPayload.whatsapp || resellerPayload.telefone,
     endereco: buildAddressPayload(resellerPayload),
     motivo_reprovacao: resellerPayload.motivo_reprovacao,
-    notes: asNullableText(body.notes, 2000),
+    notes: isManagerScope ? undefined : asNullableText(body.notes, 2000),
+    account_manager_user_id: managerUserId,
+    account_manager_name: managerName,
+    account_manager_email: managerEmail,
+    account_manager_whatsapp: managerWhatsapp,
     updated_at: now,
   })
 
@@ -1173,6 +1311,10 @@ async function handleCreateUser(supabase, body) {
   const cidade = asNullableText(body.cidade, 120)
   const estado = asNullableText(body.estado, 80)
   const companyName = asNullableText(body.company_name, 255)
+  const managerUserId = asNullableText(body.account_manager_user_id, 120)
+  const managerName = asNullableText(body.account_manager_name, 255)
+  const managerEmail = asNullableText(body.account_manager_email, 255)?.toLowerCase() || null
+  const managerWhatsapp = asNullableText(body.account_manager_whatsapp, 64)
   const visualName = role === "client" ? getClientDisplayName({ razaoSocial: razaoSocial, fullName }) : fullName
 
   if (!fullName || !email || !password) {
@@ -1228,6 +1370,10 @@ async function handleCreateUser(supabase, body) {
       documento,
       telefone: phone,
       notes,
+      account_manager_user_id: role === "client" ? managerUserId : null,
+      account_manager_name: role === "client" ? managerName : null,
+      account_manager_email: role === "client" ? managerEmail : null,
+      account_manager_whatsapp: role === "client" ? managerWhatsapp : null,
       updated_at: now,
     })
 
@@ -1253,6 +1399,10 @@ async function handleCreateUser(supabase, body) {
         canal_revenda: canalRevenda,
         faixa_investimento: faixaInvestimento,
         status_cadastro: statusMap.reseller,
+        account_manager_user_id: managerUserId,
+        account_manager_name: managerName,
+        account_manager_email: managerEmail,
+        account_manager_whatsapp: managerWhatsapp,
       }, resellerSchema))
 
       if (resellerError) throw resellerError
@@ -1343,6 +1493,10 @@ async function handleUpdateUser(supabase, body) {
       authUserId,
       email: existingProfile.email,
     }))
+  const managerUserId = asNullableText(body.account_manager_user_id, 120) || existingProfile.account_manager_user_id || existingReseller?.account_manager_user_id || null
+  const managerName = asNullableText(body.account_manager_name, 255) || existingProfile.account_manager_name || existingReseller?.account_manager_name || null
+  const managerEmail = asNullableText(body.account_manager_email, 255)?.toLowerCase() || existingProfile.account_manager_email || existingReseller?.account_manager_email || null
+  const managerWhatsapp = asNullableText(body.account_manager_whatsapp, 64) || existingProfile.account_manager_whatsapp || existingReseller?.account_manager_whatsapp || null
 
   const finalRazaoSocial = role === "client"
     ? razaoSocial || existingReseller?.razao_social || existingProfile.company_name || existingProfile.full_name
@@ -1420,8 +1574,10 @@ async function handleUpdateUser(supabase, body) {
     }),
     motivo_reprovacao: asNullableText(body.motivo_reprovacao, 1000),
     notes,
-    account_manager_name: asNullableText(body.account_manager_name, 255) || existingProfile.account_manager_name || existingReseller?.account_manager_name || null,
-    account_manager_whatsapp: asNullableText(body.account_manager_whatsapp, 64) || existingProfile.account_manager_whatsapp || existingReseller?.account_manager_whatsapp || null,
+    account_manager_user_id: managerUserId,
+    account_manager_name: managerName,
+    account_manager_email: managerEmail,
+    account_manager_whatsapp: managerWhatsapp,
     updated_at: now,
   })
 
@@ -1448,10 +1604,10 @@ async function handleUpdateUser(supabase, body) {
       observacoes: asNullableText(body.observacoes, 2000) || existingReseller?.observacoes || null,
       status_cadastro: statusMap.reseller,
       motivo_reprovacao: asNullableText(body.motivo_reprovacao, 1000),
-      account_manager_name:
-        asNullableText(body.account_manager_name, 255) || existingReseller?.account_manager_name || existingProfile.account_manager_name || null,
-      account_manager_whatsapp:
-        asNullableText(body.account_manager_whatsapp, 64) || existingReseller?.account_manager_whatsapp || existingProfile.account_manager_whatsapp || null,
+      account_manager_user_id: managerUserId,
+      account_manager_name: managerName,
+      account_manager_email: managerEmail,
+      account_manager_whatsapp: managerWhatsapp,
       updated_at: now,
     }
 
@@ -1517,7 +1673,8 @@ export async function handler(event) {
       })
     }
 
-    const { user } = await requireAdmin(event, supabase)
+    const actor = await requireBackofficeUser(event, supabase)
+    const scope = await resolveAccessScope(supabase, actor)
     const action = asText(body.action, 120)
 
     if (!action) {
@@ -1528,27 +1685,33 @@ export async function handler(event) {
 
     switch (action) {
       case "update-order":
-        data = await handleUpdateOrder(supabase, body, user.id)
+        data = await handleUpdateOrder(supabase, body, actor.user.id, scope)
         break
       case "delete-order":
-        data = await handleDeleteOrder(supabase, body, user.id)
+        if (scope.access !== "admin") throw new Error("forbidden")
+        data = await handleDeleteOrder(supabase, body, actor.user.id)
         break
       case "approve-reseller":
+        if (scope.access !== "admin") throw new Error("forbidden")
         data = await handleApproveReseller(supabase, body)
         break
       case "reject-reseller":
+        if (scope.access !== "admin") throw new Error("forbidden")
         data = await handleRejectReseller(supabase, body)
         break
       case "update-client":
-        data = await handleUpdateClient(supabase, body)
+        data = await handleUpdateClient(supabase, body, scope)
         break
       case "update-user":
+        if (scope.access !== "admin") throw new Error("forbidden")
         data = await handleUpdateUser(supabase, body)
         break
       case "delete-user":
-        data = await handleDeleteUser(supabase, body, user.id)
+        if (scope.access !== "admin") throw new Error("forbidden")
+        data = await handleDeleteUser(supabase, body, actor.user.id)
         break
       case "create-user":
+        if (scope.access !== "admin") throw new Error("forbidden")
         data = await handleCreateUser(supabase, body)
         break
       default:

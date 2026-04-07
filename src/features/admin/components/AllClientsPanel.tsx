@@ -22,6 +22,7 @@ type ClientDraft = Partial<UpdateClientInput>
 type AllClientsPanelProps = {
   mode?: "admin" | "manager"
   managerUserId?: string
+  managerEmail?: string | null
   title?: string
   description?: string
 }
@@ -36,6 +37,7 @@ const STATUS_OPTIONS = [
 export function AllClientsPanel({
   mode = "admin",
   managerUserId,
+  managerEmail,
   title = "Todos os clientes",
   description = "Busque, filtre e edite todos os dados cadastrais dos clientes empresariais.",
 }: AllClientsPanelProps) {
@@ -55,8 +57,8 @@ export function AllClientsPanel({
     setLoading(true)
     try {
       const [data, managerRows] = await Promise.all([
-        mode === "manager" && managerUserId ? fetchManagedClients(managerUserId) : fetchAllClients(),
-        fetchAccountManagers(),
+        mode === "manager" && managerUserId ? fetchManagedClients(managerUserId, managerEmail) : fetchAllClients(),
+        mode === "manager" ? Promise.resolve([]) : fetchAccountManagers(),
       ])
       setClients(data)
       setManagers(managerRows)
@@ -70,7 +72,7 @@ export function AllClientsPanel({
 
   useEffect(() => {
     load()
-  }, [])
+  }, [mode, managerEmail, managerUserId])
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -141,7 +143,7 @@ export function AllClientsPanel({
 
   const handleSave = async (client: ClientAdminRow) => {
     const draft = getDraft(client)
-    if (!draft.account_manager_user_id) {
+    if (mode === "admin" && !draft.account_manager_user_id) {
       toast.error("Selecione um gerente responsável.")
       return
     }
@@ -264,6 +266,7 @@ export function AllClientsPanel({
                       <Field label="E-mail">
                         <Input value={draft.email} onChange={(event) => updateDraft(client.id, { email: event.target.value })} />
                       </Field>
+                      {mode === "admin" ? (
                       <Field label="Nova senha">
                         <Input
                           type="password"
@@ -272,6 +275,7 @@ export function AllClientsPanel({
                           onChange={(event) => updateDraft(client.id, { password: event.target.value })}
                         />
                       </Field>
+                      ) : null}
                       <Field label="Telefone">
                         <Input value={draft.telefone} onChange={(event) => updateDraft(client.id, { telefone: event.target.value })} />
                       </Field>
@@ -299,14 +303,17 @@ export function AllClientsPanel({
                       <Field label="Complemento">
                         <Input value={draft.complemento || ""} onChange={(event) => updateDraft(client.id, { complemento: event.target.value })} />
                       </Field>
+                      {mode === "admin" ? (
                       <Field label="Tipo de usuário">
                         <Input value={draft.user_type || "cliente"} onChange={(event) => updateDraft(client.id, { user_type: event.target.value })} />
                       </Field>
+                      ) : null}
+                      {mode === "admin" ? (
                       <Field label="Status">
                         <select
                           className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                           value={draft.status_cadastro}
-                          onChange={(event) => updateDraft(client.id, { status_cadastro: event.target.value as UpdateUserInput["status_cadastro"] })}
+                           onChange={(event) => updateDraft(client.id, { status_cadastro: event.target.value as UpdateClientInput["status_cadastro"] })}
                         >
                           {STATUS_OPTIONS.map((option) => (
                             <option key={option.value} value={option.value}>
@@ -315,6 +322,8 @@ export function AllClientsPanel({
                           ))}
                         </select>
                       </Field>
+                      ) : null}
+                      {mode === "admin" ? (
                       <Field label="Gerente de conta">
                         <select
                           className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -330,18 +339,23 @@ export function AllClientsPanel({
                           ))}
                         </select>
                       </Field>
+                      ) : null}
                     </div>
 
                     <div className="grid gap-4">
+                      {mode === "admin" ? (
                       <Field label="Motivo / observação de status">
                         <Textarea rows={4} value={draft.motivo_reprovacao || ""} onChange={(event) => updateDraft(client.id, { motivo_reprovacao: event.target.value })} />
                       </Field>
+                      ) : null}
                       <Field label="Observações do cliente">
                         <Textarea rows={4} value={draft.observacoes || ""} onChange={(event) => updateDraft(client.id, { observacoes: event.target.value })} />
                       </Field>
+                      {mode === "admin" ? (
                       <Field label="Observações internas">
                         <Textarea rows={4} value={draft.notes || ""} onChange={(event) => updateDraft(client.id, { notes: event.target.value })} />
                       </Field>
+                      ) : null}
                       <div className="grid gap-4 md:grid-cols-2">
                         <Field label="Nome do gerente">
                           <Input value={draft.account_manager_name || ""} readOnly />

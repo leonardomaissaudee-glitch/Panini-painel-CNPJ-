@@ -12,6 +12,7 @@ import {
   deleteOrder,
   fetchGifts,
   fetchOrders,
+  fetchManagedOrders,
   saveOrder,
   uploadOrderPaymentPdf,
   type GiftCatalogRow,
@@ -290,7 +291,15 @@ function getOrderSearchText(order: OrderRow) {
   return [order.id, order.customer_name, order.customer_email, order.customer_phone, order.customer_cpf].filter(Boolean).join(" ").toLowerCase()
 }
 
-export function OrdersPanel() {
+export function OrdersPanel({
+  mode = "admin",
+  managerUserId,
+  managerEmail,
+}: {
+  mode?: "admin" | "manager"
+  managerUserId?: string
+  managerEmail?: string | null
+}) {
   const [orders, setOrders] = useState<OrderRow[]>([])
   const [gifts, setGifts] = useState<GiftCatalogRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -309,7 +318,10 @@ export function OrdersPanel() {
     else setRefreshing(true)
 
     try {
-      const [data, giftRows] = await Promise.all([fetchOrders(), fetchGifts()])
+      const [data, giftRows] = await Promise.all([
+        mode === "manager" && managerUserId ? fetchManagedOrders(managerUserId, managerEmail) : fetchOrders(),
+        fetchGifts(),
+      ])
       setOrders(data)
       setGifts(giftRows.filter((gift) => gift.is_active))
       setDrafts((current) => {
@@ -333,7 +345,7 @@ export function OrdersPanel() {
 
   useEffect(() => {
     load()
-  }, [])
+  }, [managerEmail, managerUserId, mode])
 
   const filteredOrders = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -509,7 +521,7 @@ export function OrdersPanel() {
       <CardHeader className="space-y-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <CardTitle>Pedidos</CardTitle>
+            <CardTitle>{mode === "manager" ? "Pedidos da carteira" : "Pedidos"}</CardTitle>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Input
@@ -816,7 +828,12 @@ export function OrdersPanel() {
                           </SectionCard>
                         ) : null}
                         <div className="flex flex-wrap justify-end gap-3">
-                          <Button variant="destructive" onClick={() => handleDelete(order)} disabled={isDeleting || isSaving}><Trash2 className="mr-2 h-4 w-4" />{isDeleting ? "Excluindo..." : "Excluir pedido"}</Button>
+                          {mode === "admin" ? (
+                            <Button variant="destructive" onClick={() => handleDelete(order)} disabled={isDeleting || isSaving}>
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              {isDeleting ? "Excluindo..." : "Excluir pedido"}
+                            </Button>
+                          ) : null}
                           <Button onClick={() => handleSave(order)} disabled={isSaving || isDeleting}><Save className="mr-2 h-4 w-4" />{isSaving ? "Salvando..." : "Salvar pedido"}</Button>
                         </div>
                       </div>
