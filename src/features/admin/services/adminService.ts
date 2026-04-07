@@ -789,6 +789,77 @@ async function fetchProfilesByManagerScope(userIds: string[], emails: string[]) 
   return Array.from(profileMap.values())
 }
 
+async function fetchLegacyManagedProfiles(managerUserId: string, managerEmail?: string | null) {
+  const normalizedEmail = managerEmail?.trim().toLowerCase() || ""
+  const merged = new Map<string, LegacyProfileRow>()
+
+  if (managerUserId) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("account_manager_user_id", managerUserId)
+
+    if (error) throw error
+
+    for (const row of (data ?? []) as LegacyProfileRow[]) {
+      if (!row.deleted_at) {
+        merged.set(row.id, row)
+      }
+    }
+  }
+
+  if (normalizedEmail) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .ilike("account_manager_email", normalizedEmail)
+
+    if (error) throw error
+
+    for (const row of (data ?? []) as LegacyProfileRow[]) {
+      if (!row.deleted_at) {
+        merged.set(row.id, row)
+      }
+    }
+  }
+
+  return Array.from(merged.values())
+}
+
+async function fetchResellerProfilesByLinks(userIds: string[], emails: string[]) {
+  const merged = new Map<string, ResellerApprovalRow>()
+
+  if (userIds.length) {
+    const { data, error } = await supabase
+      .from("reseller_profiles")
+      .select("*")
+      .in("user_id", userIds)
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+
+    for (const row of (data ?? []) as ResellerApprovalRow[]) {
+      merged.set(row.id, row)
+    }
+  }
+
+  if (emails.length) {
+    const { data, error } = await supabase
+      .from("reseller_profiles")
+      .select("*")
+      .in("email", emails)
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+
+    for (const row of (data ?? []) as ResellerApprovalRow[]) {
+      merged.set(row.id, row)
+    }
+  }
+
+  return Array.from(merged.values())
+}
+
 export async function fetchManagedClients(managerUserId: string, managerEmail?: string | null): Promise<ClientAdminRow[]> {
   const normalizedEmail = managerEmail?.trim().toLowerCase() || ""
   const merged = new Map<string, ResellerApprovalRow>()
@@ -819,20 +890,77 @@ export async function fetchManagedClients(managerUserId: string, managerEmail?: 
     }
   }
 
-  const resellerRows = Array.from(merged.values())
-  if (!resellerRows.length) return []
+  const managedProfiles = await fetchLegacyManagedProfiles(managerUserId, managerEmail)
 
-  const userIds = Array.from(new Set(resellerRows.map((row) => row.user_id).filter(Boolean)))
-  const emails = Array.from(new Set(resellerRows.map((row) => row.email?.toLowerCase()).filter(Boolean))) as string[]
+  if (managedProfiles.length) {
+    const managedUserIds = Array.from(new Set(managedProfiles.map((row) => row.auth_user_id).filter(Boolean))) as string[]
+    const managedEmails = Array.from(new Set(managedProfiles.map((row) => row.email?.toLowerCase()).filter(Boolean))) as string[]
+    const linkedResellers = await fetchResellerProfilesByLinks(managedUserIds, managedEmails)
+
+    for (const row of linkedResellers) {
+      merged.set(row.id, row)
+    }
+  }
+
+  const resellerRows = Array.from(merged.values())
+  if (!resellerRows.length && !managedProfiles.length) return []
+
+  const userIds = Array.from(
+    new Set([
+      ...resellerRows.map((row) => row.user_id).filter(Boolean),
+      ...managedProfiles.map((row) => row.auth_user_id).filter(Boolean),
+    ])
+  ) as string[]
+  const emails = Array.from(
+    new Set([
+      ...resellerRows.map((row) => row.email?.toLowerCase()).filter(Boolean),
+      ...managedProfiles.map((row) => row.email?.toLowerCase()).filter(Boolean),
+    ])
+  ) as string[]
   const profiles = await fetchProfilesByManagerScope(userIds, emails)
-  const profileByUserId = new Map(profiles.map((row) => [row.auth_user_id || "", row]))
+  const scopedProfiles = [...profiles]
+  for (const row of managedProfiles) {
+    if (!scopedProfiles.some((profile) => profile.id === row.id)) {
+      scopedProfiles.push(row)
+    }
+  }
+
+  const resellerByUserId = new Map(resellerRows.map((row) => [row.user_id, row]))
+  const resellerByEmail = new Map(
+    resellerRows.filter((row) => row.email).map((row) => [String(row.email).toLowerCase(), row])
+  )
+  const profileByUserId = new Map(scopedProfiles.map((row) => [row.auth_user_id || "", row]))
   const profileByEmail = new Map(
-    profiles.filter((row) => row.email).map((row) => [String(row.email).toLowerCase(), row])
+    scopedProfiles.filter((row) => row.email).map((row) => [String(row.email).toLowerCase(), row])
   )
 
-  return resellerRows
-    .map((reseller) => buildClientRowFromSources(reseller, profileByUserId.get(reseller.user_id) || profileByEmail.get(String(reseller.email || "").toLowerCase()) || null))
-    .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+  const result = new Map<string, ClientAdminRow>()
+
+  for (const reseller of resellerRows) {
+    result.set(
+      reseller.id,
+      buildClientRowFromSources(
+        reseller,
+        profileByUserId.get(reseller.user_id) || profileByEmail.get(String(reseller.email || "").toLowerCase()) || null
+      )
+    )
+  }
+
+  for (const profile of managedProfiles) {
+    const linkedReseller =
+      resellerByUserId.get(profile.auth_user_id || "") ||
+      resellerByEmail.get(String(profile.email || "").toLowerCase()) ||
+      null
+
+    result.set(
+      linkedReseller?.id || profile.id,
+      buildClientRowFromSources(linkedReseller || undefined, profile)
+    )
+  }
+
+  return Array.from(result.values()).sort(
+    (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+  )
 }
 
 export async function fetchManagedOrders(managerUserId: string, managerEmail?: string | null): Promise<OrderRow[]> {

@@ -813,14 +813,7 @@ async function updateResellerProfileWithFallback(supabase, resellerId, payload) 
     status_cadastro: toLegacyResellerStatus(primaryPayload.status_cadastro),
   })
 
-  delete fallbackPayload.account_manager_user_id
-  delete fallbackPayload.account_manager_name
-  delete fallbackPayload.account_manager_email
-  delete fallbackPayload.account_manager_whatsapp
-  delete fallbackPayload.updated_at
-
-  const { error: fallbackError } = await supabase.from("reseller_profiles").update(fallbackPayload).eq("id", resellerId)
-  if (fallbackError) throw fallbackError
+  await updateTableWithRetry(supabase, "reseller_profiles", fallbackPayload, "id", resellerId)
 }
 
 async function clearManagerAssignments(supabase, { authUserId, email }) {
