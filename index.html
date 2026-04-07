@@ -4,17 +4,34 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Revenda Panini</title>
-    <script src="https://api.centurionpay.com.br/sdk/v1/centurionpay.js"></script>
     <script>
-      // Hotfix: evita crash "NotFoundError: Failed to execute 'removeChild' on 'Node'"
-      // causado por race condition durante troca de etapas no checkout.
+      // Hotfix defensivo para evitar crash de DOM quando algum script externo
+      // altera a árvore enquanto o React está renderizando.
       (function () {
         const _removeChild = Node.prototype.removeChild;
+        const _insertBefore = Node.prototype.insertBefore;
+
         Node.prototype.removeChild = function (child) {
           try {
             return _removeChild.call(this, child);
           } catch (e) {
             if (e && e.name === "NotFoundError") return child;
+            throw e;
+          }
+        };
+
+        Node.prototype.insertBefore = function (newNode, referenceNode) {
+          try {
+            return _insertBefore.call(this, newNode, referenceNode);
+          } catch (e) {
+            if (
+              e &&
+              e.name === "NotFoundError" &&
+              referenceNode &&
+              referenceNode.parentNode !== this
+            ) {
+              return _insertBefore.call(this, newNode, null);
+            }
             throw e;
           }
         };
