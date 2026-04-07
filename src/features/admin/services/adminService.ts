@@ -657,6 +657,7 @@ export async function fetchAdminUsers(): Promise<AdminUserRow[]> {
     if (!isClient) {
       return {
         ...(profile as AdminUserRow),
+        status_cadastro: normalizeStatus(profile.status_cadastro),
         full_name:
           profile.full_name ||
           profile.company_name ||

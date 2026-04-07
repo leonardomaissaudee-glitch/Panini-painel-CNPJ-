@@ -62,7 +62,7 @@ export function AdminOverviewPanel() {
           pendingProfiles: approvals.length,
           activeOrders: orders.filter((order) => order.status !== "pedido_entregue" && order.status !== "cancelado").length,
           completedOrders: orders.filter((order) => order.status === "pedido_entregue").length,
-          pendingChats: chats.filter((conversation) => conversation.status === "pending" || conversation.unread_admin_count > 0).length,
+          pendingChats: chats.filter((conversation) => conversation.status !== "closed" || conversation.unread_admin_count > 0).length,
           managers: managers.filter((manager) => manager.status_cadastro === "approved").length,
         })
       } catch (error) {
@@ -102,9 +102,9 @@ export function AdminOverviewPanel() {
         icon: PackageSearch,
       },
       {
-        title: "Chats pendentes",
+        title: "Chats ativos",
         value: summary.pendingChats,
-        detail: "Conversas sem retorno",
+        detail: "Conversas abertas no atendimento",
         icon: MessageCircleMore,
       },
       {
