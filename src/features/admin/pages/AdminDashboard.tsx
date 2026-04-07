@@ -1,6 +1,7 @@
 ﻿import { Outlet } from "react-router-dom"
 import { AppShell } from "@/components/layouts/AppShell"
 const adminNav = [
+  { label: "Dashboard", to: "/admin/resumo" },
   { label: "Pedidos", to: "/admin/pedidos" },
   { label: "Chats", to: "/admin/chats" },
   { label: "Monitoramento", to: "/admin/monitoramento" },

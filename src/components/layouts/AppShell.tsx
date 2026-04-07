@@ -63,7 +63,7 @@ export function AppShell({ title, nav = [], actions, children, contentClassName 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const dashboardPath =
     profile?.role === "admin"
-      ? "/admin/pedidos"
+      ? "/admin/resumo"
       : profile?.role === "seller"
         ? profile?.user_type === "gerente"
           ? "/gerente/resumo"

@@ -23,6 +23,7 @@ import ClientSupportPage from "@/features/client/pages/ClientSupportPage"
 import ClientCartPage from "@/features/client/pages/ClientCartPage"
 import { OrdersPanel } from "@/features/admin/components/OrdersPanel"
 import { ChatsPanel } from "@/features/admin/components/ChatsPanel"
+import { AdminOverviewPanel } from "@/features/admin/components/AdminOverviewPanel"
 import { MonitoringPanel } from "@/features/monitoring/components/MonitoringPanel"
 import { PendingApprovals } from "@/features/admin/components/PendingApprovals"
 import { UsersPanel } from "@/features/admin/components/UsersPanel"
@@ -163,7 +164,8 @@ export function App() {
                 </ProtectedRoute>
               }
             >
-              <Route index element={<Navigate to="/admin/pedidos" replace />} />
+              <Route index element={<Navigate to="/admin/resumo" replace />} />
+              <Route path="resumo" element={<AdminOverviewPanel />} />
               <Route path="pedidos" element={<OrdersPanel />} />
               <Route path="chats" element={<ChatsPanel />} />
               <Route path="monitoramento" element={<MonitoringPanel />} />
@@ -172,7 +174,7 @@ export function App() {
               <Route path="clientes-aprovados" element={<ApprovedClientsPanel />} />
               <Route path="todos-clientes" element={<AllClientsPanel />} />
               <Route path="brindes" element={<GiftsPanel />} />
-              <Route path="*" element={<Navigate to="/admin/pedidos" replace />} />
+              <Route path="*" element={<Navigate to="/admin/resumo" replace />} />
             </Route>
 
             <Route

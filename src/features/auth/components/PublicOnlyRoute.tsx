@@ -21,7 +21,7 @@ export function PublicOnlyRoute({ children }: { children: ReactNode }) {
 
   const destination =
     profile?.role === "admin"
-      ? "/admin/pedidos"
+      ? "/admin/resumo"
       : profile?.role === "seller"
         ? profile?.user_type === "gerente"
           ? "/gerente/resumo"

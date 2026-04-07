@@ -13,7 +13,7 @@ interface ProtectedRouteProps {
 }
 
 function getDashboardFallback(role?: UserRole | null, userType?: string | null) {
-  if (role === "admin") return "/admin/pedidos"
+  if (role === "admin") return "/admin/resumo"
   if (role === "seller" && userType === "gerente") return "/gerente/resumo"
   if (role === "seller") return "/seller"
   return "/app/catalogo"

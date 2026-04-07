@@ -33,7 +33,7 @@ export default function AdminLoginPage() {
 
       if (profile.role === "admin") {
         toast.success("Login autorizado (admin)")
-        navigate("/admin/pedidos", { replace: true })
+        navigate("/admin/resumo", { replace: true })
         return
       }
       if (profile.role === "seller") {

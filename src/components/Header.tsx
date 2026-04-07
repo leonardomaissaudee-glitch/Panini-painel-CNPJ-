@@ -18,7 +18,7 @@ export function Header() {
   const showCart = !!profile && profile.role === "client";
   const dashboardPath =
     profile?.role === "admin"
-      ? "/admin/pedidos"
+      ? "/admin/resumo"
       : profile?.role === "seller"
         ? profile?.user_type === "gerente"
           ? "/gerente/resumo"
