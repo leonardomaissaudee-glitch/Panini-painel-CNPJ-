@@ -311,6 +311,15 @@ function normalizeStatus(status?: string | null): ResellerApprovalRow["status_ca
   return "pending"
 }
 
+function normalizeOrderStatus(status?: string | null): OrderStatus {
+  if (status === "novo_pedido") return "aguardando_aprovacao"
+  if (status === "pago") return "pedido_pago"
+  if (status === "enviado") return "em_expedicao"
+  if (status === "nota_fiscal") return "nota_fiscal_emitida"
+  if (status === "rastreio") return "localizador_disponivel"
+  return (status as OrderStatus) || "aguardando_aprovacao"
+}
+
 function extractAddressField(address: any, key: string) {
   if (!address || typeof address !== "object") return null
   const value = address[key]
