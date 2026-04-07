@@ -2,7 +2,9 @@
 
 alter table public.reseller_profiles
   add column if not exists account_manager_user_id uuid references auth.users(id) on delete set null,
-  add column if not exists account_manager_email text;
+  add column if not exists account_manager_name text,
+  add column if not exists account_manager_email text,
+  add column if not exists account_manager_whatsapp text;
 
 alter table public.profiles
   add column if not exists account_manager_user_id uuid references auth.users(id) on delete set null,
