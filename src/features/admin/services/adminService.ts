@@ -891,10 +891,16 @@ export async function fetchManagedClients(managerUserId: string, managerEmail?: 
     .eq("account_manager_user_id", managerUserId)
     .order("created_at", { ascending: false })
 
-  if (byManagerIdError) throw byManagerIdError
+  if (byManagerIdError) {
+    if (!isMissingColumnError(byManagerIdError, "reseller_profiles", "account_manager_user_id")) {
+      throw byManagerIdError
+    }
+  }
 
-  for (const row of (byManagerId ?? []) as ResellerApprovalRow[]) {
-    merged.set(row.id, row)
+  if (byManagerId) {
+    for (const row of byManagerId as ResellerApprovalRow[]) {
+      merged.set(row.id, row)
+    }
   }
 
   if (normalizedEmail) {
@@ -904,10 +910,16 @@ export async function fetchManagedClients(managerUserId: string, managerEmail?: 
       .ilike("account_manager_email", normalizedEmail)
       .order("created_at", { ascending: false })
 
-    if (byManagerEmailError) throw byManagerEmailError
+    if (byManagerEmailError) {
+      if (!isMissingColumnError(byManagerEmailError, "reseller_profiles", "account_manager_email")) {
+        throw byManagerEmailError
+      }
+    }
 
-    for (const row of (byManagerEmail ?? []) as ResellerApprovalRow[]) {
-      merged.set(row.id, row)
+    if (byManagerEmail) {
+      for (const row of byManagerEmail as ResellerApprovalRow[]) {
+        merged.set(row.id, row)
+      }
     }
   }
 
