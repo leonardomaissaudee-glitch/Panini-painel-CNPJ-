@@ -59,6 +59,7 @@ export const cadastroRevendedorSchema = z
     }),
     faixa_investimento: z.string().min(1, "Selecione a faixa"),
     observacoes: z.string().optional(),
+    referral_code: z.string().optional(),
     aceitou_veracidade: z.boolean().refine((v) => v, "Necessário confirmar veracidade"),
     aceitou_termos: z.boolean().refine((v) => v, "Necessário aceitar termos"),
     aceitou_contato: z.boolean().refine((v) => v, "Necessário autorizar contato"),

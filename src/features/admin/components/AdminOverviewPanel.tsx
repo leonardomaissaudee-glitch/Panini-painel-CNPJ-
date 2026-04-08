@@ -34,6 +34,7 @@ const quickLinks = [
   { label: "Chats", to: "/admin/chats" },
   { label: "Cadastros", to: "/admin/cadastros-pendentes" },
   { label: "Usuários", to: "/admin/usuarios" },
+  { label: "Links de gerentes", to: "/admin/links-gerentes" },
 ]
 
 export function AdminOverviewPanel() {
@@ -143,7 +144,7 @@ export function AdminOverviewPanel() {
           })}
         </div>
 
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-5">
           {quickLinks.map((link) => (
             <Link
               key={link.to}

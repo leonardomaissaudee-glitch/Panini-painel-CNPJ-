@@ -356,15 +356,24 @@ export function AllClientsPanel({
                         <Textarea rows={4} value={draft.notes || ""} onChange={(event) => updateDraft(client.id, { notes: event.target.value })} />
                       </Field>
                       ) : null}
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <Field label="Nome do gerente">
-                          <Input value={draft.account_manager_name || ""} readOnly />
+                       <div className="grid gap-4 md:grid-cols-2">
+                         <Field label="Nome do gerente">
+                           <Input value={draft.account_manager_name || ""} readOnly />
+                         </Field>
+                         <Field label="WhatsApp do gerente">
+                           <Input value={draft.account_manager_whatsapp || ""} readOnly />
+                         </Field>
+                         <Field label="Gerente indicador inicial">
+                           <Input value={client.referred_by_manager_name || "-"} readOnly />
+                         </Field>
+                         <Field label="Código/link utilizado">
+                           <Input value={client.referral_code_used || "-"} readOnly />
+                         </Field>
+                        </div>
+                        <Field label="Origem do cadastro">
+                          <Input value={client.signup_origin || "cadastro_direto"} readOnly />
                         </Field>
-                        <Field label="WhatsApp do gerente">
-                          <Input value={draft.account_manager_whatsapp || ""} readOnly />
-                        </Field>
-                      </div>
-                       <div className="flex flex-wrap justify-end gap-2">
+                        <div className="flex flex-wrap justify-end gap-2">
                          {mode === "admin" ? (
                            <Button variant="destructive" onClick={() => handleDelete(client)} disabled={deletingId === client.id || savingId === client.id}>
                              <Trash2 className="mr-2 h-4 w-4" />

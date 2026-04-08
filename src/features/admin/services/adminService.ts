@@ -100,6 +100,12 @@ export interface ResellerApprovalRow {
   account_manager_name?: string | null
   account_manager_email?: string | null
   account_manager_whatsapp?: string | null
+  referred_by_manager_user_id?: string | null
+  referred_by_manager_name?: string | null
+  referred_by_manager_email?: string | null
+  referred_by_manager_whatsapp?: string | null
+  referral_code_used?: string | null
+  signup_origin?: string | null
   created_at?: string
 }
 
@@ -135,6 +141,7 @@ export interface AccountManagerDirectoryRow {
   auth_user_id: string
   full_name: string
   email: string
+  referral_code?: string | null
   telefone?: string | null
   whatsapp?: string | null
   status_cadastro: "pending" | "approved" | "rejected" | "blocked"
@@ -392,6 +399,12 @@ function buildClientRowFromSources(reseller?: Partial<ResellerApprovalRow> & { i
     account_manager_name: reseller?.account_manager_name || profile?.account_manager_name || null,
     account_manager_email: reseller?.account_manager_email || profile?.account_manager_email || null,
     account_manager_whatsapp: reseller?.account_manager_whatsapp || profile?.account_manager_whatsapp || null,
+    referred_by_manager_user_id: reseller?.referred_by_manager_user_id || profile?.referred_by_manager_user_id || null,
+    referred_by_manager_name: reseller?.referred_by_manager_name || profile?.referred_by_manager_name || null,
+    referred_by_manager_email: reseller?.referred_by_manager_email || profile?.referred_by_manager_email || null,
+    referred_by_manager_whatsapp: reseller?.referred_by_manager_whatsapp || profile?.referred_by_manager_whatsapp || null,
+    referral_code_used: reseller?.referral_code_used || profile?.referral_code_used || null,
+    signup_origin: reseller?.signup_origin || profile?.signup_origin || null,
     created_at: reseller?.created_at || profile?.created_at,
     profile_id: profile?.id ?? null,
     legacy_role: profile?.role ?? "client",
@@ -658,6 +671,7 @@ export async function fetchAdminUsers(): Promise<AdminUserRow[]> {
       return {
         ...(profile as AdminUserRow),
         status_cadastro: normalizeStatus(profile.status_cadastro),
+        referral_code: profile.referral_code ?? null,
         full_name:
           profile.full_name ||
           profile.company_name ||
@@ -701,6 +715,12 @@ export async function fetchAdminUsers(): Promise<AdminUserRow[]> {
       account_manager_name: reseller?.account_manager_name ?? profile.account_manager_name ?? null,
       account_manager_email: reseller?.account_manager_email ?? profile.account_manager_email ?? null,
       account_manager_whatsapp: reseller?.account_manager_whatsapp ?? profile.account_manager_whatsapp ?? null,
+      referred_by_manager_user_id: reseller?.referred_by_manager_user_id ?? profile.referred_by_manager_user_id ?? null,
+      referred_by_manager_name: reseller?.referred_by_manager_name ?? profile.referred_by_manager_name ?? null,
+      referred_by_manager_email: reseller?.referred_by_manager_email ?? profile.referred_by_manager_email ?? null,
+      referred_by_manager_whatsapp: reseller?.referred_by_manager_whatsapp ?? profile.referred_by_manager_whatsapp ?? null,
+      referral_code_used: reseller?.referral_code_used ?? profile.referral_code_used ?? null,
+      signup_origin: reseller?.signup_origin ?? profile.signup_origin ?? null,
     } as AdminUserRow
   })
 
@@ -742,6 +762,12 @@ export async function fetchAdminUsers(): Promise<AdminUserRow[]> {
       account_manager_name: reseller.account_manager_name ?? null,
       account_manager_email: reseller.account_manager_email ?? null,
       account_manager_whatsapp: reseller.account_manager_whatsapp ?? null,
+      referred_by_manager_user_id: reseller.referred_by_manager_user_id ?? null,
+      referred_by_manager_name: reseller.referred_by_manager_name ?? null,
+      referred_by_manager_email: reseller.referred_by_manager_email ?? null,
+      referred_by_manager_whatsapp: reseller.referred_by_manager_whatsapp ?? null,
+      referral_code_used: reseller.referral_code_used ?? null,
+      signup_origin: reseller.signup_origin ?? null,
       created_at: reseller.created_at,
       notes: null,
     })
@@ -772,6 +798,7 @@ export async function fetchAccountManagers(): Promise<AccountManagerDirectoryRow
         formatEmailDisplayName(row.email) ||
         "Gerente sem nome",
       email: row.email || "",
+      referral_code: row.referral_code || null,
       telefone: row.telefone || null,
       whatsapp: row.telefone || null,
       status_cadastro: row.status_cadastro,

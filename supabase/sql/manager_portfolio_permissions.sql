@@ -26,7 +26,7 @@ where user_type = 'gerente'
 
 update public.reseller_profiles rp
 set account_manager_user_id = p.auth_user_id,
-    account_manager_name = coalesce(rp.account_manager_name, p.full_name, p.company_name),
+    account_manager_name = coalesce(rp.account_manager_name, p.company_name),
     account_manager_email = coalesce(rp.account_manager_email, p.email),
     account_manager_whatsapp = coalesce(rp.account_manager_whatsapp, p.telefone),
     updated_at = now()
@@ -295,7 +295,7 @@ to authenticated
 using (
   public.is_non_manager_seller()
   and (role = 'client' or user_type = 'cliente')
-  and coalesce(status_cadastro, 'pending') = 'approved'
+  and coalesce(status_cadastro::text, 'pending') in ('approved', 'aprovado')
   and deleted_at is null
 );
 
@@ -369,7 +369,7 @@ for select
 to authenticated
 using (
   public.is_non_manager_seller()
-  and status_cadastro = 'approved'
+  and status_cadastro::text in ('approved', 'aprovado')
 );
 
 -- orders

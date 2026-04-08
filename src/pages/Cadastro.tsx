@@ -1,5 +1,5 @@
 import { useState, type ComponentType } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { ArrowRight, BadgeCheck, Building2, ShieldCheck } from "lucide-react"
 import { Footer } from "@/components/Footer"
 import { Badge } from "@/components/ui/badge"
@@ -13,6 +13,7 @@ import { FormError } from "@/components/feedback/FormFeedback"
 import { registerReseller } from "@/lib/auth"
 import { formatCEP, formatCNPJ, formatCPF, formatPhone } from "@/lib/masks"
 import { cadastroRevendedorSchema } from "@/lib/validators"
+import { normalizeManagerReferralCode } from "@/shared/utils/managerReferral"
 
 type CadastroFormState = {
   cnpj: string
@@ -137,6 +138,7 @@ function mapFieldErrors(fieldErrors: Record<string, string[] | undefined>) {
 
 export default function CadastroPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [formData, setFormData] = useState<CadastroFormState>(initialFormData)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [submitError, setSubmitError] = useState("")
@@ -171,7 +173,10 @@ export default function CadastroPage() {
     setSubmitting(true)
 
     try {
-      await registerReseller(parsed.data)
+      await registerReseller({
+        ...parsed.data,
+        referral_code: normalizeManagerReferralCode(searchParams.get("ref")),
+      })
       navigate("/cadastro/sucesso", {
         replace: true,
         state: {

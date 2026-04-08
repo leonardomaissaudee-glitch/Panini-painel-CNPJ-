@@ -151,6 +151,13 @@ const fallbackTableSchemas = {
       "account_manager_name",
       "account_manager_email",
       "account_manager_whatsapp",
+      "referral_code",
+      "referred_by_manager_user_id",
+      "referred_by_manager_name",
+      "referred_by_manager_email",
+      "referred_by_manager_whatsapp",
+      "referral_code_used",
+      "signup_origin",
       "notes",
       "deleted_at",
     ].map((column_name) => [column_name, { column_name, udt_name: column_name === "endereco" ? "text" : "text" }])
@@ -183,6 +190,12 @@ const fallbackTableSchemas = {
       "account_manager_name",
       "account_manager_email",
       "account_manager_whatsapp",
+      "referred_by_manager_user_id",
+      "referred_by_manager_name",
+      "referred_by_manager_email",
+      "referred_by_manager_whatsapp",
+      "referral_code_used",
+      "signup_origin",
       "updated_at",
     ].map((column_name) => [column_name, { column_name, udt_name: "text" }])
   ),
@@ -1155,6 +1168,12 @@ async function handleApproveReseller(supabase, body) {
       account_manager_name: managerName,
       account_manager_email: managerEmail,
       account_manager_whatsapp: managerWhatsapp,
+      referred_by_manager_user_id: reseller.referred_by_manager_user_id || null,
+      referred_by_manager_name: reseller.referred_by_manager_name || null,
+      referred_by_manager_email: reseller.referred_by_manager_email || null,
+      referred_by_manager_whatsapp: reseller.referred_by_manager_whatsapp || null,
+      referral_code_used: reseller.referral_code_used || null,
+      signup_origin: reseller.signup_origin || null,
       updated_at: now,
     })
   } catch (error) {
@@ -1220,6 +1239,12 @@ async function handleRejectReseller(supabase, body) {
       motivo_reprovacao: reason,
       account_manager_user_id: null,
       account_manager_email: null,
+      referred_by_manager_user_id: reseller.referred_by_manager_user_id || null,
+      referred_by_manager_name: reseller.referred_by_manager_name || null,
+      referred_by_manager_email: reseller.referred_by_manager_email || null,
+      referred_by_manager_whatsapp: reseller.referred_by_manager_whatsapp || null,
+      referral_code_used: reseller.referral_code_used || null,
+      signup_origin: reseller.signup_origin || null,
       updated_at: now,
     })
   } catch (error) {
@@ -1245,6 +1270,12 @@ async function handleRejectReseller(supabase, body) {
       motivo_reprovacao: reason,
       account_manager_user_id: null,
       account_manager_email: null,
+      referred_by_manager_user_id: reseller.referred_by_manager_user_id || null,
+      referred_by_manager_name: reseller.referred_by_manager_name || null,
+      referred_by_manager_email: reseller.referred_by_manager_email || null,
+      referred_by_manager_whatsapp: reseller.referred_by_manager_whatsapp || null,
+      referral_code_used: reseller.referral_code_used || null,
+      signup_origin: reseller.signup_origin || null,
       updated_at: now,
     })
   } catch (error) {
@@ -1360,6 +1391,12 @@ async function handleUpdateClient(supabase, body, scope) {
     account_manager_name: managerName,
     account_manager_email: managerEmail,
     account_manager_whatsapp: managerWhatsapp,
+    referred_by_manager_user_id: reseller.referred_by_manager_user_id || null,
+    referred_by_manager_name: reseller.referred_by_manager_name || null,
+    referred_by_manager_email: reseller.referred_by_manager_email || null,
+    referred_by_manager_whatsapp: reseller.referred_by_manager_whatsapp || null,
+    referral_code_used: reseller.referral_code_used || null,
+    signup_origin: reseller.signup_origin || null,
     updated_at: now,
   })
 
@@ -1452,6 +1489,7 @@ async function handleCreateUser(supabase, body) {
       account_manager_name: role === "client" ? managerName : null,
       account_manager_email: role === "client" ? managerEmail : null,
       account_manager_whatsapp: role === "client" ? managerWhatsapp : null,
+      signup_origin: role === "client" ? "cadastro_admin" : null,
       updated_at: now,
     })
 
@@ -1481,6 +1519,7 @@ async function handleCreateUser(supabase, body) {
         account_manager_name: managerName,
         account_manager_email: managerEmail,
         account_manager_whatsapp: managerWhatsapp,
+        signup_origin: "cadastro_admin",
       }, resellerSchema))
 
       if (resellerError) throw resellerError
@@ -1526,6 +1565,12 @@ async function handleUpdateUser(supabase, body) {
       telefone: resellerProfile.whatsapp || resellerProfile.telefone,
       endereco: buildAddressPayload(resellerProfile),
       motivo_reprovacao: resellerProfile.motivo_reprovacao || null,
+      referred_by_manager_user_id: resellerProfile.referred_by_manager_user_id || null,
+      referred_by_manager_name: resellerProfile.referred_by_manager_name || null,
+      referred_by_manager_email: resellerProfile.referred_by_manager_email || null,
+      referred_by_manager_whatsapp: resellerProfile.referred_by_manager_whatsapp || null,
+      referral_code_used: resellerProfile.referral_code_used || null,
+      signup_origin: resellerProfile.signup_origin || null,
       account_manager_name: resellerProfile.account_manager_name || null,
       account_manager_whatsapp: resellerProfile.account_manager_whatsapp || null,
       notes: null,
@@ -1656,6 +1701,12 @@ async function handleUpdateUser(supabase, body) {
     account_manager_name: managerName,
     account_manager_email: managerEmail,
     account_manager_whatsapp: managerWhatsapp,
+    referred_by_manager_user_id: existingReseller?.referred_by_manager_user_id || existingProfile.referred_by_manager_user_id || null,
+    referred_by_manager_name: existingReseller?.referred_by_manager_name || existingProfile.referred_by_manager_name || null,
+    referred_by_manager_email: existingReseller?.referred_by_manager_email || existingProfile.referred_by_manager_email || null,
+    referred_by_manager_whatsapp: existingReseller?.referred_by_manager_whatsapp || existingProfile.referred_by_manager_whatsapp || null,
+    referral_code_used: existingReseller?.referral_code_used || existingProfile.referral_code_used || null,
+    signup_origin: existingReseller?.signup_origin || existingProfile.signup_origin || (role === "client" ? "cadastro_admin" : null),
     updated_at: now,
   })
 
@@ -1686,6 +1737,12 @@ async function handleUpdateUser(supabase, body) {
       account_manager_name: managerName,
       account_manager_email: managerEmail,
       account_manager_whatsapp: managerWhatsapp,
+      referred_by_manager_user_id: existingReseller?.referred_by_manager_user_id || null,
+      referred_by_manager_name: existingReseller?.referred_by_manager_name || null,
+      referred_by_manager_email: existingReseller?.referred_by_manager_email || null,
+      referred_by_manager_whatsapp: existingReseller?.referred_by_manager_whatsapp || null,
+      referral_code_used: existingReseller?.referral_code_used || null,
+      signup_origin: existingReseller?.signup_origin || null,
       updated_at: now,
     }
 

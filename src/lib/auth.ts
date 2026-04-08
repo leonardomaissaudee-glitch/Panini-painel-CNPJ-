@@ -3,6 +3,7 @@ import { supabase } from "./supabase"
 import { unformatCNPJ } from "./masks"
 import type { CadastroRevendedorInput } from "./validators"
 import { getManagerByName } from "@/shared/constants/accountManagers"
+import { normalizeManagerReferralCode } from "@/shared/utils/managerReferral"
 
 export type ResellerProfile = {
   id: string
@@ -37,8 +38,24 @@ export type ResellerProfile = {
   role?: "client"
   account_manager_name?: string | null
   account_manager_whatsapp?: string | null
+  account_manager_user_id?: string | null
+  account_manager_email?: string | null
+  referred_by_manager_user_id?: string | null
+  referred_by_manager_name?: string | null
+  referred_by_manager_email?: string | null
+  referred_by_manager_whatsapp?: string | null
+  referral_code_used?: string | null
+  signup_origin?: string | null
   created_at: string
 }
+
+type ResolvedReferralManager = {
+  auth_user_id: string
+  email: string
+  full_name: string
+  telefone?: string | null
+  referral_code: string
+} | null
 
 type AuthEmailLookup = {
   email: string
@@ -190,6 +207,30 @@ export async function signOutReseller() {
 }
 
 export async function registerReseller(input: CadastroRevendedorInput) {
+  const referralCode = normalizeManagerReferralCode(input.referral_code)
+  let resolvedManager: ResolvedReferralManager = null
+
+  if (referralCode) {
+    const { data: referralData, error: referralError } = await supabase.rpc("resolve_manager_referral_code", {
+      p_referral_code: referralCode,
+    })
+
+    if (referralError) {
+      throw new Error("Não foi possível validar o link do gerente no momento.")
+    }
+
+    const row = Array.isArray(referralData) ? referralData[0] : referralData
+    if (row?.auth_user_id && row?.email) {
+      resolvedManager = {
+        auth_user_id: row.auth_user_id,
+        email: row.email,
+        full_name: row.full_name || "Gerente comercial",
+        telefone: row.telefone || null,
+        referral_code: row.referral_code || referralCode,
+      }
+    }
+  }
+
   const existing = await getAuthEmailByCnpj(input.cnpj)
   if (existing?.email) {
     throw new Error("Este CNPJ já possui cadastro em análise ou ativo.")
@@ -263,6 +304,16 @@ export async function registerReseller(input: CadastroRevendedorInput) {
     aceitou_termos: input.aceitou_termos,
     aceitou_contato: input.aceitou_contato,
     status_cadastro: "pending",
+    account_manager_user_id: resolvedManager?.auth_user_id || null,
+    account_manager_name: resolvedManager?.full_name || null,
+    account_manager_email: resolvedManager?.email || null,
+    account_manager_whatsapp: resolvedManager?.telefone || null,
+    referred_by_manager_user_id: resolvedManager?.auth_user_id || null,
+    referred_by_manager_name: resolvedManager?.full_name || null,
+    referred_by_manager_email: resolvedManager?.email || null,
+    referred_by_manager_whatsapp: resolvedManager?.telefone || null,
+    referral_code_used: referralCode || null,
+    signup_origin: resolvedManager ? "link_gerente" : referralCode ? "link_invalido" : "cadastro_direto",
   }
 
   const { error: insertError } = await supabase.from("reseller_profiles").insert(payload)

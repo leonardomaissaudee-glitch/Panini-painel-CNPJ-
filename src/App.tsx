@@ -27,6 +27,7 @@ import { AdminOverviewPanel } from "@/features/admin/components/AdminOverviewPan
 import { MonitoringPanel } from "@/features/monitoring/components/MonitoringPanel"
 import { PendingApprovals } from "@/features/admin/components/PendingApprovals"
 import { UsersPanel } from "@/features/admin/components/UsersPanel"
+import { ManagerLinksPanel } from "@/features/admin/components/ManagerLinksPanel"
 import { ApprovedClientsPanel } from "@/features/admin/components/ApprovedClientsPanel"
 import { AllClientsPanel } from "@/features/admin/components/AllClientsPanel"
 import { GiftsPanel } from "@/features/admin/components/GiftsPanel"
@@ -171,6 +172,7 @@ export function App() {
               <Route path="monitoramento" element={<MonitoringPanel />} />
               <Route path="cadastros-pendentes" element={<PendingApprovals />} />
               <Route path="usuarios" element={<UsersPanel />} />
+              <Route path="links-gerentes" element={<ManagerLinksPanel />} />
               <Route path="clientes-aprovados" element={<ApprovedClientsPanel />} />
               <Route path="todos-clientes" element={<AllClientsPanel />} />
               <Route path="brindes" element={<GiftsPanel />} />

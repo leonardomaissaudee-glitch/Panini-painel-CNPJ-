@@ -7,6 +7,7 @@ export interface Profile {
   auth_user_id?: string | null
   full_name?: string | null
   email?: string | null
+  referral_code?: string | null
   role: UserRole
   status_cadastro: ApprovalStatus
   user_type?: string | null
@@ -21,6 +22,12 @@ export interface Profile {
   account_manager_name?: string | null
   account_manager_email?: string | null
   account_manager_whatsapp?: string | null
+  referred_by_manager_user_id?: string | null
+  referred_by_manager_name?: string | null
+  referred_by_manager_email?: string | null
+  referred_by_manager_whatsapp?: string | null
+  referral_code_used?: string | null
+  signup_origin?: string | null
   notes?: string | null
   deleted_at?: string | null
   created_at?: string

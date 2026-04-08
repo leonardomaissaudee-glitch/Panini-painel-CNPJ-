@@ -141,6 +141,12 @@ function buildResellerProfile(row: any): Profile {
     account_manager_name: row.account_manager_name ?? null,
     account_manager_email: row.account_manager_email ?? null,
     account_manager_whatsapp: row.account_manager_whatsapp ?? null,
+    referral_code_used: row.referral_code_used ?? null,
+    signup_origin: row.signup_origin ?? null,
+    referred_by_manager_user_id: row.referred_by_manager_user_id ?? null,
+    referred_by_manager_name: row.referred_by_manager_name ?? null,
+    referred_by_manager_email: row.referred_by_manager_email ?? null,
+    referred_by_manager_whatsapp: row.referred_by_manager_whatsapp ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at,
   }

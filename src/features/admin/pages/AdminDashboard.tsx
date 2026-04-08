@@ -7,6 +7,7 @@ const adminNav = [
   { label: "Monitoramento", to: "/admin/monitoramento" },
   { label: "Cadastros pendentes", to: "/admin/cadastros-pendentes" },
   { label: "Usuários", to: "/admin/usuarios" },
+  { label: "Links de Gerentes", to: "/admin/links-gerentes" },
   { label: "Clientes aprovados", to: "/admin/clientes-aprovados" },
   { label: "Todos os clientes", to: "/admin/todos-clientes" },
   { label: "Brindes", to: "/admin/brindes" },

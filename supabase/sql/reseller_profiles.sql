@@ -33,8 +33,16 @@ create table if not exists public.reseller_profiles (
   aceitou_termos boolean not null default false,
   aceitou_contato boolean not null default false,
   motivo_reprovacao text,
+  account_manager_user_id uuid references auth.users(id) on delete set null,
   account_manager_name text,
+  account_manager_email text,
   account_manager_whatsapp text,
+  referred_by_manager_user_id uuid references auth.users(id) on delete set null,
+  referred_by_manager_name text,
+  referred_by_manager_email text,
+  referred_by_manager_whatsapp text,
+  referral_code_used text,
+  signup_origin text not null default 'cadastro_direto',
   status_cadastro text not null default 'pending',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -42,6 +50,9 @@ create table if not exists public.reseller_profiles (
 
 create index if not exists idx_reseller_profiles_cnpj on public.reseller_profiles (cnpj);
 create index if not exists idx_reseller_profiles_user_id on public.reseller_profiles (user_id);
+create index if not exists idx_reseller_profiles_account_manager_user_id on public.reseller_profiles (account_manager_user_id);
+create index if not exists idx_reseller_profiles_referred_by_manager_user_id on public.reseller_profiles (referred_by_manager_user_id);
+create index if not exists idx_reseller_profiles_referral_code_used on public.reseller_profiles (referral_code_used);
 
 -- trigger updated_at
 create or replace function public.set_updated_at()
