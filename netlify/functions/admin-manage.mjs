@@ -605,10 +605,16 @@ async function resolveAccessScope(supabase, actor) {
   }
 
   if (isManagerProfile(actor.profile)) {
+    const profileFullName = asNullableText(actor.profile.full_name, 255)
+    const profilePhone = asNullableText(actor.profile.telefone, 64)
+    const metadataFullName = asNullableText(actor.user.user_metadata?.full_name, 255)
+    const metadataPhone = asNullableText(actor.user.user_metadata?.telefone, 64)
     return {
       access: "manager",
       managerUserId: actor.user.id,
       managerEmail: actor.user.email?.toLowerCase() || actor.profile.email?.toLowerCase() || null,
+      managerName: profileFullName || metadataFullName || actor.user.email || "Gerente comercial",
+      managerWhatsapp: profilePhone || metadataPhone || null,
     }
   }
 
@@ -1134,30 +1140,46 @@ async function handleCreateScopedOrder(supabase, body, actor, scope) {
   return data
 }
 
-async function handleApproveReseller(supabase, body) {
+async function handleApproveReseller(supabase, body, scope) {
   const resellerId = asText(body.resellerId, 120)
   const authUserId = asNullableText(body.userId, 120)
   const email = asNullableText(body.email, 255)
-  const managerUserId = asNullableText(body.managerUserId, 120)
-  const managerName = asNullableText(body.managerName, 255)
-  const managerEmail = asNullableText(body.managerEmail, 255)?.toLowerCase() || null
-  const managerWhatsapp = asNullableText(body.managerWhatsapp, 64)
   if (!resellerId) throw new Error("reseller_id_required")
+
+  const reseller =
+    scope?.access === "manager"
+      ? await requireManagedResellerAccess(supabase, body, scope)
+      : await findResellerProfile(supabase, {
+          resellerId,
+          authUserId: authUserId || resellerId,
+          email,
+        })
 
   console.info("admin-manage approve-reseller:start", {
     resellerId,
     authUserId,
     hasEmail: Boolean(email),
-    managerName,
-  })
-
-  const reseller = await findResellerProfile(supabase, {
-    resellerId,
-    authUserId: authUserId || resellerId,
-    email,
+    access: scope?.access || "admin",
   })
 
   if (!reseller) throw new Error("reseller_not_found")
+
+  const managerUserId =
+    scope?.access === "manager"
+      ? reseller.account_manager_user_id || scope.managerUserId || null
+      : asNullableText(body.managerUserId, 120)
+  const managerName =
+    scope?.access === "manager"
+      ? reseller.account_manager_name || scope.managerName || null
+      : asNullableText(body.managerName, 255)
+  const managerEmail =
+    scope?.access === "manager"
+      ? reseller.account_manager_email || scope.managerEmail || null
+      : asNullableText(body.managerEmail, 255)?.toLowerCase() || null
+  const managerWhatsapp =
+    scope?.access === "manager"
+      ? reseller.account_manager_whatsapp || scope.managerWhatsapp || null
+      : asNullableText(body.managerWhatsapp, 64)
 
   const now = new Date().toISOString()
   try {
@@ -1830,8 +1852,8 @@ export async function handler(event) {
         data = await handleCreateScopedOrder(supabase, body, actor, scope)
         break
       case "approve-reseller":
-        if (scope.access !== "admin") throw new Error("forbidden")
-        data = await handleApproveReseller(supabase, body)
+        if (scope.access !== "admin" && scope.access !== "manager") throw new Error("forbidden")
+        data = await handleApproveReseller(supabase, body, scope)
         break
       case "reject-reseller":
         if (scope.access !== "admin") throw new Error("forbidden")

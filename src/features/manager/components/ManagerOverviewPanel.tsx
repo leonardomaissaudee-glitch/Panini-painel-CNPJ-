@@ -85,7 +85,7 @@ export function ManagerOverviewPanel({
       {
         title: "Cadastros pendentes",
         value: summary.pending_clients,
-        detail: "Aguardando análise do admin",
+        detail: "Prontos para sua revisão",
         icon: ClipboardList,
       },
       {
@@ -127,7 +127,7 @@ export function ManagerOverviewPanel({
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-          Você vê apenas clientes, pedidos e chats vinculados à sua carteira. Aprovação de cadastro, criação de usuários e monitoramento continuam exclusivos do administrador.
+          Você vê apenas clientes, pedidos e chats vinculados à sua carteira. Criação de usuários e monitoramento continuam exclusivos do administrador.
         </div>
       </CardContent>
     </Card>

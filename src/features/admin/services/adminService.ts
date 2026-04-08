@@ -582,6 +582,16 @@ export async function fetchPendingProfiles(): Promise<ResellerApprovalRow[]> {
   }))
 }
 
+export async function fetchManagedPendingProfiles(managerUserId: string, managerEmail?: string | null): Promise<ResellerApprovalRow[]> {
+  const rows = await fetchManagedClients(managerUserId, managerEmail)
+  return rows
+    .filter((row) => row.status_cadastro === "pending")
+    .map((row) => ({
+      ...row,
+      status_cadastro: normalizeStatus(row.status_cadastro),
+    }))
+}
+
 async function fetchLegacyProfiles() {
   const { data, error } = await supabase
     .from("profiles")
@@ -1110,6 +1120,23 @@ export async function approveProfile(
     managerName: manager.full_name,
     managerEmail: manager.email || null,
     managerWhatsapp: manager.whatsapp ?? null,
+  }
+
+  if (row.email?.trim()) {
+    payload.email = row.email.trim()
+  }
+
+  return callAdminAction<{ id: string }>(
+    payload,
+    "Não foi possível aprovar o cadastro."
+  )
+}
+
+export async function approveManagedProfile(row: Pick<ResellerApprovalRow, "id" | "user_id" | "email">) {
+  const payload: Record<string, unknown> = {
+    action: "approve-reseller",
+    resellerId: row.id,
+    userId: row.user_id,
   }
 
   if (row.email?.trim()) {

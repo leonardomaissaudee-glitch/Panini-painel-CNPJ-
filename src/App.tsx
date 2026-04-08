@@ -189,6 +189,7 @@ export function App() {
             >
               <Route index element={<Navigate to="/gerente/resumo" replace />} />
               <Route path="resumo" element={<ManagerOverviewPanelWrapper />} />
+              <Route path="cadastros" element={<ManagerPendingApprovalsWrapper />} />
               <Route path="catalogo" element={<ManagerCatalogPanelWrapper />} />
               <Route path="clientes" element={<ManagerClientsPanelWrapper />} />
               <Route path="pedidos" element={<ManagerOrdersPanelWrapper />} />
@@ -226,6 +227,16 @@ function ManagerClientsPanelWrapper() {
           title="Clientes da carteira"
           description="Somente clientes vinculados ao seu atendimento."
         />
+      )}
+    />
+  )
+}
+
+function ManagerPendingApprovalsWrapper() {
+  return (
+    <ManagerRouteContent
+      render={({ managerUserId, managerEmail }) => (
+        <PendingApprovals mode="manager" managerUserId={managerUserId} managerEmail={managerEmail} />
       )}
     />
   )

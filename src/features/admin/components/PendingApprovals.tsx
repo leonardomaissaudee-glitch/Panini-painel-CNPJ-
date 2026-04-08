@@ -6,8 +6,10 @@ import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import {
   approveProfile,
+  approveManagedProfile,
   deleteUserRecord,
   fetchAccountManagers,
+  fetchManagedPendingProfiles,
   fetchPendingProfiles,
   rejectProfile,
   type AccountManagerDirectoryRow,
@@ -15,7 +17,13 @@ import {
 } from "@/features/admin/services/adminService"
 import { StatusBadge } from "@/components/StatusBadge"
 
-export function PendingApprovals() {
+type PendingApprovalsProps = {
+  mode?: "admin" | "manager"
+  managerUserId?: string
+  managerEmail?: string | null
+}
+
+export function PendingApprovals({ mode = "admin", managerUserId, managerEmail }: PendingApprovalsProps) {
   const [loading, setLoading] = useState(false)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [rows, setRows] = useState<ResellerApprovalRow[]>([])
@@ -28,7 +36,10 @@ export function PendingApprovals() {
   const load = async () => {
     setLoading(true)
     try {
-      const [data, managerRows] = await Promise.all([fetchPendingProfiles(), fetchAccountManagers()])
+      const [data, managerRows] = await Promise.all([
+        mode === "manager" && managerUserId ? fetchManagedPendingProfiles(managerUserId, managerEmail) : fetchPendingProfiles(),
+        mode === "manager" ? Promise.resolve([]) : fetchAccountManagers(),
+      ])
       setRows(data)
       setManagers(managerRows)
       setManagerByUser((current) => {
@@ -50,7 +61,7 @@ export function PendingApprovals() {
 
   useEffect(() => {
     load()
-  }, [])
+  }, [managerEmail, managerUserId, mode])
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -68,16 +79,21 @@ export function PendingApprovals() {
       toast.error("Erro ao aprovar", { description: "Cliente não encontrado na lista local." })
       return
     }
-    const managerId = managerByUser[id]
-    const manager = managers.find((item) => item.auth_user_id === managerId)
-    if (!manager) {
-      toast.error("Erro ao aprovar", { description: "Selecione um gerente responsável antes de aprovar." })
-      return
-    }
     try {
       setSavingId(id)
-      await approveProfile(row, manager)
-      toast.success("Cadastro aprovado", { description: "Cliente liberado com gerente atribuído." })
+      if (mode === "manager") {
+        await approveManagedProfile(row)
+        toast.success("Cadastro aprovado", { description: "Cliente liberado na sua carteira." })
+      } else {
+        const managerId = managerByUser[id]
+        const manager = managers.find((item) => item.auth_user_id === managerId)
+        if (!manager) {
+          toast.error("Erro ao aprovar", { description: "Selecione um gerente responsável antes de aprovar." })
+          return
+        }
+        await approveProfile(row, manager)
+        toast.success("Cadastro aprovado", { description: "Cliente liberado com gerente atribuído." })
+      }
       await load()
     } catch (error) {
       const message = error instanceof Error ? error.message : "Não foi possível aprovar o cadastro."
@@ -143,7 +159,7 @@ export function PendingApprovals() {
     <Card className="border-slate-200 shadow-sm">
       <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <CardTitle>Cadastros pendentes</CardTitle>
+          <CardTitle>{mode === "manager" ? "Cadastros da sua carteira" : "Cadastros pendentes"}</CardTitle>
         </div>
         <Input
           value={search}
@@ -196,48 +212,60 @@ export function PendingApprovals() {
                     </div>
 
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-4">
-                      <div>
-                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Gerente responsável</div>
-                        <select
-                          className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                          value={managerByUser[row.id] ?? ""}
-                          onChange={(event) =>
-                            setManagerByUser((current) => ({
-                              ...current,
-                              [row.id]: event.target.value,
-                            }))
-                          }
-                        >
-                          <option value="">Selecione um gerente</option>
-                          {managers.map((manager) => (
-                            <option key={manager.auth_user_id} value={manager.auth_user_id}>
-                              {manager.full_name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      {mode === "admin" ? (
+                        <>
+                          <div>
+                            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Gerente responsável</div>
+                            <select
+                              className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                              value={managerByUser[row.id] ?? ""}
+                              onChange={(event) =>
+                                setManagerByUser((current) => ({
+                                  ...current,
+                                  [row.id]: event.target.value,
+                                }))
+                              }
+                            >
+                              <option value="">Selecione um gerente</option>
+                              {managers.map((manager) => (
+                                <option key={manager.auth_user_id} value={manager.auth_user_id}>
+                                  {manager.full_name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
 
-                      <div>
-                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Motivo da reprovação</div>
-                        <Input
-                          className="mt-2"
-                          placeholder="Explique o motivo, se necessário"
-                          value={rejectReason[row.id] || ""}
-                          onChange={(event) => setRejectReason((current) => ({ ...current, [row.id]: event.target.value }))}
-                        />
-                      </div>
+                          <div>
+                            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Motivo da reprovação</div>
+                            <Input
+                              className="mt-2"
+                              placeholder="Explique o motivo, se necessário"
+                              value={rejectReason[row.id] || ""}
+                              onChange={(event) => setRejectReason((current) => ({ ...current, [row.id]: event.target.value }))}
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+                          Você pode revisar os dados, ajustar o cadastro do cliente e aprovar apenas os clientes já vinculados à sua carteira.
+                        </div>
+                      )}
 
                       <div className="flex flex-wrap gap-3">
                         <Button onClick={() => handleApprove(row.id)} disabled={isSaving}>
                           {isSaving ? "Processando..." : "Aprovar"}
                         </Button>
-                        <Button variant="destructive" onClick={() => handleReject(row.id)} disabled={isSaving}>
-                          Reprovar
-                        </Button>
-                        <Button variant="outline" onClick={() => handleDelete(row.id)} disabled={isSaving}>
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Excluir cadastro
-                        </Button>
+                        {mode === "admin" ? (
+                          <>
+                            <Button variant="destructive" onClick={() => handleReject(row.id)} disabled={isSaving}>
+                              Reprovar
+                            </Button>
+                            <Button variant="outline" onClick={() => handleDelete(row.id)} disabled={isSaving}>
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Excluir cadastro
+                            </Button>
+                          </>
+                        ) : null}
                       </div>
                     </div>
                   </div>
