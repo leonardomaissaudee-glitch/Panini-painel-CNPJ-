@@ -40,7 +40,30 @@ export async function signUpWithEmail({
 }
 
 export async function signInWithEmail(email: string, password: string) {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+  const normalizedIdentifier = email.trim().toLowerCase()
+  let authEmail = normalizedIdentifier
+
+  if (normalizedIdentifier && !normalizedIdentifier.includes("@")) {
+    const { data: possibleProfiles, error: profileError } = await supabase
+      .from("profiles")
+      .select("email, role, user_type")
+      .ilike("email", `${normalizedIdentifier}@%`)
+      .limit(10)
+
+    if (profileError) {
+      throw profileError
+    }
+
+    const backofficeMatches = (possibleProfiles ?? []).filter(
+      (row) => (row.role === "admin" || row.role === "seller") && typeof row.email === "string" && row.email.trim()
+    )
+
+    if (backofficeMatches.length === 1) {
+      authEmail = String(backofficeMatches[0].email).trim().toLowerCase()
+    }
+  }
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email: authEmail, password })
   if (error) throw error
   return data
 }
@@ -124,38 +147,93 @@ function buildResellerProfile(row: any): Profile {
 }
 
 export async function fetchProfile(userId: string, email?: string | null): Promise<Profile | null> {
-  const { data: legacyById, error: legacyError } = await supabase
+  const pickLegacyProfile = (rows: any[], authUserId: string, authEmail?: string | null) => {
+    const normalizedEmail = authEmail?.trim().toLowerCase() || ""
+    const byAuthUser = rows.find((row) => row?.auth_user_id === authUserId)
+    if (byAuthUser) return byAuthUser
+    const byId = rows.find((row) => row?.id === authUserId)
+    if (byId) return byId
+    const byEmail = normalizedEmail
+      ? rows.find((row) => String(row?.email || "").trim().toLowerCase() === normalizedEmail)
+      : null
+    return byEmail || rows[0] || null
+  }
+
+  const normalizedEmail = email?.trim().toLowerCase() || ""
+  const legacyCandidates: any[] = []
+
+  const { data: legacyByAuth, error: legacyAuthError } = await supabase
     .from("profiles")
     .select("*")
-    .or(`auth_user_id.eq.${userId},id.eq.${userId}`)
-    .maybeSingle()
+    .eq("auth_user_id", userId)
+    .limit(10)
 
-  if (legacyError) {
-    console.error("Erro ao carregar perfil legado", legacyError)
-    return null
+  if (legacyAuthError) {
+    console.error("Erro ao carregar perfil legado por auth_user_id", legacyAuthError)
+  } else {
+    legacyCandidates.push(...(legacyByAuth ?? []))
   }
 
-  let legacyProfile = legacyById
+  const { data: legacyById, error: legacyIdError } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .limit(10)
 
-  if (!legacyProfile && email) {
-    const { data: legacyByEmail } = await supabase
+  if (legacyIdError) {
+    console.error("Erro ao carregar perfil legado por id", legacyIdError)
+  } else {
+    legacyCandidates.push(...(legacyById ?? []))
+  }
+
+  if (normalizedEmail) {
+    const { data: legacyByEmail, error: legacyEmailError } = await supabase
       .from("profiles")
       .select("*")
-      .eq("email", email)
-      .maybeSingle()
+      .ilike("email", normalizedEmail)
+      .limit(10)
 
-    legacyProfile = legacyByEmail
+    if (legacyEmailError) {
+      console.error("Erro ao carregar perfil legado por e-mail", legacyEmailError)
+    } else {
+      legacyCandidates.push(...(legacyByEmail ?? []))
+    }
   }
 
-  const { data: resellerProfile, error: resellerError } = await supabase
+  const uniqueLegacyRows = Array.from(
+    new Map(legacyCandidates.filter(Boolean).map((row) => [String(row.id || row.auth_user_id || row.email || crypto.randomUUID()), row])).values()
+  )
+  const legacyProfile = pickLegacyProfile(uniqueLegacyRows, userId, normalizedEmail)
+
+  const resellerCandidates: any[] = []
+
+  const { data: resellerByUserId, error: resellerUserIdError } = await supabase
     .from("reseller_profiles")
     .select("*")
     .eq("user_id", userId)
-    .maybeSingle()
+    .limit(10)
 
-  if (resellerError) {
-    console.error("Erro ao carregar perfil empresarial", resellerError)
+  if (resellerUserIdError) {
+    console.error("Erro ao carregar perfil empresarial por user_id", resellerUserIdError)
+  } else {
+    resellerCandidates.push(...(resellerByUserId ?? []))
   }
+
+  if (normalizedEmail) {
+    const { data: resellerByEmail, error: resellerEmailError } = await supabase
+      .from("reseller_profiles")
+      .select("*")
+      .ilike("email", normalizedEmail)
+      .limit(10)
+
+    if (resellerEmailError) {
+      console.error("Erro ao carregar perfil empresarial por e-mail", resellerEmailError)
+    } else {
+      resellerCandidates.push(...(resellerByEmail ?? []))
+    }
+  }
+
+  const resellerProfile = resellerCandidates.find((row) => row?.user_id === userId) || resellerCandidates[0] || null
 
   if (legacyProfile?.role === "admin" || legacyProfile?.role === "seller") {
     return {
