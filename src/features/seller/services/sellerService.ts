@@ -1,6 +1,7 @@
 import { supabase } from "@/shared/services/supabaseClient"
 import type { Profile } from "@/shared/types/auth"
 import type { OrderStatus } from "@/shared/constants/orderStatus"
+import { getDefaultEstimatedDeliveryDate, toDateInputValue } from "@/shared/utils/orderDelivery"
 
 export interface SellerOrder {
   id: string
@@ -12,6 +13,7 @@ export interface SellerOrder {
   status?: OrderStatus | null
   payment_status?: string | null
   payment_method?: string | null
+  estimated_delivery_date?: string | null
   invoice_number?: string | null
   tracking_code?: string | null
   created_at?: string
@@ -186,6 +188,7 @@ export async function createManualOrder(input: {
     seller_id = null,
     shipping,
   } = input
+  const estimatedDeliveryDate = toDateInputValue(getDefaultEstimatedDeliveryDate())
 
   const { error } = await supabase.from("orders").insert({
     customer_name,
@@ -205,6 +208,7 @@ export async function createManualOrder(input: {
     payment_method,
     payment_status: "pending",
     status: "novo_pedido",
+    estimated_delivery_date: estimatedDeliveryDate,
     seller_id,
   })
   if (error) throw error

@@ -8,6 +8,7 @@ import { fetchMyOrders, submitClientPaymentReceipt, uploadClientPaymentReceipt }
 import type { OrderRow } from "@/features/admin/services/adminService"
 import { getOrderStatusLabel } from "@/shared/constants/orderStatus"
 import { StatusBadge } from "@/components/StatusBadge"
+import { getOrderEstimatedDeliveryLabel } from "@/shared/utils/orderDelivery"
 import { calculateAutomaticOrderPricing } from "@/shared/utils/orderPricing"
 
 const orderTimeline = [
@@ -18,6 +19,8 @@ const orderTimeline = [
   "em_expedicao",
   "nota_fiscal_emitida",
   "localizador_disponivel",
+  "pedido_com_transportadora",
+  "pedido_em_rota",
   "pedido_entregue",
 ] as const
 
@@ -40,7 +43,6 @@ export function ClientOrders({
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [summaryExpanded, setSummaryExpanded] = useState<Record<string, boolean>>({})
   const [receiptDrafts, setReceiptDrafts] = useState<Record<string, ReceiptDraft>>({})
-  const estimatedDeliveryLabel = getEstimatedDeliveryLabel()
 
   const load = async () => {
     if (!email) return
@@ -148,6 +150,10 @@ export function ClientOrders({
           const automaticDiscountAmount = Number(order.automatic_discount_amount ?? automaticPricing.automaticDiscount)
           const manualDiscountAmount = Number(order.admin_discount_amount || 0)
           const bonusAmount = Number(order.admin_bonus_amount || 0)
+          const estimatedDeliveryLabel = getOrderEstimatedDeliveryLabel({
+            estimatedDeliveryDate: order.estimated_delivery_date,
+            createdAt: order.created_at,
+          })
           const finalTotal = Number(
             Math.max(0, Number(order.subtotal || 0) - automaticDiscountAmount - manualDiscountAmount - bonusAmount).toFixed(2)
           )
@@ -189,7 +195,7 @@ export function ClientOrders({
                     <div className="rounded-2xl border border-slate-200 p-4">
                       <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-800">Linha do pedido</div>
                       <div className="mt-4">
-                        <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
+                        <div className="grid grid-cols-2 gap-2 md:grid-cols-5 xl:grid-cols-10">
                           {orderTimeline.map((step) => {
                             const isActive = step === normalizedStatus
                             const isReached = hasReached(step, normalizedStatus)
@@ -565,17 +571,6 @@ function InfoMessage({ children }: { children: ReactNode }) {
   )
 }
 
-function getEstimatedDeliveryLabel() {
-  const estimatedDate = new Date()
-  estimatedDate.setHours(0, 0, 0, 0)
-  estimatedDate.setDate(estimatedDate.getDate() + 15)
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "numeric",
-    month: "long",
-  }).format(estimatedDate)
-}
-
 function formatMoney(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value || 0))
 }
@@ -614,6 +609,8 @@ function getCompactOrderStatusLabel(status: OrderTimelineStatus) {
     em_expedicao: "Expedição",
     nota_fiscal_emitida: "NF emitida",
     localizador_disponivel: "Localizador",
+    pedido_com_transportadora: "Transportadora",
+    pedido_em_rota: "Em rota",
     pedido_entregue: "Entregue",
   }
 

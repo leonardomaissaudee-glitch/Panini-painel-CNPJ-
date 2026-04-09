@@ -1,22 +1,10 @@
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import type { OrderStatus } from "@/shared/constants/orderStatus"
 import { getOrderStatusLabel } from "@/shared/constants/orderStatus"
 
 type StatusKind =
-  | "aguardando_aprovacao"
-  | "aguardando_pagamento"
-  | "aguardando_verificacao_financeira"
-  | "pedido_pago"
-  | "em_expedicao"
-  | "nota_fiscal_emitida"
-  | "localizador_disponivel"
-  | "pedido_entregue"
-  | "cancelado"
-  | "novo_pedido"
-  | "pago"
-  | "enviado"
-  | "nota_fiscal"
-  | "rastreio"
+  | OrderStatus
   | "pending"
   | "approved"
   | "rejected"
@@ -33,6 +21,8 @@ const styles: Record<StatusKind, string> = {
   em_expedicao: "bg-blue-100 text-blue-800 border-blue-200",
   nota_fiscal_emitida: "bg-indigo-100 text-indigo-800 border-indigo-200",
   localizador_disponivel: "bg-sky-100 text-sky-800 border-sky-200",
+  pedido_com_transportadora: "bg-cyan-100 text-cyan-800 border-cyan-200",
+  pedido_em_rota: "bg-teal-100 text-teal-800 border-teal-200",
   pedido_entregue: "bg-teal-100 text-teal-800 border-teal-200",
   cancelado: "bg-rose-100 text-rose-800 border-rose-200",
   novo_pedido: "bg-amber-100 text-amber-800 border-amber-200",

@@ -40,6 +40,7 @@ export interface OrderRow {
   status?: OrderStatus | null
   payment_method?: string | null
   payment_id?: string | null
+  estimated_delivery_date?: string | null
   invoice_number?: string | null
   tracking_code?: string | null
   payment_instructions?: string | null
@@ -265,6 +266,7 @@ export interface SaveOrderInput {
   status: OrderStatus
   payment_method: string
   items: OrderItemRow[]
+  estimated_delivery_date?: string | null
   invoice_number?: string | null
   tracking_code?: string | null
   payment_instructions?: string | null
@@ -433,6 +435,8 @@ function parseFunctionError(payload: any, fallback: string) {
       return "Pedido não encontrado ou já excluído."
     case "order_items_required":
       return "Adicione pelo menos um produto ao pedido."
+    case "estimated_delivery_date_missing":
+      return "A base de pedidos ainda não foi atualizada para salvar a previsão fixa de entrega."
     case "reseller_not_found":
       return "Cliente não encontrado."
     case "user_not_found":

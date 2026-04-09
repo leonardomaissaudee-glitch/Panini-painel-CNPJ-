@@ -22,6 +22,7 @@ import {
   type OrderStatus,
 } from "@/features/admin/services/adminService"
 import { ORDER_STATUS_OPTIONS } from "@/shared/constants/orderStatus"
+import { getDefaultEstimatedDeliveryDate, resolveOrderEstimatedDeliveryDate, toDateInputValue } from "@/shared/utils/orderDelivery"
 import { calculateAutomaticOrderPricing } from "@/shared/utils/orderPricing"
 
 type StatusTab =
@@ -58,6 +59,7 @@ type OrderDraft = {
   status: OrderStatus
   payment_method: PaymentMethod
   items: EditableOrderItem[]
+  estimated_delivery_date: string
   invoice_number: string
   tracking_code: string
   payment_instructions: string
@@ -138,7 +140,7 @@ function getStatusTab(status?: string | null): StatusTab {
   if (normalized === "aguardando_verificacao_financeira") return "em_analise"
   if (normalized === "pedido_pago") return "pago"
   if (normalized === "em_expedicao" || normalized === "nota_fiscal_emitida") return "em_processamento"
-  if (normalized === "localizador_disponivel") return "enviado"
+  if (normalized === "localizador_disponivel" || normalized === "pedido_com_transportadora" || normalized === "pedido_em_rota") return "enviado"
   if (normalized === "pedido_entregue") return "finalizado"
   if (normalized === "cancelado") return "cancelado"
   return "todos"
@@ -198,6 +200,12 @@ function buildDraft(order: OrderRow): OrderDraft {
     status: normalizeOrderStatus(order.status),
     payment_method: (order.payment_method as PaymentMethod) || "pix",
     items: Array.isArray(order.items) && order.items.length > 0 ? order.items.map(toEditableItem) : [createEmptyItem()],
+    estimated_delivery_date: toDateInputValue(
+      resolveOrderEstimatedDeliveryDate({
+        estimatedDeliveryDate: order.estimated_delivery_date,
+        createdAt: order.created_at,
+      }) ?? getDefaultEstimatedDeliveryDate(order.created_at)
+    ),
     invoice_number: order.invoice_number || "",
     tracking_code: order.tracking_code || "",
     payment_instructions: order.payment_instructions || "",
@@ -450,6 +458,7 @@ export function OrdersPanel({
         status: draft.status,
         payment_method: draft.payment_method,
         items: totals.items,
+        estimated_delivery_date: draft.estimated_delivery_date || null,
         invoice_number: draft.invoice_number || null,
         tracking_code: draft.tracking_code || null,
         payment_instructions: draft.payment_instructions || null,
@@ -772,6 +781,9 @@ export function OrdersPanel({
                               <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={draft.payment_method} onChange={(event) => setField(order.id, "payment_method", event.target.value as PaymentMethod)}>
                                 {PAYMENT_OPTIONS.map((option) => (<option key={option.value} value={option.value}>{option.label}</option>))}
                               </select>
+                            </DraftField>
+                            <DraftField label="Previsao de entrega">
+                              <Input type="date" value={draft.estimated_delivery_date} onChange={(event) => setField(order.id, "estimated_delivery_date", event.target.value)} />
                             </DraftField>
                             <DraftField label="Nota fiscal"><Input value={draft.invoice_number} onChange={(event) => setField(order.id, "invoice_number", event.target.value)} /></DraftField>
                             <DraftField label="Rastreamento / localizador"><Input value={draft.tracking_code} onChange={(event) => setField(order.id, "tracking_code", event.target.value)} /></DraftField>

@@ -1,6 +1,7 @@
 import { supabase } from "@/shared/services/supabaseClient"
 import type { OrderRow } from "@/features/admin/services/adminService"
 import type { OrderStatus } from "@/shared/constants/orderStatus"
+import { getDefaultEstimatedDeliveryDate, toDateInputValue } from "@/shared/utils/orderDelivery"
 import type { Cart } from "@/types"
 import type { ResellerProfile } from "@/lib/auth"
 import { calculateAutomaticOrderPricing, getDiscountTier, type OrderPricingTier } from "@/shared/utils/orderPricing"
@@ -91,6 +92,7 @@ export async function createClientOrder({
 
   const status: OrderStatus = "novo_pedido"
   const paymentStatus = "pending"
+  const estimatedDeliveryDate = toDateInputValue(getDefaultEstimatedDeliveryDate())
 
   const { data, error } = await supabase
     .from("orders")
@@ -117,6 +119,7 @@ export async function createClientOrder({
       payment_status: paymentStatus,
       shipping_method: "free",
       status,
+      estimated_delivery_date: estimatedDeliveryDate,
     })
     .select("*")
     .single()
@@ -145,6 +148,10 @@ function getClientOrderErrorMessage(error: { message?: string; details?: string 
 
   if (text.includes("automatic_discount_amount")) {
     return "A base de pedidos ainda não foi atualizada para salvar o desconto automático."
+  }
+
+  if (text.includes("estimated_delivery_date")) {
+    return "A base de pedidos ainda não foi atualizada para salvar a previsão fixa de entrega."
   }
 
   if (text.includes("violates row-level security") || text.includes("permission denied")) {

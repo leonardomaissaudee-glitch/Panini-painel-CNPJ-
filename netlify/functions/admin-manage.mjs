@@ -36,6 +36,27 @@ function asInteger(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+function asDateOnly(value) {
+  if (typeof value !== "string") return null
+  const normalized = value.trim()
+  if (!normalized) return null
+  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return null
+  return `${match[1]}-${match[2]}-${match[3]}`
+}
+
+function getEstimatedDeliveryDate(value, baseValue = new Date()) {
+  const explicitValue = asDateOnly(value)
+  if (explicitValue) return explicitValue
+
+  const baseDate = baseValue ? new Date(baseValue) : new Date()
+  if (Number.isNaN(baseDate.getTime())) return null
+
+  baseDate.setHours(0, 0, 0, 0)
+  baseDate.setDate(baseDate.getDate() + 15)
+  return `${baseDate.getFullYear()}-${String(baseDate.getMonth() + 1).padStart(2, "0")}-${String(baseDate.getDate()).padStart(2, "0")}`
+}
+
 function normalizeApprovalStatus(status) {
   switch (status) {
     case "approved":
@@ -224,9 +245,35 @@ const fallbackTableSchemas = {
       "payment_status",
       "shipping_method",
       "status",
+      "invoice_number",
+      "tracking_code",
+      "payment_instructions",
+      "payment_copy_paste",
+      "payment_link_url",
+      "payment_boleto_line",
+      "payment_boleto_pdf_url",
+      "payment_pix_bank_name",
+      "payment_pix_key",
+      "payment_pix_beneficiary",
+      "payment_pix_agency",
+      "payment_pix_account",
+      "payment_pix_amount",
+      "payment_pix_qr_code",
+      "admin_discount_type",
+      "admin_discount_value",
+      "admin_discount_amount",
+      "admin_bonus_type",
+      "admin_bonus_value",
+      "admin_bonus_amount",
+      "admin_bonus_product_id",
+      "admin_bonus_product_name",
+      "admin_bonus_quantity",
+      "gift_items",
+      "estimated_delivery_date",
       "seller_id",
+      "updated_by_admin_id",
       "updated_at",
-    ].map((column_name) => [column_name, { column_name, udt_name: column_name === "items" ? "jsonb" : "text" }])
+    ].map((column_name) => [column_name, { column_name, udt_name: column_name === "items" || column_name === "gift_items" ? "jsonb" : "text" }])
   ),
 }
 
@@ -997,7 +1044,7 @@ async function handleUpdateOrder(supabase, body, actorUserId, scope) {
 
   const { data: currentOrder, error: currentError } = await supabase
     .from("orders")
-    .select("id, payment_status, payment_method")
+    .select("id, payment_status, payment_method, estimated_delivery_date, created_at")
     .eq("id", orderId)
     .is("deleted_at", null)
     .single()
@@ -1025,9 +1072,17 @@ async function handleUpdateOrder(supabase, body, actorUserId, scope) {
   const bonusValue = Math.max(0, asNumber(body.admin_bonus_value))
   const bonusAmount = Number(Math.max(0, asNumber(body.admin_bonus_amount)).toFixed(2))
   const total = Number(Math.max(0, subtotal - automaticDiscountAmount - discountAmount - bonusAmount).toFixed(2))
+  const estimatedDeliveryDate =
+    body.estimated_delivery_date === undefined
+      ? getEstimatedDeliveryDate(currentOrder.estimated_delivery_date, currentOrder.created_at)
+      : getEstimatedDeliveryDate(body.estimated_delivery_date, currentOrder.created_at)
+  const orderSchema = await loadTableSchema(supabase, "orders")
+  if (!hasColumn(orderSchema, "estimated_delivery_date")) {
+    throw new Error("estimated_delivery_date_missing")
+  }
 
   const status = asText(body.status, 64) || "aguardando_aprovacao"
-  const payload = {
+  const payload = filterPayloadToSchema({
     items,
     subtotal,
     original_total: subtotal,
@@ -1050,6 +1105,7 @@ async function handleUpdateOrder(supabase, body, actorUserId, scope) {
     payment_pix_account: asNullableText(body.payment_pix_account, 120),
     payment_pix_amount: asNullableText(body.payment_pix_amount, 120),
     payment_pix_qr_code: asNullableText(body.payment_pix_qr_code, 4000),
+    estimated_delivery_date: estimatedDeliveryDate,
     admin_discount_type: discountType,
     admin_discount_value: discountValue || null,
     admin_discount_amount: discountAmount || null,
@@ -1062,7 +1118,7 @@ async function handleUpdateOrder(supabase, body, actorUserId, scope) {
     gift_items: giftItems,
     updated_by_admin_id: actorUserId,
     updated_at: new Date().toISOString(),
-  }
+  }, orderSchema)
 
   const { data, error } = await supabase.from("orders").update(payload).eq("id", orderId).select("*").single()
   if (error) throw error
@@ -1104,6 +1160,10 @@ async function handleCreateScopedOrder(supabase, body, actor, scope) {
   )
   const total = Number(Math.max(0, subtotal - automaticDiscountAmount).toFixed(2))
   const orderSchema = await loadTableSchema(supabase, "orders")
+  if (!hasColumn(orderSchema, "estimated_delivery_date")) {
+    throw new Error("estimated_delivery_date_missing")
+  }
+  const estimatedDeliveryDate = getEstimatedDeliveryDate(null)
 
   const payload = filterPayloadToSchema(
     {
@@ -1129,6 +1189,7 @@ async function handleCreateScopedOrder(supabase, body, actor, scope) {
       payment_status: "pending",
       shipping_method: "free",
       status: "novo_pedido",
+      estimated_delivery_date: estimatedDeliveryDate,
       seller_id: actor.user.id,
       updated_at: new Date().toISOString(),
     },
